@@ -639,21 +639,21 @@
       <line x1="350" y1="127" x2="365" y2="143" stroke="#8C8C8C" stroke-width="1"/>
       <line x1="410" y1="127" x2="425" y2="143" stroke="#8C8C8C" stroke-width="1"/>
 
-      <!-- 室内の暖かい空気を吸い込む -->
-      <path d="M110,260 Q95,200 108,150 Q118,110 140,80" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
-      <path d="M530,260 Q548,200 533,150 Q522,110 490,80" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
-      <text x="90" y="280" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">室内の</text>
-      <text x="90" y="295" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">暖かい空気</text>
-
-      <!-- 吹き出す冷たい風 (扇状) -->
-      <polygon points="180,143 440,143 620,300 0,300" fill="#4FC4E4" opacity="0.15"/>
-      <path d="M190,143 C130,210 90,255 60,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M260,143 C230,210 200,255 175,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <!-- 吹き出す冷たい風 (扇状、ユニット幅の内側だけに収める) -->
+      <polygon points="190,143 430,143 470,300 150,300" fill="#4FC4E4" opacity="0.15"/>
+      <path d="M190,143 C170,210 158,255 150,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M250,143 C240,210 233,255 230,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
       <path d="M310,143 Q310,220 310,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M360,143 C390,210 420,255 445,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M430,143 C490,210 530,255 560,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M370,143 C380,210 387,255 390,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M430,143 C450,210 462,255 470,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
       <text x="310" y="235" font-size="13" font-weight="700" fill="#1f6f8c" text-anchor="middle">吹出温度・風量</text>
       <text x="310" y="253" font-size="11" fill="#3a7f99" text-anchor="middle">(Step 3-3, 3-4で算出)</text>
+
+      <!-- 室内の暖かい空気を吸い込む (吹出しの扇の外側だけを通る位置に配置) -->
+      <path d="M85,290 Q68,205 85,150 Q98,112 148,90" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
+      <path d="M535,290 Q552,205 535,150 Q522,112 472,90" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
+      <text x="40" y="255" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">室内の</text>
+      <text x="40" y="270" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">暖かい空気</text>
 
       <!-- 床 -->
       <line x1="0" y1="300" x2="900" y2="300" stroke="#3D3D3D" stroke-width="2"/>
