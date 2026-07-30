@@ -1316,7 +1316,7 @@ function runAll(){
     document.getElementById(card.id+'_cfd').innerHTML =
       cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
       cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
-      cfdRow('初期温度 [℃]', initT) +
+      cfdRow('初期温度 [℃] (外気温と同じ)', taNow.toFixed(2)) +
       cfdRow('初期湿度 [%]', initRH);
     results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist});
   });
