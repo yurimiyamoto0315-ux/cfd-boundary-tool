@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>空調CFD 境界条件入力補助ツール (FlowDesigner用)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root{
+    --ink:#3D3D3D;        /* 主要テキスト */
+    --ink2:#8C8C8C;       /* ラベル */
+    --ink3:#B4B4B4;       /* 補助 */
+    --rule:#E4E4E4;       /* 細罫 */
+    --rule2:#C9C9C9;      /* 中罫 */
+    --paper:#FFFFFF;
+    --heat:#DE5A3A;       /* アクセント (警告・要設定) */
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+    background:var(--paper); color:var(--ink);
+    font-size:13px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
+  .toprule{height:3px; background:var(--ink);}
+  .wrap{max-width:1240px; margin:0 auto; padding:0 28px 80px;}
+
+  /* ================= HEADER ================= */
+  header{
+    min-height:260px; padding:36px 30px 28px; border-bottom:1px solid var(--rule2);
+    display:flex; align-items:flex-end; gap:24px; flex-wrap:wrap;
+    background:
+      linear-gradient(90deg,rgba(255,255,255,.86) 0%,rgba(255,255,255,.62) 52%,rgba(255,255,255,.74) 100%),
+      url("./cfd-header-background.png") center 42% / cover no-repeat;
+  }
+  .h-title h1{
+    font-size:clamp(32px,5vw,54px); font-weight:600; letter-spacing:-.02em;
+    line-height:.98; text-transform:uppercase; color:var(--ink);
+  }
+  .h-title .jp{font-size:12px; font-weight:500; letter-spacing:.34em; margin-top:10px; color:var(--ink2);}
+  .h-meta{
+    margin-left:auto; text-align:right; font-size:10px; font-weight:500;
+    letter-spacing:.14em; text-transform:uppercase; line-height:2; color:var(--ink2);
+  }
+  .h-meta button{
+    font-family:inherit; border:1px solid var(--rule2); background:rgba(255,255,255,.88); color:var(--ink2);
+    font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    padding:4px 12px; cursor:pointer; margin-left:6px;
+  }
+  .h-meta button:hover{border-color:var(--ink); color:var(--ink);}
+  .statusrow{display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:10px 0;
+    border-bottom:1px solid var(--rule); font-size:10px; font-weight:500; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink3);}
+
+  /* ================= SECTIONS / HEADINGS ================= */
+  h2{margin:88px 0 26px; padding-top:28px; border-top:2px solid var(--ink);
+    display:flex; align-items:center; gap:14px;
+    font-size:13px; font-weight:600; letter-spacing:.2em; color:var(--ink);}
+  h2 .stepnum{border:1px solid var(--ink); color:var(--ink); width:30px; height:30px;
+    display:inline-flex; align-items:center; justify-content:center; font-size:15px;
+    letter-spacing:0; flex-shrink:0; font-variant-numeric:tabular-nums;}
+  h2 label.done-label{margin-left:auto; font-size:10px; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink2); display:flex; align-items:center; gap:6px; cursor:pointer;}
+  h3{font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink); margin:1.5rem 0 0.7rem;}
+  p.desc{color:var(--ink2); font-size:12.5px; margin-top:0;}
+
+  .box{border:1px solid var(--rule); padding:18px 20px; margin-bottom:20px; background:var(--paper);}
+
+  /* ================= FORM ================= */
+  label{font-size:9.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink2); display:block; margin-bottom:4px;}
+  input[type=number], input[type=text], input[type=date], select{
+    width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; font-weight:600;
+    color:var(--ink); border:0; border-bottom:1px solid var(--rule2); border-radius:0;
+    background:transparent; padding:3px 2px 4px; font-variant-numeric:tabular-nums;
+  }
+  input:focus, select:focus{outline:none; border-bottom-color:var(--ink);}
+  input:read-only{color:var(--ink3); border-bottom-style:dashed;}
+  select{cursor:pointer;}
+
+  table{border-collapse:collapse; width:100%; font-size:12px; font-variant-numeric:tabular-nums;}
+  th,td{border:1px solid var(--rule); padding:6px 8px; text-align:right; vertical-align:middle;}
+  th{font-size:9.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink2); text-align:center; background:none;}
+  td:first-child, th:first-child{text-align:left;}
+  td.l{text-align:left;}
+
+  button{font-family:inherit; font-size:10.5px; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; padding:8px 18px; cursor:pointer;
+    border:1px solid var(--rule2); background:var(--paper); color:var(--ink2); border-radius:0;}
+  button:hover{border-color:var(--ink); color:var(--ink);}
+  button.small-btn{padding:4px 12px; font-size:9.5px;}
+  button.copy-btn{padding:2px 10px; font-size:9px; margin:0; white-space:nowrap;}
+
+  .small{font-size:11.5px; color:var(--ink2);}
+  .row2{display:grid; grid-template-columns:repeat(2,1fr); gap:14px 18px; margin-bottom:10px;}
+  .row3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px 18px; margin-bottom:10px;}
+  .row4{display:grid; grid-template-columns:repeat(4,1fr); gap:14px 18px; margin-bottom:10px;}
+  .row5{display:grid; grid-template-columns:repeat(5,1fr); gap:14px 18px; margin-bottom:10px;}
+
+  /* ================= STATS / VALUES ================= */
+  .stat{border-left:1px solid var(--rule2); padding:4px 0 2px 12px;}
+  .stat .lbl{font-size:9px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ink2);}
+  .stat .val{font-size:19px; font-weight:600; letter-spacing:-.01em; color:var(--ink);
+    margin-top:4px; font-variant-numeric:tabular-nums;}
+  .stat.hl{border-left:3px solid var(--ink);}
+  .summary-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 18px;}
+
+  .cfd-value{border-bottom:1px solid var(--rule); padding:7px 2px;
+    display:flex; align-items:center; gap:12px; font-size:12.5px;}
+  .cfd-value .k{color:var(--ink2); font-size:11px; letter-spacing:.04em; flex:1;}
+  .cfd-value .v{font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
+
+  .warn{border:1px solid var(--heat); border-left:3px solid var(--heat);
+    padding:8px 12px; font-size:12px; font-weight:600; color:var(--heat); margin:10px 0;}
+  .note{border:1px solid var(--rule2); border-left:3px solid var(--ink2);
+    padding:8px 12px; font-size:12px; color:var(--ink2); margin:10px 0;}
+  .info{border:1px solid var(--rule2); border-left:3px solid var(--ink);
+    padding:10px 14px; font-size:12.5px; color:var(--ink); margin:10px 0; line-height:1.75;}
+  .ok{color:var(--ink2); font-weight:600;}
+
+  /* ================= NAV / STATUS ================= */
+  nav.toc{display:flex; flex-wrap:wrap; margin:16px 0 0;}
+  nav.toc a{font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink2); text-decoration:none; border:1px solid var(--rule2);
+    padding:7px 15px; margin:0 -1px -1px 0; display:inline-flex; align-items:center; gap:8px;
+    background:var(--paper);}
+  nav.toc a:hover{color:var(--ink); border-color:var(--ink); position:relative; z-index:1;}
+  nav.toc .st{font-size:9px; color:var(--ink3); letter-spacing:.1em;}
+  nav.toc .st.done{color:var(--heat); font-weight:700;}
+
+  /* ================= CHECKLIST ================= */
+  .checkitem{display:flex; align-items:flex-start; gap:10px; padding:9px 0;
+    border-bottom:1px solid var(--rule); font-size:12.5px;}
+  .checkitem:last-child{border-bottom:none;}
+  .checkitem input[type=checkbox]{margin-top:3px; width:auto;}
+  .checkitem .where{color:var(--ink3); font-size:9.5px; font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase; display:block;}
+  pre.cmd{background:#F4F4F4; color:var(--ink); border:1px solid var(--rule2);
+    padding:8px 12px; font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12px;
+    display:inline-block; margin:4px 12px 4px 0; vertical-align:middle;}
+
+  /* ================= ROOMS ================= */
+  .room-card{border:1px solid var(--rule2); padding:18px 20px; margin-bottom:14px; background:var(--paper);}
+  .room-header{display:flex; align-items:center; gap:12px; margin-bottom:0.75rem;}
+  .room-header input[type=text]{font-size:16px; font-weight:600; width:auto; flex:1;}
+  .win-row{display:grid; grid-template-columns:1.2fr 0.8fr 0.8fr 1.4fr 1.4fr 0.9fr 0.8fr auto;
+    gap:8px; align-items:end; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--rule);}
+  .win-row label{font-size:8.5px;}
+  .calc-line{display:grid; grid-template-columns:1.2fr auto 1fr auto 1.2fr; gap:10px; align-items:end; margin-bottom:8px;}
+  .calc-line .eq{text-align:center; font-size:15px; color:var(--ink3); padding-bottom:6px;}
+  .calc-line .result{border-bottom:1px solid var(--rule2); padding:3px 2px 4px;
+    font-size:13px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums;}
+
+  /* ================= BADGES / DIAGRAMS ================= */
+  .tag-req{display:inline-block; border:1px solid var(--heat); color:var(--heat);
+    font-size:8.5px; font-weight:700; letter-spacing:.12em; padding:1px 6px; margin-left:6px;
+    vertical-align:middle; white-space:nowrap;}
+  .field-user label{color:var(--ink);}
+  .legend-box{border:1px solid var(--rule2); padding:10px 14px; margin:16px 0 0;
+    font-size:11.5px; color:var(--ink2); display:flex; align-items:center; gap:10px;}
+  .diagram{border:1px solid var(--rule); padding:22px 18px; margin:16px 0 24px;
+    text-align:center; overflow-x:auto; background:var(--paper);}
+
+  footer{padding-top:22px; font-size:10px; font-weight:400; color:var(--ink3);
+    line-height:2; letter-spacing:.03em; border-top:1px solid var(--rule); margin-top:48px;}
+  footer b{color:var(--ink2); font-weight:600; letter-spacing:.12em;}
+
+  @media (max-width:900px){
+    .wrap{padding:0 16px 60px;}
+    header{min-height:230px; padding:28px 20px 22px; background-position:center center;}
+    .row4,.row5{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div class="toprule"></div>
+<div class="wrap">
+
+<header>
+  <div class="h-title">
+    <h1>CFD<br>Boundary</h1>
+    <div class="jp">空調CFD 境界条件入力補助 — FLOWDESIGNER用</div>
+  </div>
+  <div class="h-meta">
+    FlowDesigner Steady-State Cooling<br>
+    SAT / Pseudo Thickness / Internal Gains / AC Supply<br>
+    Mesh 100mm
+    <div>
+      <button onclick="exportJSON()">JSON書き出し</button>
+      <button onclick="document.getElementById('importFile').click()">読み込み</button>
+      <button onclick="resetAll()">リセット</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
+    </div>
+  </div>
+</header>
+
+<div class="statusrow"><span id="saveInfo">入力内容はこのブラウザに自動保存されます</span></div>
+
+<p class="desc" style="margin-top:16px;">FlowDesigner初心者向け。上から順に入力すると、CFDに転記する境界条件の値がすべて計算されます。各値はコピーしてFlowDesignerの入力欄に貼り付けてください。ページ末尾に転記一覧があります。</p>
+
+<div class="diagram" style="margin-top:14px;">
+  <svg viewBox="0 0 1080 80" style="width:100%; max-width:1080px; height:auto;">
+    <defs>
+      <marker id="mkFlow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#3D3D3D"/>
+      </marker>
+    </defs>
+    <g font-family="Helvetica,Arial,sans-serif" font-size="12" text-anchor="middle">
+      <rect x="8" y="10" width="136" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
+      <text x="76" y="42" fill="#3D3D3D">共通条件</text>
+
+      <rect x="162" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+      <text x="230" y="32" fill="#3D3D3D" letter-spacing="2">STEP 1</text>
+      <text x="230" y="50" fill="#8C8C8C" font-size="11">断熱・SAT</text>
+
+      <rect x="316" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+      <text x="384" y="32" fill="#3D3D3D" letter-spacing="2">STEP 2</text>
+      <text x="384" y="50" fill="#8C8C8C" font-size="11">内部発熱+日射</text>
+
+      <rect x="470" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+      <text x="538" y="32" fill="#3D3D3D" letter-spacing="2">STEP 3</text>
+      <text x="538" y="50" fill="#8C8C8C" font-size="11">エアコン</text>
+
+      <rect x="624" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+      <text x="692" y="32" fill="#3D3D3D" letter-spacing="2">STEP 4</text>
+      <text x="692" y="50" fill="#8C8C8C" font-size="11">解析設定</text>
+
+      <rect x="778" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+      <text x="846" y="32" fill="#3D3D3D" letter-spacing="2">STEP 5</text>
+      <text x="846" y="50" fill="#8C8C8C" font-size="11">解析実行</text>
+
+      <rect x="932" y="10" width="136" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
+      <text x="1000" y="42" fill="#3D3D3D">転記一覧</text>
+    </g>
+    <g stroke="#3D3D3D" stroke-width="1.5" marker-end="url(#mkFlow)">
+      <line x1="144" y1="37" x2="160" y2="37"/>
+      <line x1="298" y1="37" x2="314" y2="37"/>
+      <line x1="452" y1="37" x2="468" y2="37"/>
+      <line x1="606" y1="37" x2="622" y2="37"/>
+      <line x1="760" y1="37" x2="776" y2="37"/>
+      <line x1="914" y1="37" x2="930" y2="37"/>
+    </g>
+  </svg>
+</div>
+
+<div class="legend-box"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
+
+<nav class="toc">
+  <a href="#common">共通条件</a>
+  <a href="#step1">1 断熱・SAT <span class="st" id="st1">未</span></a>
+  <a href="#step2">2 内部発熱+日射 <span class="st" id="st2">未</span></a>
+  <a href="#step3">3 エアコン <span class="st" id="st3">未</span></a>
+  <a href="#step4">4 解析設定 <span class="st" id="st4">未</span></a>
+  <a href="#step5">5 解析実行 <span class="st" id="st5">未</span></a>
+  <a href="#transfer">転記一覧</a>
+</nav>
+
+<!-- ================= 共通条件 ================= -->
+<h2 id="common">共通条件 (日時・気象・室内設定)</h2>
+<div class="box">
+  <div class="row4">
+    <div class="field-user"><label>解析対象の日付<span class="tag-req">要設定</span></label><input type="date" id="calcDate" value="2026-07-25"></div>
+    <div><label>解析対象の時刻 (時)</label><input type="number" id="detailHour" value="14" step="0.5" min="0" max="24"></div>
+    <div class="field-user"><label>緯度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lat" value="35.68" step="0.01"></div>
+    <div class="field-user"><label>経度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lon" value="139.77" step="0.01"></div>
+  </div>
+  <div class="row4">
+    <div class="field-user"><label>最高気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmax" value="37.1" step="0.1"></div>
+    <div class="field-user"><label>最低気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmin" value="26.0" step="0.1"></div>
+    <div class="field-user"><label>気温ピーク時刻 (時)<span class="tag-req">要設定</span></label><input type="number" id="tpeak" value="14.5" step="0.5"></div>
+    <div class="field-user"><label>目標室温 (℃) ※負荷計算・吹出温度に使用<span class="tag-req">要設定</span></label><input type="number" id="targetT" value="26" step="0.5"></div>
+  </div>
+  <div class="row4">
+    <div><label>解析の初期温度 (℃)</label><input type="number" id="initT" value="25" step="0.5"></div>
+    <div><label>解析の初期湿度 (%)</label><input type="number" id="initRH" value="60" step="1"></div>
+    <div><label>日射吸収率 α (外皮表面)</label><input type="number" id="alpha" value="0.70" step="0.01"></div>
+    <div><label>外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
+  </div>
+  <div class="row4">
+    <div><label>地面反射率 ρ</label><input type="number" id="rho" value="0.20" step="0.01"></div>
+    <div><label>屋根の夜間放射補正 ΔR/ho (℃)</label><input type="number" id="roofCorr" value="4" step="0.5"></div>
+    <div style="grid-column:span 2; align-self:end;" class="small" id="commonSolarInfo"></div>
+  </div>
+</div>
+
+<!-- ================= STEP 1 ================= -->
+<h2 id="step1"><span class="stepnum">1</span>断熱性能・SAT設定<label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
+
+<div class="diagram">
+  <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">住宅の壁を拡大すると、屋外側から何層も重なって断熱しています。この層構成がStep 1で設定する境界条件の元になります。</p>
+  <svg viewBox="0 0 950 340" style="width:100%; max-width:950px; height:auto;">
+    <defs>
+      <marker id="mkS1h" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#DE5A3A"/>
+      </marker>
+      <pattern id="insulTex" width="22" height="16" patternUnits="userSpaceOnUse">
+        <rect width="22" height="16" fill="#F7EFD1"/>
+        <path d="M0,8 Q5.5,1 11,8 T22,8" stroke="#D9C88A" stroke-width="1.6" fill="none"/>
+        <path d="M0,15 Q5.5,8 11,15 T22,15" stroke="#D9C88A" stroke-width="1.1" fill="none" opacity="0.7"/>
+      </pattern>
+    </defs>
+    <g font-family="Helvetica,Arial,sans-serif">
+      <!-- 家の断面 (縮小) -->
+      <polygon points="50,150 120,80 190,150" fill="#F4F4F4" stroke="#3D3D3D" stroke-width="2"/>
+      <rect x="65" y="150" width="110" height="100" fill="#FFFFFF" stroke="#3D3D3D" stroke-width="2"/>
+      <rect x="85" y="180" width="28" height="28" fill="#EAF3FA" stroke="#8C8C8C" stroke-width="1.5"/>
+      <line x1="99" y1="180" x2="99" y2="208" stroke="#8C8C8C"/>
+      <line x1="85" y1="194" x2="113" y2="194" stroke="#8C8C8C"/>
+      <line x1="20" y1="250" x2="210" y2="250" stroke="#3D3D3D" stroke-width="2"/>
+      <text x="115" y="278" font-size="11" fill="#8C8C8C" text-anchor="middle">家の断面</text>
+      <text x="115" y="292" font-size="11" fill="#8C8C8C" text-anchor="middle">(壁の一部を拡大)</text>
+      <rect x="150" y="150" width="25" height="100" fill="none" stroke="#DE5A3A" stroke-width="2" stroke-dasharray="4 3"/>
+
+      <!-- ズームの案内線 -->
+      <line x1="175" y1="150" x2="340" y2="40" stroke="#DE5A3A" stroke-width="1.3" stroke-dasharray="3 3"/>
+      <line x1="175" y1="250" x2="340" y2="280" stroke="#DE5A3A" stroke-width="1.3" stroke-dasharray="3 3"/>
+
+      <!-- 屋外ラベル -->
+      <circle cx="290" cy="32" r="9" fill="#F2A45C"/>
+      <text x="290" y="52" font-size="11" font-weight="600" fill="#3D3D3D" text-anchor="middle">屋外</text>
+      <text x="290" y="64" font-size="9.5" fill="#8C8C8C" text-anchor="middle">(夏の日射・高温)</text>
+
+      <!-- 壁の詳細断面 -->
+      <rect x="340" y="40" width="35" height="240" fill="#B4B4B4"/>
+      <rect x="375" y="40" width="30" height="240" fill="#F4F4F4"/>
+      <line x1="378" y1="55" x2="400" y2="70" stroke="#C9C9C9"/>
+      <line x1="378" y1="95" x2="400" y2="110" stroke="#C9C9C9"/>
+      <line x1="378" y1="135" x2="400" y2="150" stroke="#C9C9C9"/>
+      <line x1="378" y1="175" x2="400" y2="190" stroke="#C9C9C9"/>
+      <line x1="378" y1="215" x2="400" y2="230" stroke="#C9C9C9"/>
+      <line x1="378" y1="255" x2="400" y2="270" stroke="#C9C9C9"/>
+      <rect x="405" y="40" width="10" height="240" fill="#3D3D3D"/>
+      <rect x="415" y="40" width="150" height="240" fill="url(#insulTex)" stroke="#DE5A3A" stroke-width="2.5"/>
+      <rect x="565" y="40" width="30" height="240" fill="#E4E4E4"/>
+      <rect x="595" y="40" width="30" height="240" fill="#FFFFFF" stroke="#8C8C8C" stroke-width="1"/>
+      <rect x="340" y="40" width="285" height="240" fill="none" stroke="#3D3D3D" stroke-width="2"/>
+
+      <!-- 層ラベル (縦書き風) -->
+      <text x="357" y="70" writing-mode="vertical-rl" font-size="12" fill="#3D3D3D" font-weight="600">外装材</text>
+      <text x="390" y="70" writing-mode="vertical-rl" font-size="12" fill="#3D3D3D" font-weight="600">通気層</text>
+      <text x="580" y="60" writing-mode="vertical-rl" font-size="12" fill="#3D3D3D" font-weight="600">下地合板</text>
+      <text x="610" y="65" writing-mode="vertical-rl" font-size="12" fill="#3D3D3D" font-weight="600">石膏ボード</text>
+      <text x="410" y="20" font-size="10.5" fill="#3D3D3D" text-anchor="middle">透湿防水シート</text>
+      <line x1="410" y1="25" x2="410" y2="40" stroke="#8C8C8C"/>
+
+      <!-- 断熱材の説明 (主役) -->
+      <text x="490" y="150" font-size="15" font-weight="700" fill="#DE5A3A" text-anchor="middle">断熱材</text>
+      <text x="490" y="168" font-size="11" fill="#b34a2c" text-anchor="middle">(グラスウール等)</text>
+      <text x="490" y="245" font-size="11" font-weight="600" fill="#DE5A3A" text-anchor="middle">ここがCFDの</text>
+      <text x="490" y="259" font-size="11" font-weight="600" fill="#DE5A3A" text-anchor="middle">熱通過率Uを決める</text>
+
+      <!-- 熱の移動 (断熱材で大きく減衰) -->
+      <line x1="300" y1="112" x2="412" y2="112" stroke="#DE5A3A" stroke-width="5"/>
+      <line x1="418" y1="112" x2="645" y2="112" stroke="#DE5A3A" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#mkS1h)"/>
+      <text x="490" y="100" font-size="11" font-weight="600" fill="#DE5A3A" text-anchor="middle">断熱材が熱の侵入を大きく抑える</text>
+
+      <!-- 室内 -->
+      <text x="770" y="150" font-size="15" font-weight="600" fill="#3D3D3D" text-anchor="middle">室内</text>
+      <text x="770" y="168" font-size="10.5" fill="#8C8C8C" text-anchor="middle">(冷房で快適な温度を維持)</text>
+    </g>
+  </svg>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-1 ドア本体 (室内ドア)</h3>
+  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
+  <div class="cfd-value"><span class="k">厚み [m]</span><span class="v">0.03</span><button class="copy-btn" data-copy="0.03">コピー</button></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-2 ドア隙間 (部分開口率)</h3>
+  <p class="small">隙間モデル化ケース「④上辺・UC開口率不均一」を採用。ドアの上辺とアンダーカット (UC) をそれぞれ開口率付きパネルとしてモデル化します。今回は解析メッシュが100mm均一のため、上辺・アンダーカットとも高さ0.1m (100mm) のパネルに統一し、開口率のみ表の値をそのまま使います。</p>
+  <div class="diagram">
+    <svg viewBox="0 0 340 220" style="width:260px; height:auto;">
+      <rect x="40" y="10" width="140" height="190" fill="none" stroke="#3D3D3D" stroke-width="2"/>
+      <rect x="48" y="28" width="124" height="150" fill="#F4F4F4" stroke="#C9C9C9"/>
+      <text x="110" y="108" font-size="10" fill="#B4B4B4" text-anchor="middle" letter-spacing="2">DOOR</text>
+      <rect x="48" y="18" width="124" height="10" fill="#DE5A3A" opacity="0.85"/>
+      <text x="188" y="24" font-size="11" fill="#DE5A3A">上辺パネル</text>
+      <text x="188" y="38" font-size="10" fill="#8C8C8C">(高さ0.1m・開口率あり)</text>
+      <rect x="48" y="178" width="124" height="14" fill="#DE5A3A" opacity="0.45"/>
+      <text x="188" y="182" font-size="11" fill="#DE5A3A">アンダーカット</text>
+      <text x="188" y="196" font-size="10" fill="#8C8C8C">(高さ0.1m・開口率あり)</text>
+      <line x1="30" y1="200" x2="190" y2="200" stroke="#3D3D3D" stroke-width="2"/>
+      <text x="110" y="215" font-size="10" fill="#8C8C8C" text-anchor="middle">床</text>
+    </svg>
+  </div>
+  <div class="row2" style="max-width:500px;">
+    <div><label>ドア形式</label><select id="doorType"><option value="開戸">開戸</option><option value="引戸">引戸</option></select></div>
+    <div><label>アンダーカット高さ (実寸法・表の参照用)</label><select id="doorUC"><option value="15">15mm</option><option value="45">45mm</option></select></div>
+  </div>
+  <div id="doorGapWrap"></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-3 内壁・天井・床 (間仕切り)</h3>
+  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
+  <div class="cfd-value"><span class="k">厚み [m] (15mm × 2枚想定)</span><span class="v">0.03</span><button class="copy-btn" data-copy="0.03">コピー</button></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-4 屋根・外壁 (SAT + 熱通過率)</h3>
+  <div class="info">
+    <b>相当外気温度 (SAT: Sol-Air Temperature) とは</b><br>
+    壁や屋根など日射が当たる不透明な外皮表面は、外気温だけでなく日射も受けて温められています。SATは、その「外気温+日射の影響」をまとめて1つの仮想的な外気温として置き換えたものです。<br>
+    SAT = 外気温 Ta + α×(壁面が受ける日射量)/外表面熱伝達率 ho − (屋根のみ) 夜間放射による低下分。<br>
+    CFDの発生パネルで「外気温」にこのSATを入力することで、日射で暖められた壁からの入熱を、外気温と熱通過率だけの単純な計算で再現できます。
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 620 140" style="width:100%; max-width:620px; height:auto;">
+      <defs>
+        <marker id="mkSat" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#8C8C8C"/>
+        </marker>
+      </defs>
+      <circle cx="55" cy="35" r="16" fill="#DE5A3A"/>
+      <text x="55" y="70" font-size="11" text-anchor="middle" fill="#DE5A3A">日射 I</text>
+      <line x1="72" y1="40" x2="175" y2="62" stroke="#DE5A3A" stroke-width="1.5" marker-end="url(#mkSat)"/>
+      <text x="55" y="105" font-size="11" text-anchor="middle" fill="#8C8C8C">外気温 Ta</text>
+      <line x1="60" y1="108" x2="175" y2="80" stroke="#8C8C8C" stroke-width="1.5" marker-end="url(#mkSat)"/>
+      <rect x="185" y="15" width="26" height="110" fill="#E4E4E4" stroke="#8C8C8C"/>
+      <text x="198" y="138" font-size="10" text-anchor="middle" fill="#8C8C8C">壁 (熱通過率U)</text>
+      <rect x="225" y="53" width="140" height="34" fill="#FFFFFF" stroke="#DE5A3A"/>
+      <text x="295" y="74" font-size="12" text-anchor="middle" fill="#DE5A3A">SAT (相当外気温度)</text>
+      <line x1="365" y1="70" x2="470" y2="70" stroke="#8C8C8C" stroke-width="1.5" marker-end="url(#mkSat)"/>
+      <text x="540" y="74" font-size="11" text-anchor="middle" fill="#3D3D3D">室内へ入熱</text>
+    </svg>
+  </div>
+  <div class="row2" style="max-width:500px;">
+    <div class="field-user"><label>外壁の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWall" value="0.39" step="0.01"></div>
+    <div class="field-user"><label>屋根の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uRoof" value="0.27" step="0.01"></div>
+  </div>
+  <p class="small" style="font-weight:600; margin:12px 0 4px;">↓ 参考: 1日のSAT変化 (方位別・傾向確認用)</p>
+  <div style="position:relative; width:100%; height:300px; margin:8px 0;">
+    <canvas id="satChart"></canvas>
+  </div>
+  <div class="summary-grid" id="satSolarInfo" style="margin-bottom:8px;"></div>
+  <div id="satTableWrap"></div>
+  <p class="small">※ 上のグラフはあくまで参考です。実際にCFDへ入力するのは、共通条件で指定した「解析対象の時刻」における下表のSAT値です。</p>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-5 1F床</h3>
+  <div class="row2" style="max-width:500px;">
+    <div class="field-user"><label>熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uFloor1" value="0.28" step="0.01"></div>
+  </div>
+  <div class="cfd-value"><span class="k">形状モデル > 属性: 熱通過率 / 材質: 杉</span><span class="v" id="uFloor1Disp">0.28</span><button class="copy-btn" id="uFloor1Copy" data-copy="0.28">コピー</button></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-6 基礎外周 (基礎壁)</h3>
+  <p class="small">基礎外周は日射が当たらない前提で、SATではなく外気温をそのまま使います。熱貫流率のデフォルトはRC基礎 (コンクリート150mm + 断熱材50mm) の値です。</p>
+  <div class="row2" style="max-width:500px;">
+    <div class="field-user"><label>熱貫流率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uFound" value="0.46" step="0.01"></div>
+  </div>
+  <div id="foundWrap"></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">1-7 窓 (疑似厚みの逆算)</h3>
+  <div class="info">
+    <b>疑似厚みとは — 厚み0のパネルに、仮想の厚みで熱抵抗を持たせる</b><br>
+    FlowDesigner上の窓は「発生パネル」、つまり<b>厚みを持たない面 (厚み0のパネル)</b> としてモデル化します。厚み0のままではガラスとしての断熱性能 (熱抵抗) を表現できないため、「厚みを考慮 = はい」にして材質と疑似厚みを入力します。するとCFDは、そのパネルが<b>あたかもその厚みの材質でできているかのように</b>熱抵抗 (= 疑似厚み ÷ 材質の熱伝導率λ) を計算してくれます。<br>
+    つまり疑似厚みは実際のガラス厚ではなく、窓全体の熱貫流率U (カタログ値) と同じ熱抵抗になるように逆算した<b>仮想の厚み</b>です。日射熱はここでは入れず、Step 2の内部発熱ボリューム側で計上します。
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 660 185" style="width:100%; max-width:660px; height:auto;">
+      <defs>
+        <marker id="mkWin" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#3D3D3D"/>
+        </marker>
+      </defs>
+      <!-- 左: 実際の窓 -->
+      <text x="115" y="20" font-size="12" text-anchor="middle" fill="#3D3D3D" font-weight="600">実際の窓</text>
+      <rect x="88" y="35" width="8" height="100" fill="#C9C9C9" stroke="#8C8C8C"/>
+      <rect x="96" y="35" width="30" height="100" fill="#F4F4F4" stroke="#8C8C8C"/>
+      <rect x="126" y="35" width="8" height="100" fill="#C9C9C9" stroke="#8C8C8C"/>
+      <text x="115" y="90" font-size="8.5" text-anchor="middle" fill="#8C8C8C">中空層</text>
+      <line x1="88" y1="150" x2="134" y2="150" stroke="#8C8C8C" stroke-width="1"/>
+      <text x="115" y="164" font-size="9.5" text-anchor="middle" fill="#8C8C8C">実厚みあり</text>
+      <text x="115" y="178" font-size="9.5" text-anchor="middle" fill="#8C8C8C">断熱性能 = U値 (カタログ値)</text>
+
+      <text x="270" y="95" font-size="22" text-anchor="middle" fill="#B4B4B4">=</text>
+
+      <!-- 右: CFDモデル -->
+      <text x="470" y="20" font-size="12" text-anchor="middle" fill="#3D3D3D" font-weight="600">CFDモデル (発生パネル)</text>
+      <!-- 疑似厚みのゴースト (仮想の厚み) -->
+      <rect x="437" y="35" width="66" height="100" fill="none" stroke="#DE5A3A" stroke-dasharray="5 4" stroke-width="1.5"/>
+      <!-- 実体: 厚み0のパネル (1本の線) -->
+      <line x1="470" y1="35" x2="470" y2="135" stroke="#3D3D3D" stroke-width="3"/>
+      <text x="352" y="80" font-size="10" text-anchor="end" fill="#3D3D3D" font-weight="600">パネルの実体は</text>
+      <text x="352" y="94" font-size="10" text-anchor="end" fill="#3D3D3D" font-weight="600">厚み0 (ただの面)</text>
+      <line x1="358" y1="86" x2="464" y2="86" stroke="#3D3D3D" stroke-width="1" marker-end="url(#mkWin)"/>
+      <!-- 疑似厚みの寸法線 -->
+      <line x1="437" y1="148" x2="503" y2="148" stroke="#DE5A3A" stroke-width="1"/>
+      <line x1="437" y1="143" x2="437" y2="153" stroke="#DE5A3A" stroke-width="1"/>
+      <line x1="503" y1="143" x2="503" y2="153" stroke="#DE5A3A" stroke-width="1"/>
+      <text x="470" y="164" font-size="9.5" text-anchor="middle" fill="#DE5A3A" font-weight="600">疑似厚み d (仮想・点線部分)</text>
+      <text x="470" y="178" font-size="9.5" text-anchor="middle" fill="#DE5A3A">「この厚みがあるつもり」で熱抵抗 d/λ を計算</text>
+      <text x="590" y="86" font-size="10" text-anchor="middle" fill="#8C8C8C">U値と同じ熱抵抗に</text>
+      <text x="590" y="100" font-size="10" text-anchor="middle" fill="#8C8C8C">なるよう d を逆算</text>
+    </svg>
+  </div>
+  <div class="row5">
+    <div><label>窓プリセット</label><select id="winPreset">
+      <option value="1.7">YKKAP APW430 (U=1.7)</option>
+      <option value="1.26">リクシル LW-FIX (U=1.26)</option>
+      <option value="0.9">リクシル LW (U=0.9)</option>
+      <option value="custom">手入力</option>
+    </select></div>
+    <div class="field-user"><label>窓の熱貫流率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWin" value="1.7" step="0.01"></div>
+    <div><label>内表面熱伝達率 (W/m²K)</label><input type="number" id="hiWin" value="9" step="0.5"></div>
+    <div><label>外表面熱伝達率 (W/m²K)</label><input type="number" id="hoWin" value="25" step="0.5"></div>
+    <div><label>CFD材質の熱伝導率 λ (W/mK)</label><input type="number" id="lamWin" value="1" step="0.1"></div>
+  </div>
+  <div class="small" style="margin-bottom:8px;">躯体のみの熱抵抗 = 1/U − 1/外表面 − 1/内表面、疑似厚み = 躯体熱抵抗 × λ</div>
+  <div id="winWarn"></div>
+  <div id="winWrap"></div>
+</div>
+
+<!-- ================= STEP 2 ================= -->
+<h2 id="step2"><span class="stepnum">2</span>内部発熱+直達日射 (部屋ごとの発生エリア)<label class="done-label"><input type="checkbox" id="done2">このステップ完了</label></h2>
+
+<div class="diagram">
+  <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">部屋の中では「人がいること」と「日射が入ること」自体が熱源になります。この2つ (+機器) の発熱・発湿を合計してStep 3で使います。</p>
+  <svg viewBox="0 0 900 380" style="width:100%; max-width:900px; height:auto;">
+    <defs>
+      <marker id="mkS2h" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#DE5A3A"/>
+      </marker>
+    </defs>
+    <g font-family="Helvetica,Arial,sans-serif">
+      <!-- 部屋の外枠 -->
+      <rect x="40" y="30" width="820" height="300" fill="#FFFFFF" stroke="#3D3D3D" stroke-width="2.5"/>
+      <rect x="40" y="300" width="820" height="30" fill="#F4F4F4" stroke="#3D3D3D" stroke-width="2.5"/>
+      <text x="70" y="60" font-size="11" fill="#8C8C8C">室内 (発生エリア)</text>
+
+      <!-- 窓と日射 -->
+      <rect x="640" y="50" width="170" height="170" fill="#EAF3FA" stroke="#8C8C8C" stroke-width="2"/>
+      <line x1="725" y1="50" x2="725" y2="220" stroke="#8C8C8C"/>
+      <line x1="640" y1="135" x2="810" y2="135" stroke="#8C8C8C"/>
+      <circle cx="850" cy="70" r="26" fill="#F2A45C"/>
+      <g stroke="#F2A45C" stroke-width="3">
+        <line x1="850" y1="40" x2="850" y2="26"/>
+        <line x1="868" y1="52" x2="879" y2="41"/>
+        <line x1="868" y1="88" x2="879" y2="99"/>
+      </g>
+      <text x="850" y="118" font-size="11" font-weight="600" fill="#3D3D3D" text-anchor="middle">日射</text>
+
+      <!-- 日射の光条 (窓から床へ) -->
+      <polygon points="640,175 810,175 620,300 350,300" fill="#F2A45C" opacity="0.18"/>
+      <line x1="655" y1="180" x2="420" y2="298" stroke="#F2A45C" stroke-width="2" opacity="0.6"/>
+      <line x1="715" y1="180" x2="510" y2="298" stroke="#F2A45C" stroke-width="2" opacity="0.6"/>
+      <line x1="775" y1="180" x2="600" y2="298" stroke="#F2A45C" stroke-width="2" opacity="0.6"/>
+      <text x="590" y="248" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">直達日射による発熱</text>
+
+      <!-- 日射で暖まった床からの熱 -->
+      <path d="M470,296 Q478,270 470,244 Q462,220 470,196" fill="none" stroke="#DE5A3A" stroke-width="2.5" marker-end="url(#mkS2h)"/>
+      <path d="M520,296 Q528,270 520,244 Q512,220 520,196" fill="none" stroke="#DE5A3A" stroke-width="2.5" marker-end="url(#mkS2h)"/>
+
+      <!-- 人物 -->
+      <circle cx="220" cy="205" r="20" fill="#F4F4F4" stroke="#3D3D3D" stroke-width="2.5"/>
+      <path d="M186,300 Q186,236 220,236 Q254,236 254,300" fill="#EAF3FA" stroke="#3D3D3D" stroke-width="2.5"/>
+      <text x="220" y="330" font-size="12" font-weight="600" fill="#3D3D3D" text-anchor="middle">人体発熱</text>
+      <text x="220" y="345" font-size="10" fill="#8C8C8C" text-anchor="middle">(在室人数分)</text>
+
+      <!-- 人体からの熱 -->
+      <path d="M210,182 Q203,161 210,140 Q217,119 210,98" fill="none" stroke="#DE5A3A" stroke-width="2.5" marker-end="url(#mkS2h)"/>
+      <path d="M230,182 Q223,161 230,140 Q237,119 230,98" fill="none" stroke="#DE5A3A" stroke-width="2.5" marker-end="url(#mkS2h)"/>
+
+      <!-- 機器の小さなヒント -->
+      <rect x="70" y="255" width="60" height="45" fill="#FFFFFF" stroke="#8C8C8C" stroke-width="1.5"/>
+      <rect x="80" y="263" width="40" height="20" fill="#F4F4F4" stroke="#8C8C8C"/>
+      <text x="100" y="317" font-size="9.5" fill="#8C8C8C" text-anchor="middle">機器発熱も</text>
+      <text x="100" y="329" font-size="9.5" fill="#8C8C8C" text-anchor="middle">同様に合算</text>
+    </g>
+  </svg>
+</div>
+
+<div class="box">
+  <p class="small" style="margin-top:0;">部屋ごとにボリューム (発生エリア) を作成し、直達日射+人体+機器の発熱・発湿の合計を入力します。太陽条件は共通条件から自動計算されます。この合計はStep 3 (エアコン) の必要処理熱量の計算にそのまま使われます。</p>
+  <div class="summary-grid" id="step2SolarInfo"></div>
+</div>
+
+<div id="roomsWrap"></div>
+<button onclick="addRoom()">+ 部屋を追加</button>
+
+<h3>全部屋 合計</h3>
+<div class="box" id="grandTotalWrap"></div>
+<h3>部屋ごとの内訳</h3>
+<div class="box">
+  <div style="position:relative; width:100%; height:280px;">
+    <canvas id="roomChart"></canvas>
+  </div>
+</div>
+<div class="box" id="roomTableWrap"></div>
+
+<!-- ================= STEP 3 ================= -->
+<h2 id="step3"><span class="stepnum">3</span>エアコンの設定<label class="done-label"><input type="checkbox" id="done3">このステップ完了</label></h2>
+
+<div class="diagram">
+  <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">室内の暖かい空気を吸い込み、Step 1・2の負荷を処理した分だけ冷たい風にして吹き出す — これがエアコンの役割です。</p>
+  <svg viewBox="0 0 900 320" style="width:100%; max-width:800px; height:auto; display:block; margin:0 auto;">
+    <defs>
+      <marker id="mkAcWarm" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#F2A45C"/>
+      </marker>
+      <marker id="mkAcCool" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#4FC4E4"/>
+      </marker>
+    </defs>
+    <g font-family="Helvetica,Arial,sans-serif">
+      <!-- 天井 -->
+      <rect x="60" y="10" width="500" height="22" fill="#F4F4F4" stroke="#C9C9C9" stroke-width="1.5"/>
+      <text x="600" y="26" font-size="10.5" fill="#8C8C8C">壁掛け設置</text>
+
+      <!-- 室内機本体 -->
+      <rect x="150" y="32" width="320" height="95" rx="20" fill="#FFFFFF" stroke="#3D3D3D" stroke-width="2.5"/>
+      <rect x="410" y="62" width="24" height="9" rx="3" fill="#4FC4E4"/>
+      <text x="422" y="88" font-size="9" fill="#8C8C8C" text-anchor="middle">運転</text>
+
+      <!-- 吹出口 (ルーバー) -->
+      <rect x="150" y="127" width="320" height="16" fill="#E4E4E4" stroke="#8C8C8C" stroke-width="1.5"/>
+      <line x1="170" y1="127" x2="185" y2="143" stroke="#8C8C8C" stroke-width="1"/>
+      <line x1="230" y1="127" x2="245" y2="143" stroke="#8C8C8C" stroke-width="1"/>
+      <line x1="290" y1="127" x2="305" y2="143" stroke="#8C8C8C" stroke-width="1"/>
+      <line x1="350" y1="127" x2="365" y2="143" stroke="#8C8C8C" stroke-width="1"/>
+      <line x1="410" y1="127" x2="425" y2="143" stroke="#8C8C8C" stroke-width="1"/>
+
+      <!-- 室内の暖かい空気を吸い込む -->
+      <path d="M110,260 Q95,200 108,150 Q118,110 140,80" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
+      <path d="M530,260 Q548,200 533,150 Q522,110 490,80" fill="none" stroke="#F2A45C" stroke-width="3" marker-end="url(#mkAcWarm)"/>
+      <text x="90" y="280" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">室内の</text>
+      <text x="90" y="295" font-size="12" font-weight="600" fill="#b3611f" text-anchor="middle">暖かい空気</text>
+
+      <!-- 吹き出す冷たい風 (扇状) -->
+      <polygon points="180,143 440,143 620,300 0,300" fill="#4FC4E4" opacity="0.15"/>
+      <path d="M190,143 C130,210 90,255 60,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M260,143 C230,210 200,255 175,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M310,143 Q310,220 310,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M360,143 C390,210 420,255 445,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M430,143 C490,210 530,255 560,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <text x="310" y="235" font-size="13" font-weight="700" fill="#1f6f8c" text-anchor="middle">吹出温度・風量</text>
+      <text x="310" y="253" font-size="11" fill="#3a7f99" text-anchor="middle">(Step 3-3, 3-4で算出)</text>
+
+      <!-- 床 -->
+      <line x1="0" y1="300" x2="900" y2="300" stroke="#3D3D3D" stroke-width="2"/>
+    </g>
+  </svg>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">3-1 機種の選択</h3>
+  <div class="row4">
+    <div class="field-user"><label>畳数クラス<span class="tag-req">要設定</span></label><select id="tatamiSel"></select></div>
+    <div class="field-user"><label>最大冷房能力 (kW) ※編集可<span class="tag-req">要設定</span></label><input type="number" id="acMax" value="3.4" step="0.1"></div>
+    <div class="field-user"><label>台数<span class="tag-req">要設定</span></label><input type="number" id="acCount" value="1" step="1" min="1"></div>
+    <div style="align-self:end;" class="small" id="acRatedInfo"></div>
+  </div>
+  <h3>3-2 風向・風量の選択 (Z-Tシリーズ実測ベース)</h3>
+  <div class="row4">
+    <div><label>風向</label><select id="dirSel"><option value="水平">水平</option><option value="50°">50° (ノッチ3)</option></select></div>
+    <div><label>風量ノッチ</label><select id="volSel"><option value="強">強風</option><option value="弱">弱風</option><option value="微">微風</option></select></div>
+    <div><label>風量/台 (㎥/h) ※編集可</label><input type="number" id="flowPerUnit" value="608" step="1"></div>
+    <div style="align-self:end;" class="small" id="flowInfo"></div>
+  </div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">3-3 必要冷房処理熱量の計算</h3>
+  <div class="diagram">
+    <svg viewBox="0 0 700 130" style="width:100%; max-width:700px; height:auto;">
+      <defs>
+        <marker id="mkAc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#8C8C8C"/>
+        </marker>
+      </defs>
+      <g font-family="Helvetica,Arial,sans-serif" font-size="11" text-anchor="middle">
+        <rect x="6" y="4" width="120" height="34" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="66" y="25" fill="#3D3D3D">外皮負荷</text>
+        <rect x="6" y="48" width="120" height="34" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="66" y="69" fill="#3D3D3D">換気負荷</text>
+        <rect x="6" y="92" width="120" height="34" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="66" y="113" fill="#3D3D3D">内部発熱+日射</text>
+
+        <text x="150" y="70" font-size="18" fill="#B4B4B4">+</text>
+
+        <rect x="175" y="48" width="140" height="34" fill="#F4F4F4" stroke="#3D3D3D"/>
+        <text x="245" y="69" fill="#3D3D3D">必要処理熱量</text>
+
+        <line x1="126" y1="21" x2="173" y2="55" stroke="#C9C9C9"/>
+        <line x1="126" y1="65" x2="173" y2="65" stroke="#C9C9C9" marker-end="url(#mkAc)"/>
+        <line x1="126" y1="109" x2="173" y2="75" stroke="#C9C9C9"/>
+
+        <line x1="315" y1="65" x2="355" y2="65" stroke="#8C8C8C" stroke-width="1.5" marker-end="url(#mkAc)"/>
+        <rect x="360" y="48" width="100" height="34" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="410" y="69" fill="#3D3D3D">÷ 台数</text>
+
+        <line x1="460" y1="65" x2="500" y2="65" stroke="#8C8C8C" stroke-width="1.5" marker-end="url(#mkAc)"/>
+        <rect x="505" y="48" width="180" height="34" fill="#FFFFFF" stroke="#DE5A3A"/>
+        <text x="595" y="69" fill="#DE5A3A">1台あたり吹出温度</text>
+      </g>
+    </svg>
+  </div>
+  <div class="row4">
+    <div class="field-user"><label>UA値 (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uaVal" value="0.37" step="0.01"></div>
+    <div class="field-user"><label>外皮面積 (㎡)<span class="tag-req">要設定</span></label><input type="number" id="envArea" value="300" step="1"></div>
+    <div><label>外気温 (℃) ※共通条件から自動</label><input type="number" id="outTaDisp" value="37" readonly></div>
+    <div><label>目標室温 (℃) ※共通条件から自動</label><input type="number" id="roomTDisp" value="26" readonly></div>
+  </div>
+  <div class="row4">
+    <div><label>換気の扱い</label><select id="ventMode">
+      <option value="none">除外 (レクチャー標準: 換気なし)</option>
+      <option value="third">第三種換気</option>
+      <option value="first">第一種換気 (全熱交換)</option>
+    </select></div>
+    <div class="field-user"><label>換気回数 (回/h)<span class="tag-req">要設定</span></label><input type="number" id="ach" value="0.5" step="0.1"></div>
+    <div class="field-user"><label>居室体積 (㎥)<span class="tag-req">要設定</span></label><input type="number" id="roomVol" value="267.8" step="0.1"></div>
+    <div class="field-user"><label>全熱交換率 (%)<span class="tag-req">要設定</span></label><input type="number" id="hxRate" value="65" step="1"></div>
+  </div>
+  <div class="summary-grid" id="loadStats" style="margin-top:8px;"></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">3-4 吹出温度の算出 (全台数で均等に処理する前提)</h3>
+  <p class="small">吹出温度 = 目標室温 − (必要処理熱量 ÷ 台数) / (ρ・cp・1台あたり風量)。すべての台数が同じ風量で稼働し、負荷を均等に分担すると仮定しています。</p>
+  <div class="summary-grid" id="supplyStats"></div>
+  <div id="acWarn"></div>
+  <div class="note">注意: 吹き出した流量・温度が住戸全体に正確に行きわたらない場合、処理熱量を満たしていても目標温度に到達するとは限りません。その場合は吹出温度を自分で変更し、何度か解析を繰り返して調整してください。</div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">3-5 台数を変えた場合の比較 (均等分担)</h3>
+  <p class="small">同じ機種・同じ風量ノッチのまま台数だけを変えたら、1台あたりの処理熱量と吹出温度がどう変わるかの一覧です。現在選択中の台数の行を強調表示します。</p>
+  <div id="acCountCompare"></div>
+</div>
+
+<!-- ================= STEP 4 ================= -->
+<h2 id="step4"><span class="stepnum">4</span>解析設定の確認<label class="done-label"><input type="checkbox" id="done4">このステップ完了</label></h2>
+
+<div class="box">
+  <h3 style="margin-top:0;">チェックリスト</h3>
+  <div class="checkitem"><input type="checkbox" id="c41"><div><span class="where">解析設定 > 解析の基本設定 > 解析対象と初期値</span>「速度」「温度」「相対湿度」にチェック。初期値: 温度 <b id="initTEcho">25</b> ℃ / 相対湿度 <b id="initRHEcho">60</b> %</div></div>
+  <div class="checkitem"><input type="checkbox" id="c42"><div><span class="where">解析設定 > 高度な設定 > 特殊コマンドの追加 (追加解析)</span>「絶対湿度表示」「輻射熱流束表示」「平均輻射温度表示」にチェック</div></div>
+  <div class="checkitem"><input type="checkbox" id="c43"><div><span class="where">解析設定 > 高度な設定 > 特殊コマンドの追加</span>「特殊コマンドを追加する」にチェックし、右のコマンドを貼り付け: <pre class="cmd">SATULIM
+/</pre><button class="copy-btn" data-copy="SATULIM&#10;/">コピー</button></div></div>
+  <div class="checkitem"><input type="checkbox" id="c44"><div><span class="where">メニュー 解析(A)</span>「輻射解析(D)」「快適性指標解析(T)」にチェック</div></div>
+  <div class="checkitem"><input type="checkbox" id="c45"><div><span class="where">解析(A) > 快適性指標解析(T)</span>「快適性指標を解析する」にチェックし、下の湿度・代謝量・着衣量を設定</div></div>
+</div>
+
+<div class="box">
+  <h3 style="margin-top:0;">快適性指標の設定値</h3>
+  <div class="row4">
+    <div><label>湿度 (%)</label><input type="number" id="comfHum" value="50" step="1"></div>
+    <div><label>運動量 (代謝量) M</label><select id="metSel">
+      <option value="0.7">睡眠 (0.7 met)</option>
+      <option value="0.8">横臥 (0.8 met)</option>
+      <option value="1.0" selected>いす座読書・事務所 (1.0 met)</option>
+      <option value="1.1">タイピング・軽い事務 (1.1 met)</option>
+      <option value="1.6">立位軽作業 (1.6 met)</option>
+      <option value="2.0">家事・調理 (2.0 met)</option>
+    </select></div>
+    <div><label>着衣量 clo</label><select id="cloSel">
+      <option value="0.3">Tシャツ+ハーフパンツ (0.3 clo)</option>
+      <option value="0.5">半袖シャツ+薄手ズボン (0.5 clo)</option>
+      <option value="0.6" selected>長袖シャツ+ズボン (0.6 clo)</option>
+      <option value="0.9">長袖+セーター (0.9 clo)</option>
+      <option value="1.0">スーツ (1.0 clo)</option>
+    </select></div>
+    <div style="align-self:end;" class="small">住まい方に合わせて選択。夏の在宅なら 0.3〜0.5 clo が目安。</div>
+  </div>
+  <div id="comfWrap"></div>
+</div>
+
+<!-- ================= STEP 5 ================= -->
+<h2 id="step5"><span class="stepnum">5</span>解析を実行する<label class="done-label"><input type="checkbox" id="done5">このステップ完了</label></h2>
+
+<div class="box">
+  <div class="checkitem"><input type="checkbox" id="c51"><div>メッシュを作成する (手動メッシュ / 自動)。ドアの開閉状態 (開けた状態か閉めた状態か) を解析ケースに合わせて確認する</div></div>
+  <div class="checkitem"><input type="checkbox" id="c52"><div><span class="where">通常解析 > ソルバーパラメータの設定</span>解析種類は「定常解析」を選択</div></div>
+  <div class="checkitem"><input type="checkbox" id="c53"><div><b>クイック解析</b>: 設計初期段階のトライアル用。まずこちらで一度回して、モデルの不備 (境界条件の入れ忘れ・発散) がないか確認する</div></div>
+  <div class="checkitem"><input type="checkbox" id="c54"><div><b>精度解析</b>: 結果を評価する本解析用。収束判定は -3 を目安に (右に行くほど高精度・長時間)。日時指定が共通条件の日付と合っているか確認する</div></div>
+  <div class="checkitem"><input type="checkbox" id="c55"><div>解析後、結果表示で PMV / SET* / 作用温度・温度・気流を確認する。目標温度に達していない場合はStep 3の吹出温度を下げて再解析する</div></div>
+</div>
+
+<!-- ================= 転記一覧 ================= -->
+<h2 id="transfer">転記一覧 (FlowDesignerへのコピー用まとめ)</h2>
+<p class="desc">上から順にFlowDesignerへ転記すれば境界条件の設定が完了します。</p>
+<div class="box" id="transferWrap"></div>
+
+<footer>
+  <b>SOURCES</b><br>
+  SAT計算: sat_calculator.html / 内部発熱: internal_heat_load_calculator.html /
+  疑似厚み・必要処理熱量・風量: 境界条件設定_窓修正.xlsx (Z-Tシリーズ実測) /
+  ドア隙間開口率: 隙間モデル化ケース④ (上辺・UC開口率不均一)<br>
+  定常冷房解析・メッシュ100mm前提 — 計算値は転記一覧からFlowDesignerへコピーして使用
+</footer>
+
+</div><!-- /.wrap -->
+
+<script>
+// ========================= 定数データ =========================
+// ドア隙間の開口率 (隙間モデル化ケース「④上辺・UC開口率不均一」のみ採用)
+// モデル高さは上辺・アンダーカットとも0.1m(100mm)に統一 (今回の解析メッシュが100mm均一のため)
+const doorGapTable = {
+  '開戸_15': {topR:25.2, ucR:29.0},
+  '引戸_15': {topR:29.5, ucR:27.7},
+  '開戸_45': {topR:25.2, ucR:57.0},
+  '引戸_45': {topR:29.5, ucR:56.5}
+};
+// 畳数→冷房能力の一般カタログ値 (定格/最大, kW)
+const acCatalog = [
+  {tatami:6,  rated:2.2, max:3.4},
+  {tatami:8,  rated:2.5, max:3.5},
+  {tatami:10, rated:2.8, max:4.0},
+  {tatami:12, rated:3.6, max:4.3},
+  {tatami:14, rated:4.0, max:5.0},
+  {tatami:18, rated:5.6, max:6.0},
+  {tatami:20, rated:6.3, max:7.1}
+];
+// Z-Tシリーズ フリーブロー風量 (㎥/h)
+const flowTable = {
+  '水平': {'強':608, '弱':478, '微':350},
+  '50°': {'強':1510, '弱':1010, '微':830}
+};
+// チャート配色は cooling_load_viewer_2.html の PALETTE に合わせる
+const orientations = [
+  {name:'北', az:180, color:'#4FC4E4'},
+  {name:'北東', az:-135, color:'#54B857'},
+  {name:'東', az:-90, color:'#F2A45C'},
+  {name:'南東', az:-45, color:'#DD4FDD'},
+  {name:'南', az:0, color:'#ED6A47'},
+  {name:'南西', az:45, color:'#5D74C7'},
+  {name:'西', az:90, color:'#3E5ED0'},
+  {name:'北西', az:135, color:'#9AA0A6'}
+];
+if(window.Chart && Chart.defaults && Chart.defaults.font){
+  Chart.defaults.font.family='"Helvetica Neue",Helvetica,Arial,sans-serif';
+  Chart.defaults.color='#8C8C8C';
+}
+const etaTable = [
+  {label:"3層 Low-E複層/真空複層(日射取得型)", vals:[0.54,0.34,0.41,0.12]},
+  {label:"3層 Low-E複層/真空複層(日射遮蔽型)", vals:[0.33,0.22,0.26,0.08]},
+  {label:"3層 Low-E三層複層/真空複層(日射取得型)", vals:[0.59,0.37,0.44,0.14]},
+  {label:"3層 Low-E三層複層/真空複層(日射遮蔽型)", vals:[0.37,0.25,0.29,0.10]},
+  {label:"3層 三層複層または真空複層ガラス", vals:[0.72,0.38,0.53,0.18]},
+  {label:"2層 Low-E複層/真空ガラス(日射取得型)", vals:[0.64,0.38,0.47,0.15]},
+  {label:"2層 Low-E複層/真空ガラス(日射遮蔽型)", vals:[0.40,0.26,0.31,0.11]},
+  {label:"2層 二層複層・真空・単板2枚組合せ", vals:[0.79,0.38,0.57,0.17]},
+  {label:"1層 単板ガラス", vals:[0.88,0.38,0.62,0.19]}
+];
+const attachTable = ["付属部材なし","和障子","内付けの日射遮蔽部材(和障子を除く)","外付けの日射遮蔽部材"];
+const RHOCP = 1.2*1000/3600; // W per (m3/h * K)
+
+// ========================= 太陽位置・気温 =========================
+function solarPos(y,mo,d,hour,lat,lon){
+  const dt = new Date(y,mo-1,d);
+  const start = new Date(y,0,0);
+  const n = Math.floor((dt-start)/86400000);
+  const latR = lat*Math.PI/180;
+  const decl = 23.45*Math.sin(2*Math.PI*(284+n)/365)*Math.PI/180;
+  const B = 2*Math.PI*(n-81)/365;
+  const eot = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B);
+  const solarTime = hour + eot/60 + (lon-135)/15;
+  const H = (15*(solarTime-12))*Math.PI/180;
+  const sinAlt = Math.sin(latR)*Math.sin(decl)+Math.cos(latR)*Math.cos(decl)*Math.cos(H);
+  const alt = Math.asin(Math.max(-1,Math.min(1,sinAlt)));
+  let az=0;
+  if(alt>0){
+    let cosAz=(sinAlt*Math.sin(latR)-Math.sin(decl))/(Math.cos(alt)*Math.cos(latR));
+    cosAz=Math.max(-1,Math.min(1,cosAz));
+    az=Math.acos(cosAz);
+    if(H<0) az=-az;
+  }
+  return {alt, az, sinAlt};
+}
+function taAt(hour, tmax, tmin, tpeak){
+  const tave=(tmax+tmin)/2, tamp=(tmax-tmin)/2;
+  return tave + tamp*Math.cos(2*Math.PI*(hour-tpeak)/24);
+}
+function num(id){ return parseFloat(document.getElementById(id).value)||0; }
+function getDateParts(){
+  const v = document.getElementById('calcDate').value || '2026-07-25';
+  const [y,mo,d] = v.split('-').map(Number);
+  return {y,mo,d};
+}
+
+// ========================= コピー =========================
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.copy-btn');
+  if(!btn) return;
+  const text = (btn.dataset.copy||'').replace(/&#10;/g,'\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    const o = btn.textContent;
+    btn.textContent = 'コピーしました';
+    setTimeout(()=>{ btn.textContent = o; }, 900);
+  });
+});
+function cfdRow(label, value, copyText){
+  const c = (copyText!==undefined? copyText : value);
+  return '<div class="cfd-value"><span class="k">'+label+'</span><span class="v">'+value+'</span><button class="copy-btn" data-copy="'+c+'">コピー</button></div>';
+}
+function cfdRowNoCopy(label, value){
+  return '<div class="cfd-value"><span class="k">'+label+'</span><span class="v">'+value+'</span></div>';
+}
+
+// ========================= Step 2: 部屋 =========================
+let roomCount=0, winCounter=0;
+function addRoom(defaults){
+  roomCount++;
+  const id = 'room'+roomCount;
+  const div = document.createElement('div');
+  div.className='room-card';
+  div.id = id;
+  div.innerHTML =
+    '<div class="room-header">'+
+      '<input type="text" class="roomName" value="'+(defaults&&defaults.name||('部屋'+roomCount))+'">'+
+      '<button class="small-btn" onclick="document.getElementById(\''+id+'\').remove(); runAll();">部屋を削除</button>'+
+    '</div>'+
+    '<h3 style="margin-top:0;">窓 (直達日射)</h3>'+
+    '<div class="winList"></div>'+
+    '<button class="small-btn" onclick="addWindow(\''+id+'\')">+ 窓を追加</button>'+
+
+    '<h3>人体</h3>'+
+    '<div class="calc-line">'+
+      '<div><label>発熱原単位 (W/人)</label><input type="number" class="peopleSensRate" value="60" step="1"></div>'+
+      '<div class="eq">×</div>'+
+      '<div><label>在室人数</label><input type="number" class="occCount" value="0" step="1"></div>'+
+      '<div class="eq">=</div>'+
+      '<div><label>顕熱 (W)</label><div class="result peopleSensResult">0 W</div></div>'+
+    '</div>'+
+    '<div class="calc-line">'+
+      '<div><label>発湿原単位 (g/h/人)</label><input type="number" class="peopleMoistRate" value="80" step="1"></div>'+
+      '<div class="eq">×</div>'+
+      '<div><label>在室人数</label><div class="result occCountEcho">0 人</div></div>'+
+      '<div class="eq">=</div>'+
+      '<div><label>発湿 (g/h)</label><div class="result peopleMoistResult">0 g/h</div></div>'+
+    '</div>'+
+
+    '<h3>機器・照明</h3>'+
+    '<div class="calc-line">'+
+      '<div><label>発熱密度 (W/㎡)</label><input type="number" class="equipSensRate" value="5" step="0.5"></div>'+
+      '<div class="eq">×</div>'+
+      '<div><label>床面積 (㎡)</label><input type="number" class="roomArea" value="10.0" step="0.1"></div>'+
+      '<div class="eq">=</div>'+
+      '<div><label>顕熱 (W)</label><div class="result equipSensResult">0 W</div></div>'+
+    '</div>'+
+    '<div class="calc-line">'+
+      '<div><label>発湿密度 (g/h/㎡、任意)</label><input type="number" class="equipMoistRate" value="0" step="0.5"></div>'+
+      '<div class="eq">×</div>'+
+      '<div><label>床面積 (㎡)</label><div class="result areaEcho">0 ㎡</div></div>'+
+      '<div class="eq">=</div>'+
+      '<div><label>発湿 (g/h)</label><div class="result equipMoistResult">0 g/h</div></div>'+
+    '</div>'+
+
+    '<h3>追加 (任意・冷蔵庫ベース分など)</h3>'+
+    '<div class="row3">'+
+      '<div><label>追加 顕熱 (W)</label><input type="number" class="extraSens" value="0" step="1"></div>'+
+      '<div><label>追加 発湿 (g/h)</label><input type="number" class="extraMoist" value="0" step="1"></div>'+
+    '</div>'+
+
+    '<div class="summary-grid" style="margin-top:1rem;" id="'+id+'_summary"></div>'+
+    '<h3>CFDへの入力値 (発生エリア)</h3>'+
+    '<div id="'+id+'_cfd"></div>';
+  document.getElementById('roomsWrap').appendChild(div);
+  if(defaults&&defaults.fields){
+    for(const cls in defaults.fields){
+      const el = div.querySelector('.'+cls);
+      if(el) el.value = defaults.fields[cls];
+    }
+  }
+  if(defaults&&defaults.windows){
+    defaults.windows.forEach(w=>addWindow(id, w));
+  }
+  runAll();
+  return id;
+}
+function addWindow(roomId, defaults){
+  winCounter++;
+  const wid = 'win'+winCounter;
+  const div = document.createElement('div');
+  div.className='win-row';
+  div.id = wid;
+  let glassOpts = etaTable.map((g,i)=>'<option value="'+i+'">'+g.label+'</option>').join('');
+  let attachOpts = attachTable.map((a,i)=>'<option value="'+i+'">'+a+'</option>').join('');
+  div.innerHTML =
+    '<div><label>名前</label><input type="text" class="wName" value="窓"></div>'+
+    '<div><label>方位 (南=0,東=-90,西=90)</label><input type="number" class="wAz" value="0" step="1"></div>'+
+    '<div><label>傾斜角 (垂直=90)</label><input type="number" class="wTilt" value="90" step="1"></div>'+
+    '<div><label>ガラス仕様</label><select class="glassSel" onchange="updateEta(\''+wid+'\')">'+glassOpts+'</select></div>'+
+    '<div><label>付属部材</label><select class="attachSel" onchange="updateEta(\''+wid+'\')">'+attachOpts+'</select></div>'+
+    '<div><label>η0</label><input type="number" class="wEta" value="0.54" step="0.01"></div>'+
+    '<div><label>面積 (㎡)</label><input type="number" class="wArea" value="1.0" step="0.1"></div>'+
+    '<button class="small-btn" onclick="document.getElementById(\''+wid+'\').remove(); runAll();">削除</button>';
+  document.getElementById(roomId).querySelector('.winList').appendChild(div);
+  if(defaults){
+    for(const cls in defaults){
+      const el = div.querySelector('.'+cls);
+      if(el) el.value = defaults[cls];
+    }
+  }
+  runAll();
+}
+function updateEta(wid){
+  const div = document.getElementById(wid);
+  const gi = +div.querySelector('.glassSel').value;
+  const ai = +div.querySelector('.attachSel').value;
+  div.querySelector('.wEta').value = etaTable[gi].vals[ai];
+  runAll();
+}
+
+// ========================= Step 3: 台数比較表 =========================
+function renderAcCompare(qReq, flowPer, acMax, targetT, currentCount){
+  let html = '<table><tr><th>台数</th><th>総風量 [㎥/h]</th><th>1台あたり処理熱量 [W]</th><th>1台あたり吹出温度 [℃]</th><th>能力判定</th></tr>';
+  for(let n=1; n<=6; n++){
+    const vT = flowPer*n;
+    const qPer = qReq/n;
+    const dT = vT>0 ? qReq/(RHOCP*vT) : 0;
+    const ts = targetT - dT;
+    const capOk = (acMax*1000*n) >= qReq;
+    const cur = (n===currentCount);
+    html += '<tr'+(cur?' style="background:#F4F4F4; font-weight:600;"':'')+'>'+
+      '<td>'+n+'台'+(cur?' ← 現在の設定':'')+'</td>'+
+      '<td>'+vT.toFixed(0)+'</td>'+
+      '<td>'+qPer.toFixed(0)+'</td>'+
+      '<td>'+ts.toFixed(2)+'</td>'+
+      '<td>'+(capOk?'<span class="ok">OK</span>':'<span style="color:#DE5A3A; font-weight:600;">能力不足</span>')+'</td></tr>';
+  }
+  html += '</table>';
+  document.getElementById('acCountCompare').innerHTML = html;
+}
+
+// ========================= メイン再計算 =========================
+let satChart=null, roomChart=null;
+let transferRows=[];
+function tr(step, target, item, value, copyVal){
+  transferRows.push({step, target, item, value, copy:(copyVal!==undefined?copyVal:value)});
+}
+
+function runAll(){
+  transferRows = [];
+  const {y,mo,d} = getDateParts();
+  const detailHour = num('detailHour');
+  const lat=num('lat'), lon=num('lon');
+  const tmax=num('tmax'), tmin=num('tmin'), tpeak=num('tpeak');
+  const rho=num('rho'), alpha=num('alpha'), ho=num('ho'), roofCorr=num('roofCorr');
+  const targetT=num('targetT'), initT=num('initT'), initRH=num('initRH');
+
+  // ---- 太陽条件 (共通) ----
+  const sp = solarPos(y,mo,d,detailHour,lat,lon);
+  let idn=0, isky=0;
+  if(sp.alt>0){ idn=1098*Math.exp(-0.057/Math.sin(sp.alt)); isky=0.125*idn; }
+  const taNow = taAt(detailHour, tmax, tmin, tpeak);
+  const altDeg=(sp.alt*180/Math.PI), azDeg=(sp.az*180/Math.PI);
+  document.getElementById('commonSolarInfo').innerHTML =
+    '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+taNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
+    (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。日射はゼロとして計算します。</span>':'');
+
+  // ================= Step 1 =================
+  // ドア隙間 (モデル高さは0.1m均一・開口率のみ表の値を使用)
+  const gapKey = document.getElementById('doorType').value+'_'+document.getElementById('doorUC').value;
+  const gap = doorGapTable[gapKey];
+  document.getElementById('doorGapWrap').innerHTML =
+    '<p class="small" style="margin:4px 0 8px;">モデル高さ: 上辺・アンダーカットとも <b>0.1 m</b> (100mm、解析メッシュに合わせて統一)</p>' +
+    cfdRow('上辺パネル: 開口率 [%]', gap.topR) +
+    cfdRow('アンダーカットパネル: 開口率 [%]', gap.ucR);
+  tr('1-2','ドア隙間 (上辺)','モデル高さ [m] / 開口率 [%]', '0.1 / '+gap.topR, gap.topR);
+  tr('1-2','ドア隙間 (UC)','モデル高さ [m] / 開口率 [%]', '0.1 / '+gap.ucR, gap.ucR);
+  tr('1-1','ドア本体 (形状モデル)','厚み [m] (材質: 杉)', 0.03);
+  tr('1-3','内壁・天井・床 (形状モデル)','厚み [m] (材質: 杉)', 0.03);
+
+  // SAT 日変化 (参考グラフ)
+  const hours=[]; for(let h=0; h<=24; h+=0.5) hours.push(h);
+  const series={}; orientations.forEach(o=>series[o.name]=[]);
+  const roofSeries=[];
+  hours.forEach(hour=>{
+    const s = solarPos(y,mo,d,hour,lat,lon);
+    let hIdn=0, hIsky=0;
+    if(s.alt>0){ hIdn=1098*Math.exp(-0.057/Math.sin(s.alt)); hIsky=0.125*hIdn; }
+    const ta = taAt(hour, tmax, tmin, tpeak);
+    orientations.forEach(o=>{
+      let iw=0;
+      if(s.alt>0){
+        const cosInc = Math.cos(s.alt)*Math.cos(s.az-o.az*Math.PI/180);
+        const ib = hIdn*Math.max(cosInc,0);
+        const idf = hIsky*0.5;
+        const ir = (hIdn*s.sinAlt+hIsky)*rho*0.5;
+        iw = ib+idf+ir;
+      }
+      series[o.name].push(ta + alpha*iw/ho);
+    });
+    let iRoof=0;
+    if(s.alt>0) iRoof = hIdn*Math.max(s.sinAlt,0) + hIsky;
+    roofSeries.push(ta + alpha*iRoof/ho - roofCorr);
+  });
+  const labels = hours.map(h=>h+':00');
+  const datasets = orientations.map(o=>({
+    label:o.name, data:series[o.name], borderColor:o.color, backgroundColor:o.color,
+    borderWidth:2, pointRadius:0, tension:0.3
+  }));
+  datasets.push({label:'屋根(水平)', data:roofSeries, borderColor:'#3D3D3D', backgroundColor:'#3D3D3D',
+    borderWidth:2, borderDash:[5,3], pointRadius:0, tension:0.3});
+  if(satChart) satChart.destroy();
+  satChart = new Chart(document.getElementById('satChart'), {
+    type:'line', data:{labels, datasets},
+    options:{responsive:true, maintainAspectRatio:false, animation:false,
+      scales:{ x:{ticks:{maxTicksLimit:13}}, y:{title:{display:true,text:'SAT (℃) ※参考'}} }}
+  });
+
+  // SAT 指定時刻
+  document.getElementById('satSolarInfo').innerHTML =
+    '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
+    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
+    '<div class="stat"><div class="lbl">I_DN (直達)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
+    '<div class="stat"><div class="lbl">Isky (天空)</div><div class="val">'+isky.toFixed(0)+' W/m²</div></div>'+
+    '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+taNow.toFixed(1)+' ℃</div></div>';
+
+  const uWall=num('uWall'), uRoof=num('uRoof');
+  const satByOri = {};
+  let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃) → 発生パネル「外気温」</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
+  orientations.forEach(o=>{
+    let iw=0, sat=taNow;
+    if(sp.alt>0){
+      const cosInc = Math.cos(sp.alt)*Math.cos(sp.az-o.az*Math.PI/180);
+      const ib = idn*Math.max(cosInc,0);
+      const idf = isky*0.5;
+      const ir = (idn*sp.sinAlt+isky)*rho*0.5;
+      iw = ib+idf+ir;
+      sat = taNow + alpha*iw/ho;
+    }
+    satByOri[o.name]=sat;
+    table += '<tr><td>外壁 '+o.name+'</td><td>'+iw.toFixed(1)+'</td><td><b>'+sat.toFixed(2)+'</b></td><td>'+uWall+'</td>'+
+      '<td><button class="copy-btn" data-copy="'+sat.toFixed(2)+'">SATコピー</button></td></tr>';
+  });
+  let iRoof=0, roofSat=taNow-roofCorr;
+  if(sp.alt>0){ iRoof = idn*Math.max(sp.sinAlt,0)+isky; roofSat = taNow + alpha*iRoof/ho - roofCorr; }
+  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+iRoof.toFixed(1)+'</td><td><b>'+roofSat.toFixed(2)+'</b></td><td>'+uRoof+'</td>'+
+    '<td><button class="copy-btn" data-copy="'+roofSat.toFixed(2)+'">SATコピー</button></td></tr>';
+  table += '</table>';
+  document.getElementById('satTableWrap').innerHTML = table;
+  ['北','東','南','西'].forEach(nm=>{
+    tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
+    tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', uWall);
+  });
+  tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofSat.toFixed(2));
+  tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', uRoof);
+
+  // 1F床
+  const uFloor1=num('uFloor1');
+  document.getElementById('uFloor1Disp').textContent = uFloor1;
+  document.getElementById('uFloor1Copy').dataset.copy = uFloor1;
+  tr('1-5','1F床 (形状モデル)','熱通過率 [W/m²K]', uFloor1);
+
+  // 基礎外周
+  const uFound=num('uFound');
+  document.getElementById('foundWrap').innerHTML =
+    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', taNow.toFixed(2)) +
+    cfdRow('熱貫流率 (熱通過率) [W/m²K]', uFound);
+  tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
+  tr('1-6','基礎外周 (発生パネル)','熱通過率 [W/m²K]', uFound);
+
+  // 窓 疑似厚み
+  const uWin=num('uWin'), hiWin=num('hiWin'), hoWin=num('hoWin'), lamWin=num('lamWin');
+  const rBody = 1/uWin - 1/hoWin - 1/hiWin;
+  const dWin = rBody*lamWin;
+  if(rBody<=0){
+    document.getElementById('winWarn').innerHTML = '<div class="warn">U値が大きすぎて躯体熱抵抗が0以下になりました。U値・表面熱伝達率を確認してください。</div>';
+    document.getElementById('winWrap').innerHTML = '';
+  }else{
+    document.getElementById('winWarn').innerHTML = '';
+    document.getElementById('winWrap').innerHTML =
+      cfdRowNoCopy('種類', '外気温と固体表面までの熱伝達率') +
+      cfdRow('外気温 [℃]', taNow.toFixed(2)) +
+      cfdRow('内表面熱伝達率 [W/m²K]', hiWin) +
+      cfdRow('外表面熱伝達率 [W/m²K]', hoWin) +
+      cfdRowNoCopy('厚みを考慮 (パネル実体は厚み0のまま)', 'はい') +
+      cfdRowNoCopy('材質', 'ガラス板 (Low-E複層)') +
+      cfdRow('躯体のみの熱抵抗 [㎡K/W] (参考)', rBody.toFixed(4)) +
+      cfdRow('疑似厚み [m] (仮想の厚み・逆算値)', dWin.toFixed(4)) +
+      cfdRow('初期温度 [℃]', initT);
+    tr('1-7','窓 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
+    tr('1-7','窓 (発生パネル)','内表面熱伝達率 [W/m²K]', hiWin);
+    tr('1-7','窓 (発生パネル)','外表面熱伝達率 [W/m²K]', hoWin);
+    tr('1-7','窓 (発生パネル)','疑似厚み [m]', dWin.toFixed(4));
+  }
+
+  // ================= Step 2: 内部発熱 (Step 3のエアコン計算より先に集計) =================
+  document.getElementById('step2SolarInfo').innerHTML =
+    '<div class="stat"><div class="lbl">直達日射 I_DN (自動)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
+    '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
+    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>';
+
+  const results=[];
+  document.querySelectorAll('.room-card').forEach(card=>{
+    const name = card.querySelector('.roomName').value;
+    let solarW = 0;
+    card.querySelectorAll('.win-row').forEach(w=>{
+      const wAz = parseFloat(w.querySelector('.wAz').value)*Math.PI/180;
+      const wTilt = parseFloat(w.querySelector('.wTilt').value)*Math.PI/180;
+      const eta = parseFloat(w.querySelector('.wEta').value);
+      const area = parseFloat(w.querySelector('.wArea').value);
+      let q = 0;
+      if(sp.alt>0){
+        const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
+        const ib = idn*Math.max(cosInc,0);
+        q = ib*eta*area;
+      }
+      solarW += q;
+    });
+    const occ = parseFloat(card.querySelector('.occCount').value)||0;
+    const peopleSens = (parseFloat(card.querySelector('.peopleSensRate').value)||0)*occ;
+    const peopleMoist = (parseFloat(card.querySelector('.peopleMoistRate').value)||0)*occ;
+    const roomArea = parseFloat(card.querySelector('.roomArea').value)||0;
+    const equipSens = (parseFloat(card.querySelector('.equipSensRate').value)||0)*roomArea;
+    const equipMoist = (parseFloat(card.querySelector('.equipMoistRate').value)||0)*roomArea;
+    const extraSens = parseFloat(card.querySelector('.extraSens').value)||0;
+    const extraMoist = parseFloat(card.querySelector('.extraMoist').value)||0;
+    const totalSens = solarW + peopleSens + equipSens + extraSens;
+    const totalMoist = peopleMoist + equipMoist + extraMoist;
+
+    card.querySelector('.peopleSensResult').textContent = peopleSens.toFixed(1)+' W';
+    card.querySelector('.occCountEcho').textContent = occ+' 人';
+    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h';
+    card.querySelector('.equipSensResult').textContent = equipSens.toFixed(1)+' W';
+    card.querySelector('.areaEcho').textContent = roomArea.toFixed(1)+' ㎡';
+    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h';
+    document.getElementById(card.id+'_summary').innerHTML =
+      '<div class="stat"><div class="lbl">直達日射</div><div class="val">'+solarW.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">人体顕熱</div><div class="val">'+peopleSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">機器顕熱</div><div class="val">'+equipSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">追加</div><div class="val">'+extraSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">合計顕熱</div><div class="val">'+totalSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">合計発湿</div><div class="val">'+totalMoist.toFixed(0)+' g/h</div></div>';
+    document.getElementById(card.id+'_cfd').innerHTML =
+      cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
+      cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
+      cfdRow('初期温度 [℃]', initT) +
+      cfdRow('初期湿度 [%]', initRH);
+    results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist});
+  });
+
+  const grand = results.reduce((a,r)=>{
+    a.solarW+=r.solarW; a.peopleSens+=r.peopleSens; a.equipSens+=r.equipSens;
+    a.extraSens+=r.extraSens; a.totalSens+=r.totalSens; a.totalMoist+=r.totalMoist;
+    return a;
+  }, {solarW:0, peopleSens:0, equipSens:0, extraSens:0, totalSens:0, totalMoist:0});
+
+  document.getElementById('grandTotalWrap').innerHTML =
+    '<div class="summary-grid">'+
+      '<div class="stat"><div class="lbl">直達日射 合計</div><div class="val">'+grand.solarW.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">人体顕熱 合計</div><div class="val">'+grand.peopleSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">機器顕熱 合計</div><div class="val">'+grand.equipSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">全室 合計顕熱</div><div class="val">'+grand.totalSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">全室 合計発湿</div><div class="val">'+grand.totalMoist.toFixed(0)+' g/h</div></div>'+
+    '</div>';
+
+  let rt = '<table><tr><th>室名</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計発湿(g/h)</th></tr>';
+  results.forEach(r=>{
+    rt += '<tr><td>'+r.name+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
+  });
+  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
+  document.getElementById('roomTableWrap').innerHTML = rt;
+
+  if(roomChart) roomChart.destroy();
+  roomChart = new Chart(document.getElementById('roomChart'), {
+    type:'bar',
+    data:{
+      labels: results.map(r=>r.name),
+      datasets:[
+        {label:'直達日射', data:results.map(r=>r.solarW), backgroundColor:'#F2A45C'},
+        {label:'人体顕熱', data:results.map(r=>r.peopleSens), backgroundColor:'#4FC4E4'},
+        {label:'機器顕熱', data:results.map(r=>r.equipSens), backgroundColor:'#ED6A47'},
+        {label:'追加', data:results.map(r=>r.extraSens), backgroundColor:'#9AA0A6'}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false, animation:false,
+      scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'顕熱 (W)'}} }}
+  });
+  results.forEach(r=>{
+    tr('2','発生エリア: '+r.name,'発熱量 [W]', r.totalSens.toFixed(1));
+    tr('2','発生エリア: '+r.name,'発湿量 [g/h]', r.totalMoist.toFixed(1));
+  });
+
+  // ================= Step 3: エアコン =================
+  document.getElementById('outTaDisp').value = taNow.toFixed(1);
+  document.getElementById('roomTDisp').value = targetT;
+  const cat = acCatalog[+document.getElementById('tatamiSel').value];
+  document.getElementById('acRatedInfo').textContent = '参考: '+cat.tatami+'畳クラス 定格 '+cat.rated+' kW / 最大 '+cat.max+' kW';
+  const dir = document.getElementById('dirSel').value;
+  const vol = document.getElementById('volSel').value;
+  document.getElementById('flowInfo').textContent = 'Z-Tシリーズ '+dir+'・'+vol+'風のフリーブロー値: '+flowTable[dir][vol]+' ㎥/h';
+
+  const acMax=num('acMax'), acCount=Math.max(1, Math.round(num('acCount')));
+  const flowPer=num('flowPerUnit');
+  const ua=num('uaVal'), envA=num('envArea');
+  const dT = taNow - targetT;
+  const qEnv = ua*envA*dT;
+  const ventMode = document.getElementById('ventMode').value;
+  let qVent = 0;
+  if(ventMode!=='none'){
+    qVent = RHOCP*num('ach')*num('roomVol')*dT;
+    if(ventMode==='first') qVent *= (1 - num('hxRate')/100);
+  }
+  const qInt = grand.totalSens;
+  const qReq = qEnv + qVent + qInt;
+  document.getElementById('loadStats').innerHTML =
+    '<div class="stat"><div class="lbl">外皮負荷</div><div class="val">'+qEnv.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">換気負荷'+(ventMode==='none'?' (除外中)':'')+'</div><div class="val">'+qVent.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">内部発熱+日射 (Step 2合計)</div><div class="val">'+qInt.toFixed(0)+' W</div></div>'+
+    '<div class="stat hl"><div class="lbl">必要冷房処理熱量</div><div class="val">'+qReq.toFixed(0)+' W</div></div>';
+
+  const vTotal = flowPer*acCount;
+  const qPerUnit = qReq/acCount;
+  let ts = targetT, dts = 0;
+  if(vTotal>0){ dts = qReq/(RHOCP*vTotal); ts = targetT - dts; }
+  document.getElementById('supplyStats').innerHTML =
+    '<div class="stat"><div class="lbl">総風量 ('+acCount+'台)</div><div class="val">'+vTotal.toFixed(0)+' ㎥/h</div></div>'+
+    '<div class="stat"><div class="lbl">1台あたり処理熱量</div><div class="val">'+qPerUnit.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">必要温度差 ΔT</div><div class="val">'+dts.toFixed(2)+' K</div></div>'+
+    '<div class="stat hl"><div class="lbl">吹出温度 (CFD入力・全台共通)</div><div class="val">'+ts.toFixed(2)+' ℃ <button class="copy-btn" data-copy="'+ts.toFixed(2)+'">コピー</button></div></div>'+
+    '<div class="stat"><div class="lbl">吸込温度 (=目標室温)</div><div class="val">'+targetT.toFixed(1)+' ℃</div></div>';
+
+  let warns='';
+  const capW = acMax*1000*acCount;
+  if(qReq > capW){
+    warns += '<div class="warn">能力不足: 必要処理熱量 '+qReq.toFixed(0)+' W が最大冷房能力 '+capW.toFixed(0)+' W ('+acMax+' kW × '+acCount+'台) を超えています。畳数クラスを上げるか台数を増やしてください。</div>';
+  }else{
+    warns += '<div class="small ok">能力チェックOK: 負荷率 '+(qReq/capW*100).toFixed(0)+'% (必要 '+qReq.toFixed(0)+' W / 最大 '+capW.toFixed(0)+' W)</div>';
+  }
+  if(ts < 5) warns += '<div class="warn">吹出温度が '+ts.toFixed(1)+' ℃と極端に低くなっています。実機では出せない温度です。風量を増やす・台数を増やす・負荷を見直すなどしてください。</div>';
+  else if(ts < 10) warns += '<div class="warn">吹出温度が10℃を下回っています。実機の下限に近いため、風量アップや台数追加も検討してください。</div>';
+  document.getElementById('acWarn').innerHTML = warns;
+  renderAcCompare(qReq, flowPer, acMax, targetT, acCount);
+  tr('3','エアコン (吹出・1台あたり)','風量 [㎥/h]', flowPer);
+  tr('3','エアコン (吹出)','吹出温度 [℃]', ts.toFixed(2));
+  tr('3','エアコン (吸込)','吸込温度 [℃] (=目標室温)', targetT.toFixed(1));
+
+  // ================= Step 4 =================
+  document.getElementById('initTEcho').textContent = initT;
+  document.getElementById('initRHEcho').textContent = initRH;
+  const met = document.getElementById('metSel').value;
+  const clo = document.getElementById('cloSel').value;
+  const comfHum = num('comfHum');
+  document.getElementById('comfWrap').innerHTML =
+    cfdRow('快適性指標 > 湿度 [%]', comfHum) +
+    cfdRow('運動量 (代謝量) met', met) +
+    cfdRow('着衣量 clo', clo);
+  tr('4','解析対象と初期値','初期温度 [℃] / 相対湿度 [%]', initT+' / '+initRH, initT);
+  tr('4','特殊コマンド','コマンド (2行)', 'SATULIM ↵ /', 'SATULIM\n/');
+  tr('4','快適性指標','湿度 [%]', comfHum);
+  tr('4','快適性指標','代謝量 met', met);
+  tr('4','快適性指標','着衣量 clo', clo);
+
+  // ================= 転記一覧 =================
+  let tt = '<table><tr><th style="width:50px;">手順</th><th>転記先</th><th>項目</th><th style="width:130px;">値</th><th style="width:70px;"></th></tr>';
+  transferRows.forEach(r=>{
+    tt += '<tr><td>'+r.step+'</td><td class="l">'+r.target+'</td><td class="l">'+r.item+'</td><td><b>'+r.value+'</b></td>'+
+      '<td style="text-align:center;"><button class="copy-btn" data-copy="'+String(r.copy).replace(/"/g,'&quot;').replace(/\n/g,'&#10;')+'">コピー</button></td></tr>';
+  });
+  tt += '</table>';
+  document.getElementById('transferWrap').innerHTML = tt;
+
+  // ---- 進捗表示 ----
+  for(let i=1;i<=5;i++){
+    const done = document.getElementById('done'+i).checked;
+    const el = document.getElementById('st'+i);
+    el.textContent = done ? '済' : '未';
+    el.className = 'st'+(done?' done':'');
+  }
+
+  saveStateDebounced();
+}
+
+// ========================= プリセット連動 =========================
+function initSelectors(){
+  const ts = document.getElementById('tatamiSel');
+  ts.innerHTML = acCatalog.map((c,i)=>'<option value="'+i+'">'+c.tatami+'畳用</option>').join('');
+  ts.value = '0';
+}
+document.addEventListener('change', function(e){
+  let needsRerun = false;
+  if(e.target.id==='tatamiSel'){
+    document.getElementById('acMax').value = acCatalog[+e.target.value].max;
+    needsRerun = true;
+  }
+  if(e.target.id==='dirSel' || e.target.id==='volSel'){
+    const dir = document.getElementById('dirSel').value;
+    const vol = document.getElementById('volSel').value;
+    document.getElementById('flowPerUnit').value = flowTable[dir][vol];
+    needsRerun = true;
+  }
+  if(e.target.id==='winPreset' && e.target.value!=='custom'){
+    document.getElementById('uWin').value = e.target.value;
+    needsRerun = true;
+  }
+  if(needsRerun) runAll();
+});
+document.addEventListener('input', function(e){
+  if(e.target.matches('input, select')) runAll();
+});
+
+// ========================= 保存 / 読込 =========================
+const STORE_KEY = 'cfdBoundaryToolState_v2';
+let saveTimer=null;
+function saveStateDebounced(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify(gatherState()));
+      document.getElementById('saveInfo').textContent = '自動保存済み ('+new Date().toLocaleTimeString()+')';
+    }catch(err){}
+  }, 600);
+}
+function gatherState(){
+  const s = {inputs:{}, checks:{}, rooms:[]};
+  document.querySelectorAll('input[id], select[id]').forEach(el=>{
+    if(el.type==='file') return;
+    if(el.type==='checkbox') s.checks[el.id]=el.checked;
+    else s.inputs[el.id]=el.value;
+  });
+  document.querySelectorAll('.room-card').forEach(card=>{
+    const r = {name:card.querySelector('.roomName').value, fields:{}, windows:[]};
+    ['peopleSensRate','occCount','peopleMoistRate','equipSensRate','roomArea','equipMoistRate','extraSens','extraMoist'].forEach(cls=>{
+      r.fields[cls] = card.querySelector('.'+cls).value;
+    });
+    card.querySelectorAll('.win-row').forEach(w=>{
+      const win={};
+      ['wName','wAz','wTilt','glassSel','attachSel','wEta','wArea'].forEach(cls=>{
+        win[cls] = w.querySelector('.'+cls).value;
+      });
+      r.windows.push(win);
+    });
+    s.rooms.push(r);
+  });
+  return s;
+}
+function applyState(s){
+  if(!s) return;
+  for(const id in (s.inputs||{})){
+    const el = document.getElementById(id);
+    if(el) el.value = s.inputs[id];
+  }
+  for(const id in (s.checks||{})){
+    const el = document.getElementById(id);
+    if(el) el.checked = s.checks[id];
+  }
+  document.getElementById('roomsWrap').innerHTML='';
+  roomCount=0; winCounter=0;
+  (s.rooms||[]).forEach(r=>addRoom(r));
+}
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(gatherState(), null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'cfd_boundary_settings.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importJSON(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{ applyState(JSON.parse(e.target.result)); runAll(); }
+    catch(err){ alert('JSONの読み込みに失敗しました: '+err.message); }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+function resetAll(){
+  if(!confirm('入力内容をすべてリセットしますか?')) return;
+  localStorage.removeItem(STORE_KEY);
+  location.reload();
+}
+
+// ========================= 初期化 =========================
+initSelectors();
+let saved=null;
+try{ saved = JSON.parse(localStorage.getItem(STORE_KEY)); }catch(err){}
+if(saved && saved.rooms && saved.rooms.length){
+  applyState(saved);
+}else{
+  addRoom({name:'LDKetc', fields:{roomArea:32.1, occCount:6, extraSens:50}, windows:[{}]});
+  addRoom({name:'個室', fields:{roomArea:10.8, occCount:1}});
+  addRoom({name:'主寝室', fields:{roomArea:10.1, occCount:2}});
+}
+runAll();
+</script>
+</body>
+</html>
