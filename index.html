@@ -730,6 +730,7 @@
   <p class="small">吹出温度 = 目標室温 − (必要処理熱量 ÷ 台数) / (ρ・cp・1台あたり風量)。すべての台数が同じ風量で稼働し、負荷を均等に分担すると仮定しています。</p>
   <div class="summary-grid" id="supplyStats"></div>
   <div id="acWarn"></div>
+  <div class="note">吹出湿度について: 空調機の冷却コイル出口 (吹出し前) の相対湿度は、業界の計算慣行として95%RH固定で扱うのが一般的です。本ツールもこれに合わせ、吹出口の相対湿度は常に95%RHとしてCFDに入力してください (吹出温度のみ台数・風量条件で変化します)。</div>
   <div class="note">注意: 吹き出した流量・温度が住戸全体に正確に行きわたらない場合、処理熱量を満たしていても目標温度に到達するとは限りません。その場合は吹出温度を自分で変更し、何度か解析を繰り返して調整してください。</div>
 </div>
 
@@ -1392,6 +1393,7 @@ function runAll(){
     '<div class="stat"><div class="lbl">1台あたり処理熱量</div><div class="val">'+qPerUnit.toFixed(0)+' W</div></div>'+
     '<div class="stat"><div class="lbl">必要温度差 ΔT</div><div class="val">'+dts.toFixed(2)+' K</div></div>'+
     '<div class="stat hl"><div class="lbl">吹出温度 (CFD入力・全台共通)</div><div class="val">'+ts.toFixed(2)+' ℃ <button class="copy-btn" data-copy="'+ts.toFixed(2)+'">コピー</button></div></div>'+
+    '<div class="stat hl"><div class="lbl">吹出湿度 (CFD入力・業界慣行で95%RH固定)</div><div class="val">95 %RH <button class="copy-btn" data-copy="95">コピー</button></div></div>'+
     '<div class="stat"><div class="lbl">吸込温度 (=目標室温)</div><div class="val">'+targetT.toFixed(1)+' ℃</div></div>';
 
   let warns='';
@@ -1407,6 +1409,7 @@ function runAll(){
   renderAcCompare(qReq, flowPer, acMax, targetT, acCount);
   tr('3','エアコン (吹出・1台あたり)','風量 [㎥/h]', flowPer);
   tr('3','エアコン (吹出)','吹出温度 [℃]', ts.toFixed(2));
+  tr('3','エアコン (吹出)','吹出湿度 [%RH] (業界慣行で95%RH固定)', '95');
   tr('3','エアコン (吸込)','吸込温度 [℃] (=目標室温)', targetT.toFixed(1));
 
   // ================= Step 4 =================
