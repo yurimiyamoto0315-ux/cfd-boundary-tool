@@ -1649,6 +1649,11 @@ let saved=null;
 try{ saved = JSON.parse(localStorage.getItem(STORE_KEY)); }catch(err){}
 if(saved && saved.rooms && saved.rooms.length){
   applyState(saved);
+  // 旧デフォルト(80g/h/人)のまま保存されている部屋だけ、新デフォルト(76g/h/人)に一度だけ移行する
+  // (自動保存されたブラウザ上の古い値が、HTML側の新デフォルトを上書きしてしまうため)
+  document.querySelectorAll('.peopleMoistRate').forEach(el=>{
+    if(el.value==='80') el.value='76';
+  });
 }else{
   addRoom({name:'LDKetc', fields:{roomArea:32.1, occCount:6, extraSens:50}, windows:[{}]});
   addRoom({name:'個室', fields:{roomArea:10.8, occCount:1}});
