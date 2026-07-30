@@ -631,21 +631,13 @@
       <rect x="410" y="62" width="24" height="9" rx="3" fill="#4FC4E4"/>
       <text x="422" y="88" font-size="9" fill="#8C8C8C" text-anchor="middle">運転</text>
 
-      <!-- 吹出口 (ルーバー) -->
-      <rect x="150" y="127" width="320" height="16" fill="#E4E4E4" stroke="#8C8C8C" stroke-width="1.5"/>
-      <line x1="170" y1="127" x2="185" y2="143" stroke="#8C8C8C" stroke-width="1"/>
-      <line x1="230" y1="127" x2="245" y2="143" stroke="#8C8C8C" stroke-width="1"/>
-      <line x1="290" y1="127" x2="305" y2="143" stroke="#8C8C8C" stroke-width="1"/>
-      <line x1="350" y1="127" x2="365" y2="143" stroke="#8C8C8C" stroke-width="1"/>
-      <line x1="410" y1="127" x2="425" y2="143" stroke="#8C8C8C" stroke-width="1"/>
-
-      <!-- 吹き出す冷たい風 (扇状、ユニット幅の内側だけに収める) -->
-      <polygon points="190,143 430,143 470,300 150,300" fill="#4FC4E4" opacity="0.15"/>
-      <path d="M190,143 C170,210 158,255 150,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M250,143 C240,210 233,255 230,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M310,143 Q310,220 310,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M370,143 C380,210 387,255 390,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
-      <path d="M430,143 C450,210 462,255 470,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <!-- 吹き出す冷たい風 (扇状、ユニット底面から直接出る形にする) -->
+      <polygon points="190,127 430,127 470,300 150,300" fill="#4FC4E4" opacity="0.15"/>
+      <path d="M190,127 C170,200 158,250 150,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M250,127 C240,200 233,250 230,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M310,127 Q310,215 310,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M370,127 C380,200 387,250 390,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
+      <path d="M430,127 C450,200 462,250 470,300" fill="none" stroke="#4FC4E4" stroke-width="2.5" marker-end="url(#mkAcCool)"/>
       <text x="310" y="235" font-size="13" font-weight="700" fill="#1f6f8c" text-anchor="middle">吹出温度・風量</text>
       <text x="310" y="253" font-size="11" fill="#3a7f99" text-anchor="middle">(Step 3-3, 3-4で算出)</text>
 
