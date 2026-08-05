@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>空調CFD 境界条件入力補助ツール (FlowDesigner用)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     --ink:#3D3D3D;        /* 主要テキスト */
@@ -146,7 +147,7 @@
   .room-card{border:1px solid var(--rule2); padding:18px 20px; margin-bottom:14px; background:var(--paper);}
   .room-header{display:flex; align-items:center; gap:12px; margin-bottom:0.75rem;}
   .room-header input[type=text]{font-size:16px; font-weight:600; width:auto; flex:1;}
-  .win-row{display:grid; grid-template-columns:1.2fr 0.8fr 0.8fr 1.4fr 1.4fr 0.9fr 0.8fr auto;
+  .win-row{display:grid; grid-template-columns:1.2fr 0.8fr 1.4fr 1.4fr 0.9fr 0.8fr auto;
     gap:8px; align-items:end; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--rule);}
   .win-row label{font-size:8.5px;}
   .calc-line{display:grid; grid-template-columns:1.2fr auto 1fr auto 1.2fr; gap:10px; align-items:end; margin-bottom:8px;}
@@ -158,11 +159,76 @@
   .tag-req{display:inline-block; border:1px solid var(--heat); color:var(--heat);
     font-size:8.5px; font-weight:700; letter-spacing:.12em; padding:1px 6px; margin-left:6px;
     vertical-align:middle; white-space:nowrap;}
+  .tag-at{display:inline-block; border:1px solid var(--ink2); color:var(--ink2);
+    font-size:8.5px; font-weight:700; letter-spacing:.12em; padding:1px 6px; margin-left:6px;
+    vertical-align:middle; white-space:nowrap;}
   .field-user label{color:var(--ink);}
   .legend-box{border:1px solid var(--rule2); padding:10px 14px; margin:16px 0 0;
     font-size:11.5px; color:var(--ink2); display:flex; align-items:center; gap:10px;}
   .diagram{border:1px solid var(--rule); padding:22px 18px; margin:16px 0 24px;
     text-align:center; overflow-x:auto; background:var(--paper);}
+
+  .mode-gate{
+    position:fixed; inset:0; z-index:1000; background:rgba(255,255,255,.97);
+    display:flex; align-items:center; justify-content:center; padding:28px;
+  }
+  .mode-gate.hidden{display:none;}
+  .mode-card{max-width:720px; width:100%; border:1px solid var(--rule2); padding:36px 32px; background:var(--paper);}
+  .mode-card h1{font-size:28px; font-weight:600; letter-spacing:-.02em; margin-bottom:8px;}
+  .mode-card .lead{color:var(--ink2); font-size:13px; margin-bottom:28px; line-height:1.7;}
+  .mode-choices{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .mode-choices button{
+    text-align:left; padding:22px 18px; border:1px solid var(--rule2); background:var(--paper);
+    color:var(--ink); text-transform:none; letter-spacing:.02em; font-size:13px; line-height:1.55;
+  }
+  .mode-choices button:hover{border-color:var(--ink);}
+  .mode-choices button strong{display:block; font-size:15px; margin-bottom:8px; letter-spacing:.04em;}
+  .mode-choices button span{display:block; color:var(--ink2); font-weight:500; font-size:12px;}
+
+  .need-manual input, .need-manual select{
+    border-bottom-color:var(--heat) !important;
+    background:rgba(222,90,58,.06);
+  }
+  .at-filled label::after{content:" AT"; font-size:8.5px; letter-spacing:.12em; color:var(--ink2); margin-left:6px;}
+
+  #atPanel{display:none; margin-top:16px;}
+  #atPanel.active{display:block;}
+  .at-warn-list{margin:8px 0 0; padding-left:18px; color:var(--heat); font-size:12px;}
+  .at-review{margin-top:14px; border-top:1px solid var(--rule); padding-top:14px;}
+  .at-review-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .at-chip{display:inline-flex; align-items:baseline; gap:5px; border:1px solid var(--rule2);
+    padding:5px 9px; color:var(--ink2); font-size:10px; letter-spacing:.04em; background:#FAFAFA;}
+  .at-chip b{font-size:12px; color:var(--ink); font-weight:600;}
+  .at-chip.warn-chip{border-color:var(--heat); color:var(--heat); background:rgba(222,90,58,.04);}
+  .at-review details{border-top:1px solid var(--rule); padding:8px 0;}
+  .at-review details:last-of-type{border-bottom:1px solid var(--rule);}
+  .at-review summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
+    font-size:11px; font-weight:600; letter-spacing:.08em; color:var(--ink);}
+  .at-review summary::-webkit-details-marker{display:none;}
+  .at-review summary::before{content:"＋"; color:var(--ink3); width:12px;}
+  .at-review details[open] summary::before{content:"－";}
+  .at-review summary .count{margin-left:auto; color:var(--ink3); font-size:9px; font-weight:500;}
+  .at-review-body{padding:9px 4px 2px 20px;}
+  .at-review-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:5px 14px;}
+  .at-review-item{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--rule);
+    padding:4px 0; font-size:11px;}
+  .at-review-item .src{color:var(--ink3); font-size:9px; white-space:nowrap;}
+  .at-room-chips{display:flex; flex-wrap:wrap; gap:5px;}
+  .at-room-chip{border:1px solid var(--rule); padding:3px 7px; font-size:10.5px; color:var(--ink);}
+  .at-room-chip.excluded{color:var(--ink3); border-style:dashed;}
+  .at-window-table{max-height:230px; overflow:auto;}
+  .at-window-table table{font-size:10.5px;}
+  .at-window-table th,.at-window-table td{padding:4px 6px;}
+  .at-review-actions{display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .at-apply-btn{border-color:var(--ink); color:var(--paper); background:var(--ink);}
+  .at-apply-btn:hover{background:var(--paper); color:var(--ink);}
+  .at-validation-ok{color:#4F7B59;}
+  .at-validation-ng{color:var(--heat);}
+  .at-unassigned-row{display:grid; grid-template-columns:1.2fr 0.7fr 0.7fr 0.7fr 1.4fr auto;
+    gap:8px; align-items:end; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--rule);}
+  .room-card.non-habitable{border-left:3px solid var(--ink3); background:#FCFCFC;}
+  .room-kind{font-size:8.5px; letter-spacing:.1em; border:1px solid var(--rule2);
+    color:var(--ink3); padding:2px 6px; white-space:nowrap;}
 
   footer{padding-top:22px; font-size:10px; font-weight:400; color:var(--ink3);
     line-height:2; letter-spacing:.03em; border-top:1px solid var(--rule); margin-top:48px;}
@@ -172,10 +238,29 @@
     .wrap{padding:0 16px 60px;}
     header{min-height:230px; padding:28px 20px 22px; background-position:center center;}
     .row4,.row5{grid-template-columns:repeat(2,1fr);}
+    .mode-choices{grid-template-columns:1fr;}
+    .at-review-grid{grid-template-columns:1fr;}
   }
 </style>
 </head>
 <body>
+<div id="modeGate" class="mode-gate">
+  <div class="mode-card">
+    <h1>CFD Boundary</h1>
+    <p class="lead">入力モードを選んでください。アーキトレンド連携では、PDFから確実に読めた値だけを自動入力し、曖昧な項目は空欄のまま手動入力します。</p>
+    <div class="mode-choices">
+      <button type="button" id="modeManualBtn">
+        <strong>手動モード</strong>
+        <span>従来どおり、すべての境界条件を手入力します。</span>
+      </button>
+      <button type="button" id="modeAtBtn">
+        <strong>アーキトレンド連携</strong>
+        <span>CSVを主入力にして窓・外皮を取得し、PDFがあればUA・U値・居室などを補完します。</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toprule"></div>
 <div class="wrap">
 
@@ -191,13 +276,37 @@
     <div>
       <button onclick="exportJSON()">JSON書き出し</button>
       <button onclick="document.getElementById('importFile').click()">読み込み</button>
+      <button onclick="changeMode()">モード変更</button>
       <button onclick="resetAll()">リセット</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
     </div>
   </div>
 </header>
 
-<div class="statusrow"><span id="saveInfo">入力内容はこのブラウザに自動保存されます</span></div>
+<div class="statusrow">
+  <span id="modeInfo">モード未選択</span>
+  <span id="atRemainInfo" style="display:none; color:var(--heat);"></span>
+  <span id="saveInfo">入力内容はこのブラウザに自動保存されます</span>
+</div>
+
+<div id="atPanel" class="box">
+  <h3 style="margin-top:0;">アーキトレンド 出力データ</h3>
+  <p class="small" style="margin-top:0;">CSVを主入力として窓と外皮面積を正確に取得します。PDFを追加すると、CSVにないUA・U値・居室・窓ηなどを補完して相互検証します。</p>
+  <div class="row2" style="max-width:760px; align-items:end;">
+    <div>
+      <label>シミュレートデータ CSV <span class="tag-at">推奨・主入力</span></label>
+      <input type="file" id="atCsvInput" accept="text/csv,.csv">
+    </div>
+    <div>
+      <label>外皮性能計算表 PDF <span class="small">任意・補完用</span></label>
+      <input type="file" id="atPdfInput" accept="application/pdf,.pdf">
+    </div>
+  </div>
+  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFがある場合のみ居室を作成し、廊下・水回り・収納等は除外します。</p>
+  <div id="atSummary" style="margin-top:12px;"></div>
+  <div id="atReview"></div>
+  <ul class="at-warn-list" id="atWarnList" style="display:none;"></ul>
+</div>
 
 <p class="desc" style="margin-top:16px;">FlowDesigner初心者向け。上から順に入力すると、CFDに転記する境界条件の値がすべて計算されます。各値はコピーしてFlowDesignerの入力欄に貼り付けてください。ページ末尾に転記一覧があります。</p>
 
@@ -246,7 +355,8 @@
   </svg>
 </div>
 
-<div class="legend-box"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
+<div class="legend-box" id="legendManual"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
+<div class="legend-box" id="legendAt" style="display:none;"><span class="tag-req">要手動</span><span>のバッジと赤ハイライトは、CSV/PDFから確実に読めなかった空欄です。推測埋めはしません。必ず自分で入れてください。<span class="tag-at">AT</span> はアーキトレンド出力から自動入力した項目です。</span></div>
 
 <nav class="toc">
   <a href="#common">共通条件</a>
@@ -261,33 +371,40 @@
 <!-- ================= 共通条件 ================= -->
 <h2 id="common">共通条件 (日時・気象・室内設定)</h2>
 <div class="box">
+  <h3 style="margin-top:0;">1. 敷地を指定</h3>
+  <div class="row3">
+    <div style="grid-column:span 2;"><label>建設地住所 (任意)</label><input type="text" id="siteAddress" placeholder="例: 埼玉県上尾市〇〇1-2-3"></div>
+    <div style="align-self:end;"><button class="small-btn" id="geocodeAddressBtn" type="button">住所から緯度経度を取得</button></div>
+  </div>
+  <div class="small" id="geocodeAddressInfo" style="margin:5px 0 10px;">日本国内の住所を国土地理院の住所検索で座標へ変換します。候補の先頭を採用するため、取得後に住所と座標を確認してください。</div>
+  <div class="row2" style="max-width:520px;">
+    <div class="field-user"><label>緯度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lat" value="35.68" step="0.000001"></div>
+    <div class="field-user"><label>経度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lon" value="139.77" step="0.000001"></div>
+  </div>
+  <h3>2. 緯度・経度から最厳日・時刻を取得</h3>
+  <div style="margin:4px 0 12px;">
+    <button class="small-btn" id="fetchHottestBtn" type="button">最厳日・時刻を自動取得</button>
+    <span class="small" id="fetchHottestInfo" style="margin-left:8px;">直近1年の気象データから最高気温となる日と時刻を取得します。</span>
+  </div>
   <div class="row4">
     <div class="field-user"><label>解析対象の日付<span class="tag-req">要設定</span></label><input type="date" id="calcDate" value="2026-07-25"></div>
     <div><label>解析対象の時刻 (時)</label><input type="number" id="detailHour" value="14" step="0.5" min="0" max="24"></div>
-    <div class="field-user"><label>緯度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lat" value="35.68" step="0.01"></div>
-    <div class="field-user"><label>経度 (°)<span class="tag-req">要設定</span></label><input type="number" id="lon" value="139.77" step="0.01"></div>
-  </div>
-  <div style="margin:4px 0 12px;">
-    <button class="small-btn" id="fetchHottestBtn" type="button">直近1年で最も暑かった日を自動取得</button>
-    <span class="small" id="fetchHottestInfo" style="margin-left:8px;">緯度・経度からWeb (Open-Meteo) の気象データを取得し、日付・最高/最低気温・気温ピーク時刻を自動入力します。</span>
-  </div>
-  <div class="row4">
     <div class="field-user"><label>最高気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmax" value="37.1" step="0.1"></div>
     <div class="field-user"><label>最低気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmin" value="26.0" step="0.1"></div>
+  </div>
+  <div class="row4">
     <div class="field-user"><label>気温ピーク時刻 (時)<span class="tag-req">要設定</span></label><input type="number" id="tpeak" value="14.5" step="0.5"></div>
     <div class="field-user"><label>目標室温 (℃) ※負荷計算・吹出温度に使用<span class="tag-req">要設定</span></label><input type="number" id="targetT" value="26" step="0.5"></div>
-  </div>
-  <div class="row4">
     <div><label>解析の初期温度 (℃)</label><input type="number" id="initT" value="25" step="0.5"></div>
     <div><label>解析の初期湿度 (%)</label><input type="number" id="initRH" value="60" step="1"></div>
-    <div><label>日射吸収率 α (外皮表面)</label><input type="number" id="alpha" value="0.70" step="0.01"></div>
-    <div><label>外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
   </div>
   <div class="row4">
+    <div><label>日射吸収率 α (外皮表面)</label><input type="number" id="alpha" value="0.70" step="0.01"></div>
+    <div><label>外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
     <div><label>地面反射率 ρ</label><input type="number" id="rho" value="0.20" step="0.01"></div>
     <div><label>屋根の夜間放射補正 ΔR/ho (℃)</label><input type="number" id="roofCorr" value="4" step="0.5"></div>
-    <div style="grid-column:span 2; align-self:end;" class="small" id="commonSolarInfo"></div>
   </div>
+  <div class="small" id="commonSolarInfo"></div>
 </div>
 
 <!-- ================= STEP 1 ================= -->
@@ -591,7 +708,14 @@
 
 <div class="box">
   <p class="small" style="margin-top:0;">部屋ごとにボリューム (発生エリア) を作成し、直達日射+人体+機器の発熱・発湿の合計を入力します。太陽条件は共通条件から自動計算されます。この合計はStep 3 (エアコン) の必要処理熱量の計算にそのまま使われます。</p>
+  <div class="note">対象とする部屋: 居室、および北面以外に窓がある非居室です。真北向きの窓はこのツールの簡略化ルールとして直達日射0 Wで除外します (北東・北西は計算対象)。</div>
   <div class="summary-grid" id="step2SolarInfo"></div>
+</div>
+
+<div id="atUnassignedBox" class="box" style="display:none;">
+  <h3 style="margin-top:0;">未割当の窓 (アーキトレンド自動取得)<span class="tag-req">要手動</span></h3>
+  <p class="small" style="margin-top:0;">CSV/PDFから窓ID・面積・方位・ηを自動取得済みです。居室に加えて廊下・水回り・収納等も割当先に選べます。非居室は割当時に自動作成され、人体・機器発熱0、窓の直達日射のみを部屋の発熱量へ加算します。真北向きの窓は直達日射0として割当対象から除外します。<span id="atNorthExcludedInfo"></span></p>
+  <div id="atUnassignedList"></div>
 </div>
 
 <div id="roomsWrap"></div>
@@ -954,6 +1078,31 @@ function taAt(hour, tmax, tmin, tpeak){
   return tave + tamp*Math.cos(2*Math.PI*(hour-tpeak)/24);
 }
 function num(id){ return parseFloat(document.getElementById(id).value)||0; }
+function hasInput(id){
+  const el = document.getElementById(id);
+  return !!(el && String(el.value).trim() !== '');
+}
+function numOrNull(id){
+  if(!hasInput(id)) return null;
+  const v = parseFloat(document.getElementById(id).value);
+  return isFinite(v) ? v : null;
+}
+function readLatLon(){
+  if(!hasInput('lat') || !hasInput('lon')){
+    return {ok:false, reason:'緯度・経度が空欄です。敷地の値を入力してから実行してください。'};
+  }
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lon = parseFloat(document.getElementById('lon').value);
+  if(!isFinite(lat) || !isFinite(lon)){
+    return {ok:false, reason:'緯度・経度の数値が不正です。'};
+  }
+  // 空欄→0 や未設定のまま API/太陽位置を叩くと赤道・本初子午線になり、4月最暑や夜ピークSATになる
+  if(Math.abs(lat) < 1e-9 && Math.abs(lon) < 1e-9){
+    return {ok:false, reason:'緯度・経度が 0 のままです。敷地の座標を入力してください。'};
+  }
+  return {ok:true, lat, lon};
+}
+function fmtU(v){ return (v===null || v===undefined || !isFinite(v)) ? '—' : v; }
 function getDateParts(){
   const v = document.getElementById('calcDate').value || '2026-07-25';
   const [y,mo,d] = v.split('-').map(Number);
@@ -985,11 +1134,15 @@ function addRoom(defaults){
   roomCount++;
   const id = 'room'+roomCount;
   const div = document.createElement('div');
-  div.className='room-card';
+  const isNonHabitable=!!(defaults&&defaults.isNonHabitable);
+  div.className='room-card'+(isNonHabitable?' non-habitable':'');
   div.id = id;
+  div.dataset.nonHabitable=isNonHabitable?'true':'false';
+  if(defaults&&defaults.atRoomKey) div.dataset.atRoomKey=defaults.atRoomKey;
   div.innerHTML =
     '<div class="room-header">'+
       '<input type="text" class="roomName" value="'+(defaults&&defaults.name||('部屋'+roomCount))+'">'+
+      (isNonHabitable?'<span class="room-kind">非居室・窓日射用</span>':'')+
       '<button class="small-btn" onclick="document.getElementById(\''+id+'\').remove(); runAll();">部屋を削除</button>'+
     '</div>'+
     '<h3 style="margin-top:0;">窓 (直達日射)</h3>'+
@@ -1061,7 +1214,6 @@ function addWindow(roomId, defaults){
   div.innerHTML =
     '<div><label>名前</label><input type="text" class="wName" value="窓"></div>'+
     '<div><label>方位 (南=0,東=-90,西=90)</label><input type="number" class="wAz" value="0" step="1"></div>'+
-    '<div><label>傾斜角 (垂直=90)</label><input type="number" class="wTilt" value="90" step="1"></div>'+
     '<div><label>ガラス仕様</label><select class="glassSel" onchange="updateEta(\''+wid+'\')">'+glassOpts+'</select></div>'+
     '<div><label>付属部材</label><select class="attachSel" onchange="updateEta(\''+wid+'\')">'+attachOpts+'</select></div>'+
     '<div><label>η0</label><input type="number" class="wEta" value="0.54" step="0.01"></div>'+
@@ -1116,21 +1268,36 @@ function runAll(){
   transferRows = [];
   const {y,mo,d} = getDateParts();
   const detailHour = num('detailHour');
-  const lat=num('lat'), lon=num('lon');
-  const tmax=num('tmax'), tmin=num('tmin'), tpeak=num('tpeak');
-  const rho=num('rho'), alpha=num('alpha'), ho=num('ho'), roofCorr=num('roofCorr');
+  const geo = readLatLon();
+  const lat = geo.ok ? geo.lat : null;
+  const lon = geo.ok ? geo.lon : null;
+  const tmax = numOrNull('tmax'), tmin = numOrNull('tmin'), tpeak = numOrNull('tpeak');
+  const rho=num('rho'), alpha=num('alpha'), ho=num('ho')||23, roofCorr=num('roofCorr');
   const targetT=num('targetT'), initT=num('initT'), initRH=num('initRH');
+  const taReady = (tmax!==null && tmin!==null && tpeak!==null);
 
   // ---- 太陽条件 (共通) ----
-  const sp = solarPos(y,mo,d,detailHour,lat,lon);
+  // 緯度経度が空/0のまま計算すると経度0°扱いになり、日本の時計時刻で夜に日射ピークが出る
+  let sp = {alt:0, az:0, sinAlt:0};
   let idn=0, isky=0;
-  if(sp.alt>0){ idn=1098*Math.exp(-0.057/Math.sin(sp.alt)); isky=0.125*idn; }
-  const taNow = taAt(detailHour, tmax, tmin, tpeak);
+  if(geo.ok){
+    sp = solarPos(y,mo,d,detailHour,lat,lon);
+    if(sp.alt>0){ idn=1098*Math.exp(-0.057/Math.sin(sp.alt)); isky=0.125*idn; }
+  }
+  const taNow = taReady ? taAt(detailHour, tmax, tmin, tpeak) : 0;
   const altDeg=(sp.alt*180/Math.PI), azDeg=(sp.az*180/Math.PI);
-  document.getElementById('commonSolarInfo').innerHTML =
-    '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+taNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
-    (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。日射はゼロとして計算します。</span>':'');
-
+  let commonMsg = '';
+  if(!geo.ok){
+    commonMsg = '<span style="color:#DE5A3A; font-weight:600;">※'+geo.reason+' SAT・日射は計算しません。</span>';
+  }else if(!taReady){
+    commonMsg = '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
+      ' <span style="color:#DE5A3A; font-weight:600;">※最高/最低気温・ピーク時刻が未入力のため外気温=0として仮表示しています。</span>';
+  }else{
+    commonMsg =
+      '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+taNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
+      (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。日射はゼロとして計算します。</span>':'');
+  }
+  document.getElementById('commonSolarInfo').innerHTML = commonMsg;
   // ================= Step 1 =================
   // ドア隙間 (モデル高さは0.1m均一・開口率のみ表の値を使用)
   const gapKey = document.getElementById('doorType').value+'_'+document.getElementById('doorUC').value;
@@ -1148,33 +1315,40 @@ function runAll(){
   const hours=[]; for(let h=0; h<=24; h+=0.5) hours.push(h);
   const series={}; orientations.forEach(o=>series[o.name]=[]);
   const roofSeries=[];
-  hours.forEach(hour=>{
-    const s = solarPos(y,mo,d,hour,lat,lon);
-    let hIdn=0, hIsky=0;
-    if(s.alt>0){ hIdn=1098*Math.exp(-0.057/Math.sin(s.alt)); hIsky=0.125*hIdn; }
-    const ta = taAt(hour, tmax, tmin, tpeak);
-    orientations.forEach(o=>{
-      let iw=0;
-      if(s.alt>0){
-        const cosInc = Math.cos(s.alt)*Math.cos(s.az-o.az*Math.PI/180);
-        const ib = hIdn*Math.max(cosInc,0);
-        const idf = hIsky*0.5;
-        const ir = (hIdn*s.sinAlt+hIsky)*rho*0.5;
-        iw = ib+idf+ir;
-      }
-      series[o.name].push(ta + alpha*iw/ho);
+  if(geo.ok){
+    hours.forEach(hour=>{
+      const s = solarPos(y,mo,d,hour,lat,lon);
+      let hIdn=0, hIsky=0;
+      if(s.alt>0){ hIdn=1098*Math.exp(-0.057/Math.sin(s.alt)); hIsky=0.125*hIdn; }
+      const ta = taReady ? taAt(hour, tmax, tmin, tpeak) : 0;
+      orientations.forEach(o=>{
+        let iw=0;
+        if(s.alt>0){
+          const cosInc = Math.cos(s.alt)*Math.cos(s.az-o.az*Math.PI/180);
+          const ib = hIdn*Math.max(cosInc,0);
+          const idf = hIsky*0.5;
+          const ir = (hIdn*s.sinAlt+hIsky)*rho*0.5;
+          iw = ib+idf+ir;
+        }
+        series[o.name].push(ta + alpha*iw/ho);
+      });
+      let iRoof=0;
+      if(s.alt>0) iRoof = hIdn*Math.max(s.sinAlt,0) + hIsky;
+      roofSeries.push(ta + alpha*iRoof/ho - roofCorr);
     });
-    let iRoof=0;
-    if(s.alt>0) iRoof = hIdn*Math.max(s.sinAlt,0) + hIsky;
-    roofSeries.push(ta + alpha*iRoof/ho - roofCorr);
-  });
+  }else{
+    hours.forEach(()=>{
+      orientations.forEach(o=> series[o.name].push(null));
+      roofSeries.push(null);
+    });
+  }
   const labels = hours.map(h=>h+':00');
   const datasets = orientations.map(o=>({
     label:o.name, data:series[o.name], borderColor:o.color, backgroundColor:o.color,
-    borderWidth:2, pointRadius:0, tension:0.3
+    borderWidth:2, pointRadius:0, tension:0.3, spanGaps:false
   }));
   datasets.push({label:'屋根(水平)', data:roofSeries, borderColor:'#3D3D3D', backgroundColor:'#3D3D3D',
-    borderWidth:2, borderDash:[5,3], pointRadius:0, tension:0.3});
+    borderWidth:2, borderDash:[5,3], pointRadius:0, tension:0.3, spanGaps:false});
   if(satChart) satChart.destroy();
   satChart = new Chart(document.getElementById('satChart'), {
     type:'line', data:{labels, datasets},
@@ -1183,62 +1357,76 @@ function runAll(){
   });
 
   // SAT 指定時刻
-  document.getElementById('satSolarInfo').innerHTML =
-    '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
-    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
-    '<div class="stat"><div class="lbl">I_DN (直達)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
-    '<div class="stat"><div class="lbl">Isky (天空)</div><div class="val">'+isky.toFixed(0)+' W/m²</div></div>'+
-    '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+taNow.toFixed(1)+' ℃</div></div>';
+  if(!geo.ok){
+    document.getElementById('satSolarInfo').innerHTML =
+      '<div class="warn" style="grid-column:1/-1;">'+geo.reason+' 緯度・経度を入れるとSATグラフが正しくなります。</div>';
+  }else{
+    document.getElementById('satSolarInfo').innerHTML =
+      '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
+      '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
+      '<div class="stat"><div class="lbl">I_DN (直達)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
+      '<div class="stat"><div class="lbl">Isky (天空)</div><div class="val">'+isky.toFixed(0)+' W/m²</div></div>'+
+      '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+(taReady?taNow.toFixed(1)+' ℃':'—')+'</div></div>';
+  }
 
-  const uWall=num('uWall'), uRoof=num('uRoof');
+  const uWall = numOrNull('uWall'), uRoof = numOrNull('uRoof');
   const satByOri = {};
   let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃) → 発生パネル「外気温」</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
   orientations.forEach(o=>{
     let iw=0, sat=taNow;
-    if(sp.alt>0){
+    if(geo.ok && sp.alt>0){
       const cosInc = Math.cos(sp.alt)*Math.cos(sp.az-o.az*Math.PI/180);
       const ib = idn*Math.max(cosInc,0);
       const idf = isky*0.5;
       const ir = (idn*sp.sinAlt+isky)*rho*0.5;
       iw = ib+idf+ir;
       sat = taNow + alpha*iw/ho;
+    }else if(!geo.ok){
+      iw = 0; sat = NaN;
     }
     satByOri[o.name]=sat;
-    table += '<tr><td>外壁 '+o.name+'</td><td>'+iw.toFixed(1)+'</td><td><b>'+sat.toFixed(2)+'</b></td><td>'+uWall+'</td>'+
-      '<td><button class="copy-btn" data-copy="'+sat.toFixed(2)+'">SATコピー</button></td></tr>';
+    const satTxt = isFinite(sat) ? sat.toFixed(2) : '—';
+    table += '<tr><td>外壁 '+o.name+'</td><td>'+(geo.ok?iw.toFixed(1):'—')+'</td><td><b>'+satTxt+'</b></td><td>'+fmtU(uWall)+'</td>'+
+      '<td>'+(isFinite(sat)?'<button class="copy-btn" data-copy="'+sat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
   });
   let iRoof=0, roofSat=taNow-roofCorr;
-  if(sp.alt>0){ iRoof = idn*Math.max(sp.sinAlt,0)+isky; roofSat = taNow + alpha*iRoof/ho - roofCorr; }
-  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+iRoof.toFixed(1)+'</td><td><b>'+roofSat.toFixed(2)+'</b></td><td>'+uRoof+'</td>'+
-    '<td><button class="copy-btn" data-copy="'+roofSat.toFixed(2)+'">SATコピー</button></td></tr>';
+  if(geo.ok && sp.alt>0){ iRoof = idn*Math.max(sp.sinAlt,0)+isky; roofSat = taNow + alpha*iRoof/ho - roofCorr; }
+  else if(!geo.ok){ roofSat = NaN; }
+  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+(geo.ok?iRoof.toFixed(1):'—')+'</td><td><b>'+(isFinite(roofSat)?roofSat.toFixed(2):'—')+'</b></td><td>'+fmtU(uRoof)+'</td>'+
+    '<td>'+(isFinite(roofSat)?'<button class="copy-btn" data-copy="'+roofSat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
   table += '</table>';
   document.getElementById('satTableWrap').innerHTML = table;
-  ['北','東','南','西'].forEach(nm=>{
-    tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
-    tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', uWall);
-  });
-  tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofSat.toFixed(2));
-  tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', uRoof);
+  if(geo.ok){
+    ['北','東','南','西'].forEach(nm=>{
+      tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
+      tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uWall));
+    });
+    tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofSat.toFixed(2));
+    tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', fmtU(uRoof));
+  }
 
   // 1F床
-  const uFloor1=num('uFloor1');
-  document.getElementById('uFloor1Disp').textContent = uFloor1;
-  document.getElementById('uFloor1Copy').dataset.copy = uFloor1;
-  tr('1-5','1F床 (形状モデル)','熱通過率 [W/m²K]', uFloor1);
+  const uFloor1 = numOrNull('uFloor1');
+  document.getElementById('uFloor1Disp').textContent = fmtU(uFloor1);
+  document.getElementById('uFloor1Copy').dataset.copy = uFloor1==null ? '' : uFloor1;
+  tr('1-5','1F床 (形状モデル)','熱通過率 [W/m²K]', fmtU(uFloor1));
 
   // 基礎外周
-  const uFound=num('uFound');
+  const uFound = numOrNull('uFound');
   document.getElementById('foundWrap').innerHTML =
-    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', taNow.toFixed(2)) +
-    cfdRow('熱貫流率 (熱通過率) [W/m²K]', uFound);
-  tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
-  tr('1-6','基礎外周 (発生パネル)','熱通過率 [W/m²K]', uFound);
+    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', taReady?taNow.toFixed(2):'—') +
+    cfdRow('熱貫流率 (熱通過率) [W/m²K]', fmtU(uFound));
+  if(taReady) tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
+  tr('1-6','基礎外周 (発生パネル)','熱通過率 [W/m²K]', fmtU(uFound));
 
   // 窓 疑似厚み
-  const uWin=num('uWin'), hiWin=num('hiWin'), hoWin=num('hoWin'), lamWin=num('lamWin');
-  const rBody = 1/uWin - 1/hoWin - 1/hiWin;
+  const uWin=numOrNull('uWin'), hiWin=num('hiWin'), hoWin=num('hoWin'), lamWin=num('lamWin');
+  const rBody = (uWin && uWin>0) ? (1/uWin - 1/hoWin - 1/hiWin) : NaN;
   const dWin = rBody*lamWin;
-  if(rBody<=0){
+  if(uWin===null){
+    document.getElementById('winWarn').innerHTML = '<div class="warn">窓U値が未入力です。</div>';
+    document.getElementById('winWrap').innerHTML = '';
+  }else if(!(rBody>0)){
     document.getElementById('winWarn').innerHTML = '<div class="warn">U値が大きすぎて躯体熱抵抗が0以下になりました。U値・表面熱伝達率を確認してください。</div>';
     document.getElementById('winWrap').innerHTML = '';
   }else{
@@ -1270,12 +1458,14 @@ function runAll(){
     const name = card.querySelector('.roomName').value;
     let solarW = 0;
     card.querySelectorAll('.win-row').forEach(w=>{
-      const wAz = parseFloat(w.querySelector('.wAz').value)*Math.PI/180;
-      const wTilt = parseFloat(w.querySelector('.wTilt').value)*Math.PI/180;
+      const wAzDeg = parseFloat(w.querySelector('.wAz').value);
+      const wAz = wAzDeg*Math.PI/180;
+      const wTilt = Math.PI/2; // 一般的な壁面窓として垂直固定
       const eta = parseFloat(w.querySelector('.wEta').value);
       const area = parseFloat(w.querySelector('.wArea').value);
       let q = 0;
-      if(sp.alt>0){
+      const northFacing=Math.abs(Math.abs(wAzDeg)-180)<0.5;
+      if(sp.alt>0 && !northFacing){
         const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
         const ib = idn*Math.max(cosInc,0);
         q = ib*eta*area;
@@ -1448,23 +1638,61 @@ function runAll(){
   saveStateDebounced();
 }
 
-// ========================= 最も暑い日の自動取得 =========================
+// ========================= 住所・最厳日/時刻の自動取得 =========================
+async function geocodeAddress(){
+  const address=document.getElementById('siteAddress').value.trim();
+  const btn=document.getElementById('geocodeAddressBtn');
+  const info=document.getElementById('geocodeAddressInfo');
+  if(!address){
+    info.textContent='建設地住所を入力してください。';
+    return;
+  }
+  btn.disabled=true;
+  info.textContent='住所から緯度・経度を検索中…';
+  try{
+    const url='https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(address);
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(!Array.isArray(data) || !data.length || !data[0].geometry) throw new Error('住所候補が見つかりません');
+    const coords=data[0].geometry.coordinates;
+    const lon=Number(coords[0]), lat=Number(coords[1]);
+    if(!isFinite(lat) || !isFinite(lon)) throw new Error('座標を取得できません');
+    document.getElementById('lat').value=lat.toFixed(6);
+    document.getElementById('lon').value=lon.toFixed(6);
+    const title=(data[0].properties&&data[0].properties.title)||address;
+    info.textContent='取得完了: '+title+' → 緯度 '+lat.toFixed(6)+' / 経度 '+lon.toFixed(6)+' (出典: 国土地理院)。続けて最厳日・時刻を取得してください。';
+    runAll();
+  }catch(err){
+    info.textContent='住所検索に失敗しました ('+err.message+')。住所を短くするか、緯度・経度を直接入力してください。';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
 // Open-Meteo Historical Weather API (無料・APIキー不要) から直近1年の時別気温を取得し、
-// 日最高気温が最大の日を「最も暑い日」として日付・最高/最低気温・気温ピーク時刻に自動反映する
+// 日最高気温が最大の日を「最厳日」として解析日・解析時刻・最高/最低気温に自動反映する
 async function fetchHottestDay(){
   const btn = document.getElementById('fetchHottestBtn');
   const info = document.getElementById('fetchHottestInfo');
-  const lat = num('lat'), lon = num('lon');
-  if(!isFinite(lat) || !isFinite(lon)){
-    info.textContent = '緯度・経度を入力してから実行してください。';
+  const geo = readLatLon();
+  if(!geo.ok){
+    info.textContent = geo.reason;
     return;
   }
+  const {lat, lon} = geo;
   btn.disabled = true;
   info.textContent = '気象データを取得中… (Open-Meteo)';
   try{
     const end = new Date(); end.setDate(end.getDate()-6); // アーカイブAPIは直近数日分が未確定のため余裕を持たせる
     const start = new Date(end); start.setFullYear(start.getFullYear()-1);
-    const fmt = d=>d.toISOString().slice(0,10);
+    // ローカル日付でYYYY-MM-DDを組む (toISOStringはUTCなので日本だと日付が1日ずれる)
+    const fmt = d=>{
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      const day=String(d.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    };
     const url = 'https://archive-api.open-meteo.com/v1/archive?latitude='+lat+'&longitude='+lon+
       '&start_date='+fmt(start)+'&end_date='+fmt(end)+'&hourly=temperature_2m&timezone=Asia%2FTokyo';
     const res = await fetch(url);
@@ -1495,10 +1723,11 @@ async function fetchHottestDay(){
     }
     if(!bestDate) throw new Error('最高気温の日を特定できませんでした');
     document.getElementById('calcDate').value = bestDate;
+    document.getElementById('detailHour').value = bestHour;
     document.getElementById('tmax').value = bestMax.toFixed(1);
     document.getElementById('tmin').value = bestMin.toFixed(1);
     document.getElementById('tpeak').value = bestHour;
-    info.textContent = '取得完了: '+bestDate+' が直近1年で最も暑い日でした (最高'+bestMax.toFixed(1)+'℃ / 最低'+bestMin.toFixed(1)+'℃ / ピーク'+bestHour+'時, 出典: Open-Meteo)。';
+    info.textContent = '取得完了: 最厳日 '+bestDate+' / 解析時刻 '+bestHour+'時 / 最高'+bestMax.toFixed(1)+'℃ / 最低'+bestMin.toFixed(1)+'℃ (出典: Open-Meteo)。';
     runAll();
   }catch(err){
     info.textContent = '取得に失敗しました ('+err.message+')。オフライン、またはAPI一時停止の可能性があります。手動入力してください。';
@@ -1524,6 +1753,7 @@ function populateWinGlass(){
   wg.innerHTML = jsmaWinTable[frame].map((r,i)=>'<option value="'+i+'">'+r.label+'</option>').join('');
 }
 function syncUWinFromTable(){
+  if(appMode==='architrend') return; // AT連携ではPDFのUを優先 (表からの上書き禁止)
   const frame = document.getElementById('winFrame').value;
   const row = jsmaWinTable[frame][+document.getElementById('winGlass').value];
   const attach = +document.getElementById('winAttach').value;
@@ -1554,6 +1784,7 @@ document.addEventListener('change', function(e){
   if(needsRerun) runAll();
 });
 document.getElementById('fetchHottestBtn').addEventListener('click', fetchHottestDay);
+document.getElementById('geocodeAddressBtn').addEventListener('click', geocodeAddress);
 document.addEventListener('input', function(e){
   if(e.target.matches('input, select')) runAll();
 });
@@ -1571,21 +1802,26 @@ function saveStateDebounced(){
   }, 600);
 }
 function gatherState(){
-  const s = {inputs:{}, checks:{}, rooms:[]};
+  const s = {mode: appMode, inputs:{}, checks:{}, rooms:[], atUnassigned: atUnassignedWindows.slice(),
+    atRoomCandidates:atAssignableRooms.slice(), atNorthExcludedCount};
   document.querySelectorAll('input[id], select[id]').forEach(el=>{
     if(el.type==='file') return;
+    if(el.id==='atPdfInput') return;
     if(el.type==='checkbox') s.checks[el.id]=el.checked;
     else s.inputs[el.id]=el.value;
   });
   document.querySelectorAll('.room-card').forEach(card=>{
-    const r = {name:card.querySelector('.roomName').value, fields:{}, windows:[]};
+    const r = {name:card.querySelector('.roomName').value, fields:{}, windows:[],
+      isNonHabitable:card.dataset.nonHabitable==='true', atRoomKey:card.dataset.atRoomKey||''};
     ['peopleSensRate','occCount','peopleMoistRate','equipSensRate','roomArea','equipMoistRate','extraSens','extraMoist'].forEach(cls=>{
-      r.fields[cls] = card.querySelector('.'+cls).value;
+      const el = card.querySelector('.'+cls);
+      if(el) r.fields[cls] = el.value;
     });
     card.querySelectorAll('.win-row').forEach(w=>{
       const win={};
-      ['wName','wAz','wTilt','glassSel','attachSel','wEta','wArea'].forEach(cls=>{
-        win[cls] = w.querySelector('.'+cls).value;
+      ['wName','wAz','glassSel','attachSel','wEta','wArea'].forEach(cls=>{
+        const el = w.querySelector('.'+cls);
+        if(el) win[cls] = el.value;
       });
       r.windows.push(win);
     });
@@ -1638,23 +1874,1209 @@ function resetAll(){
   location.reload();
 }
 
+// ========================= アーキトレンド連携 =========================
+var appMode = null; // 'manual' | 'architrend' (var: syncUWinFromTable より前でも参照可)
+let atUnassignedWindows = [];
+let atAssignableRooms = [];
+let atNorthExcludedCount = 0;
+let atLastParse = null;
+let atCsvParse = null;
+let atPdfParse = null;
+const AT_AZ = {南:0, 南東:-45, 東:-90, 北東:-135, 北:180, 北西:135, 西:90, 南西:45};
+function isNorthFacingAz(value){
+  const az=Number(value);
+  return Number.isFinite(az) && Math.abs(Math.abs(az)-180)<0.5;
+}
+const AT_BLANK_IDS = [
+  'calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT',
+  'uWall','uRoof','uFloor1','uFound','uWin','uaVal','envArea','roomVol','ach','hxRate','acMax'
+];
+const AT_MANUAL_IDS = AT_BLANK_IDS.concat(['acCount']);
+
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function changeMode(){
+  if(!confirm('モードを変更すると入力内容をリセットします。よろしいですか?')) return;
+  localStorage.removeItem(STORE_KEY);
+  location.reload();
+}
+
+function setModeUI(mode){
+  appMode = mode;
+  document.getElementById('modeGate').classList.add('hidden');
+  document.getElementById('modeInfo').textContent =
+    mode==='architrend' ? 'MODE: ARCHITREND' : 'MODE: MANUAL';
+  document.getElementById('atPanel').classList.toggle('active', mode==='architrend');
+  document.getElementById('legendManual').style.display = mode==='architrend' ? 'none' : 'flex';
+  document.getElementById('legendAt').style.display = mode==='architrend' ? 'flex' : 'none';
+  document.querySelectorAll('.tag-req').forEach(el=>{
+    if(el.closest('#legendManual') || el.closest('#legendAt')) return;
+    el.textContent = mode==='architrend' ? '要手動' : '要設定';
+  });
+}
+
+function blankForArchitrend(){
+  AT_BLANK_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  document.getElementById('roomsWrap').innerHTML = '';
+  roomCount = 0; winCounter = 0;
+  atUnassignedWindows = [];
+  atAssignableRooms = [];
+  atNorthExcludedCount = 0;
+  renderUnassignedWindows();
+}
+
+function markAtFilled(id, on){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const wrap = el.closest('div');
+  if(!wrap) return;
+  wrap.classList.toggle('at-filled', !!on);
+}
+
+function tokenizeULine(s){
+  const out = [];
+  let i = 0;
+  const str = String(s).replace(/－/g, '-');
+  while(i < str.length){
+    if(str[i] === '-'){ i++; continue; }
+    const m = str.slice(i).match(/^(\d+\.\d{3})/);
+    if(m){ out.push(parseFloat(m[1])); i += m[1].length; continue; }
+    i++;
+  }
+  return out;
+}
+
+function normalizePdfText(s){
+  return String(s||'').replace(/\s+/g,'').replace(/[（）]/g, m=>m==='（'?'(':')');
+}
+
+function parseCsvRows(text){
+  const rows=[];
+  let row=[], field='', quoted=false;
+  const src=String(text||'').replace(/^\uFEFF/,'');
+  for(let i=0;i<src.length;i++){
+    const ch=src[i];
+    if(quoted){
+      if(ch==='"' && src[i+1]==='"'){ field+='"'; i++; }
+      else if(ch==='"') quoted=false;
+      else field+=ch;
+    }else if(ch==='"'){
+      quoted=true;
+    }else if(ch===','){
+      row.push(field); field='';
+    }else if(ch==='\n'){
+      row.push(field.replace(/\r$/,'')); rows.push(row); row=[]; field='';
+    }else{
+      field+=ch;
+    }
+  }
+  if(field!=='' || row.length){ row.push(field.replace(/\r$/,'')); rows.push(row); }
+  return rows;
+}
+
+function csvNumber(value){
+  const s=String(value==null?'':value).trim().replace(/,/g,'');
+  if(!s || s==='－' || s==='-') return null;
+  const n=Number(s);
+  return Number.isFinite(n)?n:null;
+}
+
+function emptyArchitrendResult(){
+  return {
+    projectName:null, workName:null, projectLocation:null,
+    ua:null, envArea:null, uRoof:null, uWall:null, uFloor:null, uFound:null, uWin:null,
+    trueNorthDeg:null, trueNorthNote:null,
+    rooms:[], habitableRooms:[], excludedRooms:[], windows:[],
+    notes:[], validation:{}, sources:{}, inputSources:{csv:false,pdf:false}
+  };
+}
+
+function parseArchiTrendCsv(text){
+  const rows=parseCsvRows(text).filter(row=>row.some(cell=>String(cell).trim()!==''));
+  const warnings=[];
+  const result=emptyArchitrendResult();
+  result.inputSources.csv=true;
+  if(rows.length<3) return {result,warnings:['CSVにデータ行がありません']};
+
+  const h1=rows[0].map(v=>String(v).trim());
+  const h2=(rows[1]||[]).map(v=>String(v).trim());
+  const indexOf=label=>h1.indexOf(label);
+  const indexOfSub=label=>h2.indexOf(label);
+  const idx={
+    part:indexOf('部位'), floor:indexOf('階'), name:indexOf('名称'), adjacent:indexOf('隣接空間'),
+    width:indexOfSub('幅'), height:indexOfSub('高'), area:indexOf('面積[㎡]'),
+    perimeter:indexOf('基礎周長[ｍ]'), spec:indexOf('仕様'), attachment:indexOf('付属品'),
+    glass:indexOf('ガラス仕様'), loss:indexOf('貫流熱損失[W/K]'),
+    gainCooling:indexOf('日射熱取得量冷房期'), gainHeating:indexOf('日射熱取得量暖房期')
+  };
+  const required=['part','floor','name','width','height','area','spec','gainCooling'];
+  const missing=required.filter(key=>idx[key]<0);
+  if(missing.length){
+    warnings.push('CSVの必須列を確認できません: '+missing.join(', '));
+    return {result,warnings};
+  }
+
+  const dataRows=rows.slice(2);
+  const windowRows=dataRows.filter(row=>String(row[idx.part]).trim()==='窓');
+  const seen=new Set();
+  windowRows.forEach(row=>{
+    const id=String(row[idx.name]||'').trim();
+    const idMatch=id.match(/^G(南東|南西|北東|北西|南|北|東|西)-(\d+)$/);
+    if(!idMatch || seen.has(id)) return;
+    seen.add(id);
+    const floor=String(row[idx.floor]||'').trim();
+    const orient=idMatch[1];
+    result.windows.push({
+      id, floor, orient,
+      width:csvNumber(row[idx.width]), height:csvNumber(row[idx.height]), area:csvNumber(row[idx.area]),
+      gain:csvNumber(row[idx.gainCooling]), gainCooling:csvNumber(row[idx.gainCooling]),
+      gainHeating:csvNumber(row[idx.gainHeating]),
+      spec:String(row[idx.spec]||'').trim(), glassSpec:String(row[idx.glass]||'').trim(),
+      attachment:String(row[idx.attachment]||'').trim(),
+      az:(orient in AT_AZ)?AT_AZ[orient]:null,
+      eta:null, tilt:90, roofLike:false,
+      sourceLabel:'CSV'
+    });
+  });
+
+  const totalRow=dataRows.find(row=>String(row[idx.part]).trim()==='外皮面積合計');
+  if(totalRow) result.envArea=csvNumber(totalRow[idx.area]);
+  result.sources.envArea=result.envArea!==null?'CSV':null;
+  result.csvEnvelopeRows=dataRows.filter(row=>{
+    const part=String(row[idx.part]||'').trim();
+    const adjacent=idx.adjacent>=0?String(row[idx.adjacent]||'').trim():'';
+    return ['屋根','外壁','床','基礎'].includes(part) && (adjacent==='外気' || part==='基礎');
+  }).map(row=>({
+    part:String(row[idx.part]||'').trim(), name:String(row[idx.name]||'').trim(),
+    area:csvNumber(row[idx.area]), perimeter:csvNumber(row[idx.perimeter]),
+    heatLoss:csvNumber(row[idx.loss]), spec:String(row[idx.spec]||'').trim()
+  }));
+
+  const areaSum=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
+  const gainSum=result.windows.reduce((sum,w)=>sum+(w.gainCooling||0),0);
+  const dimensionsOk=result.windows.length>0 && result.windows.every(w=>
+    w.width>0 && w.height>0 && w.area>0 && Math.abs(w.width*w.height-w.area)<0.02);
+  const gainsOk=result.windows.length>0 && result.windows.every(w=>w.gainCooling!==null);
+  result.validation.windows={
+    count:result.windows.length, areaSum, expectedArea:areaSum,
+    gainSum, expectedGain:gainSum,
+    areaOk:dimensionsOk, gainOk:gainsOk, source:'CSV'
+  };
+  result.notes.push('CSVから窓'+result.windows.length+'枚を取得しました');
+  if(!result.windows.length) warnings.push('CSVから窓行を取得できませんでした');
+  if(!dimensionsOk) warnings.push('幅×高さと面積が一致しない窓があります');
+  if(!result.envArea) warnings.push('CSVから外皮面積合計を取得できませんでした');
+  return {result,warnings};
+}
+
+function mergeArchitrendSources(csvParsed,pdfParsed){
+  if(!csvParsed && !pdfParsed) return null;
+  const pdfResult=pdfParsed&&pdfParsed.result;
+  const csvResult=csvParsed&&csvParsed.result;
+  const result=pdfResult ? JSON.parse(JSON.stringify(pdfResult)) : emptyArchitrendResult();
+  result.sources=result.sources||{};
+  result.inputSources={csv:!!csvParsed,pdf:!!pdfParsed};
+  result.notes=[...(result.notes||[])];
+  const warnings=[];
+  if(pdfResult){
+    ['projectName','workName','projectLocation','ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
+      if(result[key]!==null) result.sources[key]='PDF p.1';
+    });
+    if(result.habitableRooms.length) result.sources.rooms='PDF p.'+
+      ((result.validation.rooms&&result.validation.rooms.page)||9);
+  }
+
+  if(csvParsed){
+    result.envArea=csvResult.envArea;
+    result.sources.envArea=csvResult.envArea!==null?'CSV':null;
+    result.csvEnvelopeRows=csvResult.csvEnvelopeRows||[];
+    const pdfWindows=new Map((pdfResult&&pdfResult.windows||[]).map(w=>[w.id,w]));
+    result.windows=csvResult.windows.map(csvWindow=>{
+      const pdfWindow=pdfWindows.get(csvWindow.id);
+      return Object.assign({},csvWindow,{
+        eta:pdfWindow&&pdfWindow.eta!==null?pdfWindow.eta:null,
+        tilt:90,
+        sourceLabel:pdfWindow&&pdfWindow.eta!==null?'CSV + PDF p.'+(pdfWindow.sourcePage||1):'CSV'
+      });
+    });
+    result.validation=result.validation||{};
+    result.validation.windows=JSON.parse(JSON.stringify(csvResult.validation.windows));
+    if(pdfResult&&pdfResult.windows.length){
+      const csvIds=new Set(result.windows.map(w=>w.id));
+      const pdfIds=new Set(pdfResult.windows.map(w=>w.id));
+      const idsOk=csvIds.size===pdfIds.size && [...csvIds].every(id=>pdfIds.has(id));
+      const csvArea=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
+      const pdfArea=pdfResult.windows.reduce((sum,w)=>sum+(w.area||0),0);
+      result.validation.windows.crossOk=idsOk && Math.abs(csvArea-pdfArea)<0.03;
+      result.validation.windows.crossText='CSV/PDF 窓ID・面積';
+      if(!result.validation.windows.crossOk) warnings.push('CSVとPDFの窓IDまたは窓面積が一致しません');
+      else result.notes.push('CSVとPDFの窓'+result.windows.length+'枚・面積が一致しました');
+    }
+  }
+
+  if(csvParsed) warnings.push(...csvParsed.warnings);
+  if(pdfParsed){
+    pdfParsed.warnings.forEach(w=>{
+      if(/真北|物件名とフッター|建設地/.test(w)) warnings.push(w);
+    });
+  }
+  if(!csvParsed) warnings.push('CSV未指定です。窓情報はPDF解析結果を使用します');
+  if(!pdfParsed) warnings.push('PDF未指定のため、UA・U値・居室・窓ηは取得できません');
+  if(result.ua===null) warnings.push('UAは空欄です');
+  if([result.uRoof,result.uWall,result.uFloor,result.uFound,result.uWin].some(v=>v===null)){
+    warnings.push('PDFから確定できない部位U値は空欄です');
+  }
+  if(!result.habitableRooms.length) warnings.push('居室情報がないため、部屋は手動で作成してください');
+  const etaMissing=result.windows.filter(w=>w.eta===null).length;
+  if(etaMissing) warnings.push('窓ηが未取得の窓が'+etaMissing+'枚あります');
+  return {result,warnings:[...new Set(warnings)]};
+}
+
+function groupPdfItemsIntoLines(items){
+  const lines = [];
+  (items||[]).filter(it=>String(it.text||'').trim()).forEach(item=>{
+    let line = lines.find(row=>Math.abs(row.y-item.y)<=2.5);
+    if(!line){
+      line = {y:item.y, items:[]};
+      lines.push(line);
+    }
+    line.items.push(item);
+  });
+  lines.forEach(line=>{
+    line.items.sort((a,b)=>a.x-b.x);
+    line.text = line.items.map(it=>it.text).join(' ');
+    line.compact = normalizePdfText(line.text);
+  });
+  return lines;
+}
+
+function pdfNumNear(line, targetRatio, pageWidth, toleranceRatio){
+  if(!line || !pageWidth) return null;
+  const tol = pageWidth*(toleranceRatio||0.018);
+  let best=null, bestD=Infinity;
+  line.items.forEach(it=>{
+    const v = parseFloat(String(it.text).replace(/,/g,''));
+    if(!isFinite(v)) return;
+    const d = Math.abs(it.x-pageWidth*targetRatio);
+    if(d<tol && d<bestD){ best=v; bestD=d; }
+  });
+  return best;
+}
+
+function nearestPdfLine(lines, targetLine, predicate, maxDistance){
+  let best=null, bestD=Infinity;
+  lines.forEach(line=>{
+    if(!predicate(line)) return;
+    const d=Math.abs(line.y-targetLine.y);
+    if(d<bestD && d<maxDistance){ best=line; bestD=d; }
+  });
+  return best;
+}
+
+function isHabitableRoomName(name){
+  const n=String(name||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  return /^(LDK|L・D・K|居間|リビング|ダイニング|キッチン|洋室\d*|和室\d*|寝室|主寝室|子供|子ども|書斎)/i.test(n);
+}
+
+function parsePositionedWindows(layoutPages){
+  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('開口部[窓](冷房期)')));
+  if(!page) return null;
+  const width=page.width;
+  const windowIdPattern=/^G(南東|南西|北東|北西|南|北|東|西)-(\d+)$/;
+  const windowIdFromLine=line=>line.items
+    .filter(it=>it.x>width*0.105 && it.x<width*0.143)
+    .map(it=>String(it.text).trim()).join('').replace(/\s+/g,'');
+  const windowLines=page.lines.filter(line=>windowIdPattern.test(windowIdFromLine(line)));
+  if(!windowLines.length) return null;
+
+  const windows=[];
+  windowLines.forEach(line=>{
+    const idMatch=windowIdFromLine(line).match(windowIdPattern);
+    if(!idMatch) return;
+    const id='G'+idMatch[1]+'-'+idMatch[2];
+    const orient=idMatch[1];
+    const floorItem=line.items.find(it=>it.x>width*0.09 && it.x<width*0.105 && /^(R|1|2)$/.test(String(it.text).trim()));
+    const floor=floorItem?String(floorItem.text).trim():'';
+    windows.push({
+      id, orient, floor,
+      width:pdfNumNear(line,0.178,width,0.014),
+      height:pdfNumNear(line,0.207,width,0.014),
+      area:pdfNumNear(line,0.236,width,0.014),
+      gain:pdfNumNear(line,0.532,width,0.018),
+      az:(orient in AT_AZ)?AT_AZ[orient]:null,
+      eta:null,
+      tilt:90,
+      roofLike:false,
+      sourcePage:page.number,
+      _line:line
+    });
+  });
+
+  const orientations=[...new Set(windows.map(w=>w.orient))];
+  const nuMap={}, etaCandidates=[];
+  page.lines.forEach(line=>{
+    const nu=pdfNumNear(line,0.146,width,0.012);
+    if(nu!==null && nu>0.2 && nu<1.1){
+      const near=nearestPdfLine(windowLines,line,()=>true,width*0.045);
+      if(near){
+        const w=windows.find(win=>win._line===near);
+        if(w) nuMap[w.orient]=nu;
+      }
+    }
+    const eta=pdfNumNear(line,0.471,width,0.016);
+    if(eta!==null && eta>0.1 && eta<0.9 && !etaCandidates.includes(eta)) etaCandidates.push(eta);
+  });
+
+  let fC=null;
+  const noneLine=page.lines.find(line=>line.items.some(it=>String(it.text).trim()==='なし'));
+  if(noneLine) fC=pdfNumNear(noneLine,0.500,width,0.025);
+
+  windows.forEach(w=>{
+    const nu=nuMap[w.orient];
+    if(!(nu>0) || !(w.area>0) || !(w.gain>=0) || !(fC>0)) return;
+    const raw=w.gain/(nu*w.area*fC);
+    if(!etaCandidates.length) return;
+    let best=etaCandidates[0], bestD=Math.abs(raw-best);
+    etaCandidates.forEach(candidate=>{
+      const d=Math.abs(raw-candidate);
+      if(d<bestD){ best=candidate; bestD=d; }
+    });
+    if(bestD<=0.06) w.eta=best;
+  });
+
+  const totalLine=page.lines.find(line=>line.compact.includes('窓面積小計') && line.compact.includes('窓日射熱取得量小計'));
+  const expectedArea=totalLine?pdfNumNear(totalLine,0.232,width,0.025):null;
+  const expectedGain=totalLine?pdfNumNear(totalLine,0.532,width,0.025):null;
+  windows.forEach(w=>delete w._line);
+  return {windows, expectedArea, expectedGain, page:page.number};
+}
+
+function parsePositionedRooms(layoutPages){
+  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('居室区画面積表')));
+  if(!page) return null;
+  const width=page.width;
+  const roomNamePattern=/^(ＬＤＫ|LDK|玄関|ホール|階段|子供コーナー|子どもコーナー|脱衣室|ＵＢ|UB|洗面室|トイレ|収納|ローカ|廊下|洋室[０-９\d]*|和室[０-９\d]*|主寝室|寝室|ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ|ウォークインクローゼット|書庫|書斎)$/;
+  const rooms=[];
+  page.lines.forEach(line=>{
+    const nameItem=line.items.find(it=>roomNamePattern.test(String(it.text).trim()) && it.x<width*0.16);
+    if(!nameItem) return;
+    const area=pdfNumNear(line,0.199,width,0.025);
+    const typeItem=line.items.find(it=>/^[ABC]$/.test(String(it.text).trim()) && it.x>width*0.20 && it.x<width*0.24);
+    if(!(area>0) || !typeItem) return;
+    const name=String(nameItem.text).trim().replace('ＬＤＫ','LDK').replace('ＵＢ','UB')
+      .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+    rooms.push({name,area,type:String(typeItem.text).trim(),sourcePage:page.number});
+  });
+
+  const summary={};
+  page.lines.forEach(line=>{
+    ['A','B','C'].forEach(type=>{
+      if(line.compact.includes(type+':') || line.compact.includes('S'+type+'=')){
+        const nums=line.items.map(it=>parseFloat(String(it.text).replace(/,/g,''))).filter(Number.isFinite);
+        if(nums.length) summary[type]=nums[nums.length-1];
+      }
+    });
+  });
+  return {rooms, summary, page:page.number};
+}
+
+function parsePositionedEnvelope(layoutPages){
+  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('外皮性能計算表')));
+  if(!page) return null;
+  const width=page.width;
+  const leftNumberOnLine=keyword=>{
+    const key=normalizePdfText(keyword);
+    const line=page.lines.find(row=>row.compact.includes(key));
+    if(!line) return null;
+    const nums=line.items.filter(it=>it.x<width*0.42).map(it=>parseFloat(String(it.text).replace(/,/g,''))).filter(Number.isFinite);
+    return nums.length?nums[nums.length-1]:null;
+  };
+  const getU=label=>{
+    const key=normalizePdfText(label);
+    const lines=page.lines.filter(line=>line.compact.includes(key));
+    const vals=lines.map(line=>pdfNumNear(line,0.599,width,0.018)).filter(v=>v!==null);
+    return vals.length?[...new Set(vals.map(v=>v.toFixed(3)))].length===1?vals[0]:null:null;
+  };
+  const winLines=page.lines.filter(line=>/窓\(\d+\)/.test(line.compact));
+  const winUs=winLines.map(line=>pdfNumNear(line,0.599,width,0.018)).filter(v=>v!==null);
+  const uniqueWin=[...new Set(winUs.map(v=>v.toFixed(3)))];
+  return {
+    ua:leftNumberOnLine('外皮平均熱貫流率(UA)'),
+    envArea:leftNumberOnLine('外皮面積[㎡]'),
+    uRoof:getU('屋根(1)'), uWall:getU('外壁(1)'), uFloor:getU('床(1)'), uFound:getU('基礎(1)'),
+    uWin:uniqueWin.length===1?parseFloat(uniqueWin[0]):null,
+    page:page.number
+  };
+}
+
+function parseArchiTrendText(fullText, layoutPages){
+  const warnings = [];
+  const result = {
+    projectName: null,
+    workName: null,
+    projectLocation: null,
+    ua: null,
+    envArea: null,
+    uRoof: null,
+    uWall: null,
+    uFloor: null,
+    uFound: null,
+    uWin: null,
+    trueNorthDeg: null,
+    trueNorthNote: null,
+    rooms: [],
+    habitableRooms: [],
+    excludedRooms: [],
+    windows: [],
+    notes: [],
+    validation: {}
+  };
+
+  const lineText=(layoutPages||[]).flatMap(p=>p.lines.map(line=>line.text)).join('\n');
+  const projectPage=(layoutPages||[])[0];
+  if(projectPage){
+    const projectLine=projectPage.lines.find(line=>line.items.some(it=>String(it.text).trim()==='物件名'));
+    const labelItem=projectLine&&projectLine.items.find(it=>String(it.text).trim()==='物件名');
+    const valueItem=projectLine&&projectLine.items.find(it=>labelItem && it.x>labelItem.x && it.x<projectPage.width*0.45);
+    if(valueItem) result.projectName=String(valueItem.text).trim();
+  }
+  const workNames=[...lineText.matchAll(/工事名\s+(.+?)$/gm)].map(m=>m[1].trim()).filter(Boolean);
+  if(workNames.length) result.workName=workNames[0];
+  if(!result.workName){
+    const footerName=fullText.match(/テスト物件[^\n]+?(?:施工\)|工事)/);
+    if(footerName) result.workName=footerName[0].trim();
+  }
+  const location = lineText.match(/(?:建設地|物件所在地|建築地)\s+(.+?)$/m);
+  if(location) result.projectLocation=location[1].trim();
+
+  const uaEq = fullText.match(/外皮平均熱貫流率\(UA\)＝[^0-9]*([0-9]+\.[0-9]+)/);
+  if(uaEq) result.ua = parseFloat(uaEq[1]);
+  else warnings.push('UAを一意に読めませんでした');
+
+  const envA = fullText.match(/外皮面積合計\(A\)＝①\s*([0-9]+\.[0-9]+)/) ||
+               fullText.match(/外皮面積\[㎡\]\s*([0-9]+\.[0-9]+)/);
+  if(envA) result.envArea = parseFloat(envA[1]);
+  else warnings.push('外皮面積を一意に読めませんでした');
+
+  const uLine = fullText.match(/0\.2180\.405[0-9.\-－]+0\.259/);
+  if(uLine){
+    const vals = tokenizeULine(uLine[0]);
+    // 屋根, 外壁×4, 土台, ドア, 窓×3, 床, 基礎
+    if(vals.length >= 12){
+      result.uRoof = vals[0];
+      result.uWall = vals[1];
+      result.uFloor = vals[10];
+      result.uFound = vals[11];
+      const winUs = vals.slice(7, 10);
+      const uniq = [...new Set(winUs.map(v=>v.toFixed(3)))];
+      if(uniq.length === 1) result.uWin = winUs[0];
+      else warnings.push('窓Uが複数あり一意でないため空欄にします');
+    }else{
+      warnings.push('部位U値行のトークン数が不足しているため部位Uは空欄にします');
+    }
+  }else{
+    // フォールバック: ページ2の窓Uのみ (すべて同一なら採用)
+    const winUs = [...fullText.matchAll(/窓\([12]\)[^0-9]{0,80}?([0-9]+\.[0-9]{3})/g)].map(m=>parseFloat(m[1]));
+    const uniq = [...new Set(winUs.map(v=>v.toFixed(3)))];
+    if(uniq.length === 1) result.uWin = winUs[0];
+    else warnings.push('部位U値行を特定できなかったため屋根/外壁/床/基礎Uは空欄です');
+  }
+
+  const found = fullText.match(/土間基礎線熱貫流率\s*\[[^\]]*\]\s*([0-9]+\.[0-9]+)/);
+  if(found){
+    const v = parseFloat(found[1]);
+    if(v > 0 && v < 5) result.uFound = v;
+  }
+
+  const north = fullText.match(/真北[\s\S]{0,40}?([0-9]+\.[0-9]+)\s*度/);
+  if(north){
+    result.trueNorthDeg = parseFloat(north[1]);
+    result.trueNorthNote = 'PDFに真北関連角度 '+result.trueNorthDeg+'° の記載あり。補正の解釈が一意でないため自動補正はしません';
+    warnings.push(result.trueNorthNote);
+  }
+
+  // 窓 (冷房期・開口部[窓]表。小計〜q列は直後〜約2000文字に収まる)
+  const coolIdx = fullText.indexOf('開口部[窓](冷房期)');
+  const winSource = coolIdx >= 0 ? fullText.slice(coolIdx, coolIdx + 2500) : fullText;
+  const winRe = /(?:R\s*)?G(南東|南西|北東|北西|南|北|東|西)-(\d+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)/g;
+  const seen = new Set();
+  let wm;
+  while((wm = winRe.exec(winSource)) !== null){
+    const id = 'G'+wm[1]+'-'+wm[2];
+    if(seen.has(id)) continue;
+    seen.add(id);
+    const prev = winSource.slice(Math.max(0, wm.index-2), wm.index);
+    const roofLike = /R\s*$/.test(prev) || /^R\s/.test(wm[0]);
+    result.windows.push({
+      id,
+      orient: wm[1],
+      width: parseFloat(wm[3]),
+      height: parseFloat(wm[4]),
+      area: parseFloat(wm[5]),
+      az: (wm[1] in AT_AZ) ? AT_AZ[wm[1]] : null,
+      eta: null,
+      tilt:90,
+      roofLike
+    });
+  }
+
+  // η: 日射熱取得量 q=ν·A·η·fC が窓と同じ件数で読めるときだけ逆算して入れる
+  // (PDFテキストではη列が行にくっつかないが、q列は窓順の羅列として一意に取れる)
+  if(result.windows.length){
+    const gainBlock = winSource.match(/窓\s*日射熱取得量小計\s*([0-9]+\.[0-9]+)([\s\S]{0,1500})/);
+    const afterSum = gainBlock ? (gainBlock[2] || '') : '';
+    const sumQ = gainBlock ? parseFloat(gainBlock[1]) : null;
+    // 方位係数ν (地域依存) — 小計直後の 0.xxx 行
+    const nuNums = [...afterSum.matchAll(/(?:^|\n|\r|\s)(0\.\d{3})(?=\s|\n|\r|$)/g)].map(m=>parseFloat(m[1]));
+    const oriOrder = [];
+    result.windows.forEach(w=>{ if(!oriOrder.includes(w.orient)) oriOrder.push(w.orient); });
+    const nuMap = {};
+    // νは仕様η(0.290等)やfC(0.930)より前に来るので、先頭から方位数だけ使う
+    if(nuNums.length >= oriOrder.length){
+      oriOrder.forEach((o,i)=>{ nuMap[o] = nuNums[i]; });
+    }
+    // fC: 「なし」のあとに並ぶ係数のうち 0.9台
+    let fC = null;
+    const fcM = afterSum.match(/なし[\s\S]{0,80}?(0\.9\d{2})/);
+    if(fcM) fC = parseFloat(fcM[1]);
+    // q列: 0.07が窓件数分つながった行
+    const jammed = (afterSum.match(/0\.\d{2}(?:0\.\d{2}){5,}/) || [])[0] || '';
+    const qVals = [];
+    if(jammed){
+      let i=0;
+      while(i < jammed.length){
+        const m = jammed.slice(i).match(/^(0\.\d{2})/);
+        if(m){ qVals.push(parseFloat(m[1])); i += m[1].length; continue; }
+        i++;
+      }
+    }
+    const qSumOk = (sumQ!=null && qVals.length===result.windows.length &&
+      Math.abs(qVals.reduce((a,b)=>a+b,0) - sumQ) < 0.05);
+    const nuOk = oriOrder.every(o=> nuMap[o]!=null);
+    // 仕様のη候補 (日射遮蔽型/取得型など)。q逆算値を最も近い候補へ丸める
+    const specEtas = [];
+    const specBlock = afterSum.match(/日射遮蔽型[\s\S]{0,30}?(0\.\d{3})|日射取得型[\s\S]{0,30}?(0\.\d{3})/g) || [];
+    specBlock.forEach(s=>{
+      const m = s.match(/(0\.\d{3})/);
+      if(m){
+        const v = parseFloat(m[1]);
+        if(v < 0.9 && !specEtas.includes(v)) specEtas.push(v);
+      }
+    });
+    if(qSumOk && nuOk && fC!=null && fC>0){
+      let etaFilled = 0;
+      result.windows.forEach((w,i)=>{
+        const nu = nuMap[w.orient];
+        const den = nu * w.area * fC;
+        if(den > 1e-9){
+          let eta = qVals[i] / den;
+          if(eta > 0 && eta < 1.5){
+            if(specEtas.length){
+              let best = specEtas[0], bestD = Math.abs(eta-best);
+              specEtas.forEach(c=>{
+                const d = Math.abs(eta-c);
+                if(d < bestD){ best=c; bestD=d; }
+              });
+              if(bestD <= 0.05) eta = best;
+            }
+            w.eta = Math.round(eta*1000)/1000;
+            etaFilled++;
+          }
+        }
+      });
+      if(etaFilled === result.windows.length){
+        warnings.push('窓'+result.windows.length+'枚を自動取得 (面積・方位・η)。部屋への割当だけ手動です');
+      }else{
+        warnings.push('窓リストは取得済み。ηを一部しか復元できなかったため、空欄の窓は手動入力してください');
+      }
+    }else{
+      warnings.push('窓'+result.windows.length+'枚を自動取得 (面積・方位)。ηはPDF対応が一意でないため空欄 — 手動入力してください');
+    }
+  }else{
+    warnings.push('窓リストを読めませんでした');
+  }
+
+  // 居室 (出現順で抽出 → タイプ文字AAAAB... と突き合わせ)
+  const typeMatch = fullText.match(/([ABC]{10,})/);
+  const digitMap = {'１':'1','２':'2','３':'3','1':'1','2':'2','3':'3'};
+  const roomPatterns = [
+    {re: /ＬＤＫ\s*([0-9]+\.[0-9]+)|LDK\s*([0-9]+\.[0-9]+)/g, name:()=>'LDK', area:m=>parseFloat(m[1]||m[2])},
+    {re: /洋室([１２３123])([0-9]+\.[0-9]+)/g, name:m=>'洋室'+digitMap[m[1]], area:m=>parseFloat(m[2])},
+    {re: /子供コーナー\s*([0-9]+\.[0-9]+)/g, name:()=>'子供コーナー', area:m=>parseFloat(m[1])},
+    {re: /玄関\s*([0-9]+\.[0-9]+)/g, name:()=>'玄関', area:m=>parseFloat(m[1])},
+    {re: /ホール\s*([0-9]+\.[0-9]+)/g, name:()=>'ホール', area:m=>parseFloat(m[1])},
+    {re: /階段\s*([0-9]+\.[0-9]+)/g, name:()=>'階段', area:m=>parseFloat(m[1])},
+    {re: /脱衣室\s*([0-9]+\.[0-9]+)/g, name:()=>'脱衣室', area:m=>parseFloat(m[1])},
+    {re: /ＵＢ\s*([0-9]+\.[0-9]+)|UB\s*([0-9]+\.[0-9]+)/g, name:()=>'UB', area:m=>parseFloat(m[1]||m[2])},
+    {re: /洗面室\s*([0-9]+\.[0-9]+)/g, name:()=>'洗面室', area:m=>parseFloat(m[1])},
+    {re: /トイレ\s*([0-9]+\.[0-9]+)/g, name:()=>'トイレ', area:m=>parseFloat(m[1])},
+    {re: /収納\s*([0-9]+\.[0-9]+)/g, name:()=>'収納', area:m=>parseFloat(m[1])},
+    {re: /ローカ\s*([0-9]+\.[0-9]+)/g, name:()=>'ローカ', area:m=>parseFloat(m[1])},
+    {re: /ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ\s*([0-9]+\.[0-9]+)/g, name:()=>'WIC', area:m=>parseFloat(m[1])},
+    {re: /書庫\s*([0-9]+\.[0-9]+)/g, name:()=>'書庫', area:m=>parseFloat(m[1])}
+  ];
+  const roomHits = [];
+  roomPatterns.forEach(p=>{
+    const re = new RegExp(p.re.source, 'g');
+    let m;
+    while((m = re.exec(fullText)) !== null){
+      roomHits.push({index:m.index, name:p.name(m), area:p.area(m)});
+    }
+  });
+  roomHits.sort((a,b)=>a.index-b.index);
+  // 同名同面積の別室 (収納が複数など) は残す。同一indexの二重マッチだけ除外
+  const roomsDedup = [];
+  const seenIdx = new Set();
+  roomHits.forEach(r=>{
+    if(seenIdx.has(r.index)) return;
+    seenIdx.add(r.index);
+    roomsDedup.push(r);
+  });
+
+  if(typeMatch && roomsDedup.length){
+    const types = typeMatch[0];
+    const n = Math.min(types.length, roomsDedup.length);
+    for(let i=0;i<n;i++){
+      result.rooms.push({name: roomsDedup[i].name, area: roomsDedup[i].area, type: types[i]});
+    }
+    if(types.length !== roomsDedup.length){
+      warnings.push('居室タイプ文字数('+types.length+')と部屋数('+roomsDedup.length+')が一致しません。読めた範囲のみ採用');
+    }
+  }else if(roomsDedup.length){
+    roomsDedup.forEach(r=> result.rooms.push({name:r.name, area:r.area, type:null}));
+    warnings.push('居室タイプ(A/B/C)を読めなかったため、全部屋を窓割当候補にします');
+  }else{
+    warnings.push('居室リストを読めませんでした');
+  }
+
+  // 座標付き表解析を優先する。平文化で崩れやすい窓・居室表を行/列として読み直す
+  const envelopeLayout=parsePositionedEnvelope(layoutPages);
+  if(envelopeLayout){
+    ['ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
+      if(envelopeLayout[key]!==null) result[key]=envelopeLayout[key];
+    });
+    for(let i=warnings.length-1;i>=0;i--){
+      if((result.ua!==null && /^UAを/.test(warnings[i])) ||
+         (result.envArea!==null && /^外皮面積を/.test(warnings[i])) ||
+         (result.uRoof!==null && /部位U値/.test(warnings[i])) ||
+         (result.uWin!==null && /窓U/.test(warnings[i]))) warnings.splice(i,1);
+    }
+  }
+  const windowLayout=parsePositionedWindows(layoutPages);
+  if(windowLayout && windowLayout.windows.length){
+    result.windows=windowLayout.windows;
+    const areaSum=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
+    const gainSum=result.windows.reduce((sum,w)=>sum+(w.gain||0),0);
+    result.validation.windows={
+      count:result.windows.length,
+      areaSum, expectedArea:windowLayout.expectedArea,
+      gainSum, expectedGain:windowLayout.expectedGain,
+      areaOk:windowLayout.expectedArea!==null && Math.abs(areaSum-windowLayout.expectedArea)<0.03,
+      gainOk:windowLayout.expectedGain!==null && Math.abs(gainSum-windowLayout.expectedGain)<0.03,
+      page:windowLayout.page
+    };
+    for(let i=warnings.length-1;i>=0;i--){
+      if(/窓リスト|窓\d+枚|窓のη/.test(warnings[i])) warnings.splice(i,1);
+    }
+    result.notes.push('窓'+result.windows.length+'枚を座標付き表から抽出しました。部屋への割当のみ手動です');
+  }
+  const roomLayout=parsePositionedRooms(layoutPages);
+  if(roomLayout && roomLayout.rooms.length){
+    result.rooms=roomLayout.rooms;
+    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
+    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
+    const sums={A:0,B:0,C:0};
+    result.rooms.forEach(r=>{ if(r.type in sums) sums[r.type]+=r.area; });
+    result.validation.rooms={
+      sums, expected:roomLayout.summary,
+      ok:['A','B','C'].every(t=>roomLayout.summary[t]!=null && Math.abs(sums[t]-roomLayout.summary[t])<0.03),
+      page:roomLayout.page
+    };
+    for(let i=warnings.length-1;i>=0;i--){
+      if(/居室リスト|居室タイプ/.test(warnings[i])) warnings.splice(i,1);
+    }
+  }else{
+    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
+    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
+  }
+  if(!result.projectLocation) warnings.unshift('建設地の記載がないため、住所または緯度・経度を入力してください');
+  if(result.projectName && result.workName && normalizePdfText(result.projectName)!==normalizePdfText(result.workName)){
+    warnings.unshift('物件名とフッターの工事名が一致しません。物件名を優先します');
+  }
+
+  return {result, warnings};
+}
+
+async function extractPdfText(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  let full = '';
+  let chars = 0;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page = await pdf.getPage(i);
+    const viewport=page.getViewport({scale:1});
+    const content = await page.getTextContent();
+    const text = content.items.map(it=>it.str).join(' ');
+    chars += text.replace(/\s/g,'').length;
+    full += text + '\n';
+    const positioned=content.items.map(it=>({
+      text:it.str, x:it.transform[4], y:it.transform[5],
+      width:it.width||0, height:it.height||0
+    }));
+    pages.push({number:i,width:viewport.width,height:viewport.height,items:positioned,
+      lines:groupPdfItemsIntoLines(positioned)});
+  }
+  return {full, chars, numPages: pdf.numPages, pages};
+}
+
+function escapeHtml(value){
+  return String(value==null?'':value)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderArchitrendReview(parsed, applied){
+  const {result,warnings}=parsed;
+  const roomValidation=result.validation.rooms;
+  const winValidation=result.validation.windows;
+  const validations=[
+    roomValidation ? {ok:roomValidation.ok,text:'室面積 A/B/C 合計'} : {ok:false,text:'室面積合計を未検証'},
+    winValidation ? {ok:winValidation.areaOk,text:'窓面積・寸法'} : {ok:false,text:'窓面積を未検証'},
+    winValidation ? {ok:winValidation.gainOk,text:'窓日射取得量'} : {ok:false,text:'窓日射取得量を未検証'}
+  ];
+  if(winValidation&&winValidation.crossText){
+    validations.push({ok:winValidation.crossOk,text:winValidation.crossText});
+  }
+  const orientationCounts={};
+  result.windows.forEach(w=>{ orientationCounts[w.orient]=(orientationCounts[w.orient]||0)+1; });
+  const uaText=result.ua==null?'—':result.ua;
+  const areaText=result.envArea==null?'—':result.envArea+'㎡';
+  const windowArea=winValidation?winValidation.areaSum:result.windows.reduce((s,w)=>s+(w.area||0),0);
+  const review=document.getElementById('atReview');
+  document.getElementById('atSummary').innerHTML='';
+  const sources=result.sources||{};
+  const sourceOf=(key,fallback)=>sources[key]||fallback||'—';
+
+  const buildingItems=[
+    ['物件名',result.projectName||'不明',sourceOf('projectName',result.inputSources.pdf?'PDF p.1':'—')],
+    ['フッター工事名',result.workName||'不明',sourceOf('workName',result.inputSources.pdf?'PDF 各頁':'—')],
+    ['建設地',result.projectLocation||'記載なし (手動)','—'],
+    ['UA',uaText,sourceOf('ua')],
+    ['外皮面積',areaText,sourceOf('envArea')],
+    ['屋根U',result.uRoof==null?'—':result.uRoof,sourceOf('uRoof')],
+    ['外壁U',result.uWall==null?'—':result.uWall,sourceOf('uWall')],
+    ['床U',result.uFloor==null?'—':result.uFloor,sourceOf('uFloor')],
+    ['基礎U',result.uFound==null?'—':result.uFound,sourceOf('uFound')],
+    ['窓U',result.uWin==null?'—':result.uWin,sourceOf('uWin')]
+  ];
+  const windowRows=result.windows.map(w=>
+    '<tr><td>'+escapeHtml(w.id)+'</td><td>'+escapeHtml(w.floor||'—')+'</td>'+
+    '<td>'+escapeHtml(w.orient||'—')+'</td><td>'+escapeHtml(w.width==null?'—':w.width)+'</td>'+
+    '<td>'+escapeHtml(w.height==null?'—':w.height)+'</td><td>'+escapeHtml(w.area==null?'—':w.area)+'</td>'+
+    '<td>'+escapeHtml(w.eta==null?'—':w.eta)+'</td><td class="src">'+
+    escapeHtml(w.sourceLabel||(w.sourcePage?'PDF p.'+w.sourcePage:'—'))+'</td></tr>'
+  ).join('');
+  const orientationText=Object.entries(orientationCounts).map(([k,v])=>k+v).join(' / ')||'なし';
+  const statusClass=applied?'at-validation-ok':'';
+  review.innerHTML=
+    '<div class="at-review">'+
+      '<div class="at-review-head">'+
+        '<span class="at-chip"><span>入力</span><b>'+
+          (result.inputSources.csv?'CSV':'')+(result.inputSources.csv&&result.inputSources.pdf?' + ':'')+
+          (result.inputSources.pdf?'PDF':'')+'</b></span>'+
+        '<span class="at-chip"><span>物件</span><b>'+escapeHtml(result.projectName||'不明')+'</b></span>'+
+        '<span class="at-chip"><span>UA</span><b>'+escapeHtml(uaText)+'</b></span>'+
+        '<span class="at-chip"><span>外皮</span><b>'+escapeHtml(areaText)+'</b></span>'+
+        '<span class="at-chip"><span>居室</span><b>'+result.habitableRooms.length+'室</b></span>'+
+        '<span class="at-chip"><span>窓</span><b>'+result.windows.length+'枚 / '+windowArea.toFixed(2)+'㎡</b></span>'+
+        '<span class="at-chip warn-chip"><span>要確認</span><b>'+warnings.length+'件</b></span>'+
+      '</div>'+
+      '<details '+(warnings.length?'open':'')+'><summary>要確認 <span class="count">'+warnings.length+'件</span></summary>'+
+        '<div class="at-review-body">'+
+          (warnings.length?'<ul class="at-warn-list">'+warnings.map(w=>'<li>'+escapeHtml(w)+'</li>').join('')+'</ul>':'<span class="small">問題はありません。</span>')+
+          '<div style="margin-top:7px;">'+validations.map(v=>'<span class="'+(v.ok?'at-validation-ok':'at-validation-ng')+'" style="margin-right:12px;">'+(v.ok?'✓ ':'× ')+escapeHtml(v.text)+'</span>').join('')+'</div>'+
+        '</div></details>'+
+      '<details><summary>建物・外皮 <span class="count">'+buildingItems.length+'項目</span></summary>'+
+        '<div class="at-review-body at-review-grid">'+buildingItems.map(item=>
+          '<div class="at-review-item"><span>'+escapeHtml(item[0])+'</span><span><b>'+escapeHtml(item[1])+'</b> <small class="src">'+escapeHtml(item[2])+'</small></span></div>'
+        ).join('')+'</div></details>'+
+      '<details><summary>部屋 <span class="count">'+result.habitableRooms.length+'居室を作成 / '+result.excludedRooms.length+'非居室を窓割当候補</span></summary>'+
+        '<div class="at-review-body"><div class="at-room-chips">'+
+          result.habitableRooms.map(r=>'<span class="at-room-chip">'+escapeHtml(r.name)+' '+r.area.toFixed(2)+'㎡</span>').join('')+
+        '</div><div class="small" style="margin-top:8px;">窓割当時に作成する非居室候補: '+
+          result.excludedRooms.map(r=>'<span class="at-room-chip excluded">'+escapeHtml(r.name)+'</span>').join(' ')+
+        '</div><div class="small" style="margin-top:6px;">出典: '+escapeHtml(sourceOf('rooms','—'))+'</div></div></details>'+
+      '<details><summary>窓 <span class="count">'+escapeHtml(orientationText)+' / 合計'+windowArea.toFixed(2)+'㎡</span></summary>'+
+        '<div class="at-review-body at-window-table"><table><tr><th>ID</th><th>階</th><th>方位</th><th>幅</th><th>高</th><th>面積</th><th>η</th><th>出典</th></tr>'+
+          windowRows+'</table></div></details>'+
+      '<details><summary>対象外として無視 <span class="count">会社・設計者情報</span></summary>'+
+        '<div class="at-review-body small">TEL/FAX、設計者名、登録番号などの会社情報は解析条件として使用しません。</div></details>'+
+      '<div class="at-review-actions">'+
+        (applied?'<span class="'+statusClass+'">✓ 確認内容を入力へ反映済み</span>':
+          '<button type="button" class="at-apply-btn" onclick="confirmApplyArchitrend()">確認して入力へ反映</button>'+
+          '<span class="small">反映後も各値は編集できます。</span>')+
+      '</div>'+
+    '</div>';
+}
+
+function confirmApplyArchitrend(){
+  if(!atLastParse) return;
+  applyArchitrendParse(atLastParse);
+}
+
+function applyArchitrendParse(parsed){
+  const {result, warnings} = parsed;
+  blankForArchitrend();
+
+  const filled = [];
+  function setVal(id, v){
+    if(v==null || Number.isNaN(v)) return;
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = (typeof v === 'number') ? String(v) : v;
+    markAtFilled(id, true);
+    filled.push(id);
+  }
+
+  setVal('uaVal', result.ua);
+  setVal('envArea', result.envArea);
+  setVal('uRoof', result.uRoof);
+  setVal('uWall', result.uWall);
+  setVal('uFloor1', result.uFloor);
+  setVal('uFound', result.uFound);
+  setVal('uWin', result.uWin);
+  if(result.projectLocation) setVal('siteAddress',result.projectLocation);
+
+  atAssignableRooms=(result.rooms||[]).map((r,i)=>Object.assign({},r,{
+    key:'at-room-'+i, habitable:isHabitableRoomName(r.name)
+  }));
+  const rooms = result.habitableRooms || result.rooms.filter(r=>isHabitableRoomName(r.name));
+  const usedCandidateKeys=new Set();
+  rooms.forEach(r=>{
+    const candidate=atAssignableRooms.find(c=>!usedCandidateKeys.has(c.key) &&
+      c.name===r.name && Math.abs((c.area||0)-(r.area||0))<0.01);
+    if(candidate) usedCandidateKeys.add(candidate.key);
+    addRoom({
+      name: r.name,
+      atRoomKey:candidate?candidate.key:'',
+      fields:{
+        roomArea: String(r.area),
+        occCount: '',
+        peopleSensRate: '',
+        peopleMoistRate: '',
+        equipSensRate: '',
+        equipMoistRate: '',
+        extraSens: '',
+        extraMoist: ''
+      },
+      windows: []
+    });
+    // 面積は AT 由来
+    const cards = document.querySelectorAll('.room-card');
+    const card = cards[cards.length-1];
+    if(card){
+      const areaEl = card.querySelector('.roomArea');
+      if(areaEl){
+        const wrap = areaEl.closest('div');
+        if(wrap) wrap.classList.add('at-filled');
+      }
+    }
+  });
+
+  const assignableWindows=result.windows.filter(w=>!isNorthFacingAz(w.az));
+  atNorthExcludedCount=result.windows.length-assignableWindows.length;
+  atUnassignedWindows = assignableWindows.map(w=>({
+    wName: w.id,
+    wAz: w.az==null ? '' : String(w.az),
+    wEta: w.eta==null ? '' : String(w.eta),
+    wArea: w.area==null ? '' : String(w.area),
+    glassSel: '0',
+    attachSel: '0',
+    roofLike: !!w.roofLike
+  }));
+  renderUnassignedWindows();
+
+  renderArchitrendReview(parsed,true);
+  runAll();
+  refreshNeedManual();
+}
+
+function renderUnassignedWindows(){
+  const box = document.getElementById('atUnassignedBox');
+  const list = document.getElementById('atUnassignedList');
+  const northInfo=document.getElementById('atNorthExcludedInfo');
+  if(northInfo) northInfo.textContent=atNorthExcludedCount>0
+    ? ' 今回は北面窓 '+atNorthExcludedCount+'枚を除外済みです。':'';
+  if(!atUnassignedWindows.length){
+    box.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  box.style.display = 'block';
+  const roomOpts = ['<option value="">部屋を選択...</option>'];
+  const existingKeys=new Set();
+  document.querySelectorAll('.room-card').forEach(card=>{
+    if(card.dataset.atRoomKey) existingKeys.add(card.dataset.atRoomKey);
+    roomOpts.push('<option value="'+card.id+'">'+escapeHtml(card.querySelector('.roomName').value)+
+      (card.dataset.nonHabitable==='true'?' (非居室)':'')+'</option>');
+  });
+  atAssignableRooms.forEach((room,i)=>{
+    if(existingKeys.has(room.key)) return;
+    roomOpts.push('<option value="candidate:'+i+'">'+escapeHtml(room.name)+
+      (room.habitable?'':' (非居室・選択時に自動作成)')+'</option>');
+  });
+  list.innerHTML = atUnassignedWindows.map((w,i)=>{
+    return '<div class="at-unassigned-row" data-idx="'+i+'">'+
+      '<div class="'+(w.wName?'at-filled':'need-manual')+'"><label>名前</label><input type="text" class="uName" value="'+(w.wName||'')+'"></div>'+
+      '<div class="'+(w.wAz===''?'need-manual':'at-filled')+'"><label>方位角</label><input type="number" class="uAz" value="'+w.wAz+'" step="1"></div>'+
+      '<div class="'+(w.wEta===''?'need-manual':'at-filled')+'"><label>η0</label><input type="number" class="uEta" value="'+w.wEta+'" step="0.01"></div>'+
+      '<div class="'+(w.wArea===''?'need-manual':'at-filled')+'"><label>面積</label><input type="number" class="uArea" value="'+w.wArea+'" step="0.01"></div>'+
+      '<div class="need-manual"><label>割当先部屋</label><select class="uRoom">'+roomOpts.join('')+'</select></div>'+
+      '<button type="button" class="small-btn" onclick="assignUnassignedWindow('+i+')">割当</button>'+
+    '</div>';
+  }).join('');
+}
+
+function syncUnassignedFromDom(){
+  document.querySelectorAll('#atUnassignedList .at-unassigned-row').forEach(row=>{
+    const i = +row.dataset.idx;
+    if(!atUnassignedWindows[i]) return;
+    atUnassignedWindows[i].wName = row.querySelector('.uName').value;
+    atUnassignedWindows[i].wAz = row.querySelector('.uAz').value;
+    atUnassignedWindows[i].wEta = row.querySelector('.uEta').value;
+    atUnassignedWindows[i].wArea = row.querySelector('.uArea').value;
+  });
+}
+
+function assignUnassignedWindow(idx){
+  syncUnassignedFromDom();
+  const row = document.querySelector('#atUnassignedList .at-unassigned-row[data-idx="'+idx+'"]');
+  if(!row) return;
+  const roomChoice = row.querySelector('.uRoom').value;
+  if(!roomChoice){ alert('割当先の部屋を選んでください'); return; }
+  const w = atUnassignedWindows[idx];
+  if(!w) return;
+  if(w.wAz==='' || w.wEta==='' || w.wArea===''){
+    alert('方位・η・面積が空欄のままです。割当前にすべて入力してください');
+    return;
+  }
+  let roomId=roomChoice;
+  if(roomChoice.startsWith('candidate:')){
+    const candidate=atAssignableRooms[+roomChoice.split(':')[1]];
+    if(!candidate){ alert('割当先の部屋情報を取得できません'); return; }
+    const isNonHabitable=!candidate.habitable;
+    roomId=addRoom({
+      name:candidate.name, atRoomKey:candidate.key, isNonHabitable,
+      fields:{
+        roomArea:String(candidate.area||''),
+        occCount:isNonHabitable?'0':'',
+        peopleSensRate:isNonHabitable?'0':'',
+        peopleMoistRate:isNonHabitable?'0':'',
+        equipSensRate:isNonHabitable?'0':'',
+        equipMoistRate:isNonHabitable?'0':'',
+        extraSens:'0', extraMoist:'0'
+      },
+      windows:[]
+    });
+  }
+  addWindow(roomId, {
+    wName: w.wName,
+    wAz: w.wAz,
+    wEta: w.wEta,
+    wArea: w.wArea,
+    glassSel: w.glassSel||'0',
+    attachSel: w.attachSel||'0'
+  });
+  atUnassignedWindows.splice(idx, 1);
+  renderUnassignedWindows();
+  runAll();
+  refreshNeedManual();
+}
+
+function refreshNeedManual(){
+  if(appMode !== 'architrend'){
+    document.getElementById('atRemainInfo').style.display = 'none';
+    document.querySelectorAll('.need-manual').forEach(el=>{
+      if(!el.closest('#atUnassignedBox') && !el.closest('#atUnassignedList')) el.classList.remove('need-manual');
+    });
+    return;
+  }
+  let remain = 0;
+  AT_MANUAL_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const wrap = el.closest('div') || el.parentElement;
+    const empty = el.value==='' || el.value==null;
+    wrap.classList.toggle('need-manual', empty);
+    if(!empty) wrap.classList.add('at-filled');
+    else wrap.classList.remove('at-filled');
+    // PDF由来でない共通条件などは埋まっても AT にしない
+    if(['calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT','roomVol','ach','hxRate','acMax','acCount'].includes(id)){
+      wrap.classList.remove('at-filled');
+    }
+    if(empty) remain++;
+  });
+  document.querySelectorAll('.room-card').forEach(card=>{
+    ['occCount','peopleSensRate','peopleMoistRate','equipSensRate','roomArea'].forEach(cls=>{
+      const el = card.querySelector('.'+cls);
+      if(!el) return;
+      const wrap = el.closest('div') || el.parentElement;
+      const empty = el.value==='';
+      // roomArea が AT で埋まっている場合は要手動にしない
+      if(cls==='roomArea' && el.value!==''){
+        wrap.classList.remove('need-manual');
+        return;
+      }
+      wrap.classList.toggle('need-manual', empty);
+      if(empty) remain++;
+    });
+    card.querySelectorAll('.win-row').forEach(w=>{
+      ['wAz','wEta','wArea'].forEach(cls=>{
+        const el = w.querySelector('.'+cls);
+        if(!el) return;
+        const wrap = el.closest('div') || el.parentElement;
+        const empty = el.value==='';
+        wrap.classList.toggle('need-manual', empty);
+        if(empty) remain++;
+      });
+    });
+  });
+  remain += atUnassignedWindows.length;
+  const info = document.getElementById('atRemainInfo');
+  info.style.display = 'inline';
+  info.textContent = remain>0
+    ? ('要手動 残 '+remain+' 件')
+    : '連携入力完了';
+  info.style.color = remain>0 ? 'var(--heat)' : 'var(--ink2)';
+}
+
+function rebuildArchitrendPreview(){
+  const merged=mergeArchitrendSources(atCsvParse,atPdfParse);
+  if(!merged) return;
+  atLastParse=merged;
+  renderArchitrendReview(merged,false);
+}
+
+async function readCsvFile(file){
+  const buffer=await file.arrayBuffer();
+  let text=new TextDecoder('utf-8').decode(buffer);
+  if(text.includes('\uFFFD')){
+    try{ text=new TextDecoder('shift_jis').decode(buffer); }catch(err){}
+  }
+  return text;
+}
+
+async function onAtCsvSelected(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  try{
+    document.getElementById('atSummary').innerHTML='<p class="small">CSVを読み込み中...</p>';
+    const text=await readCsvFile(file);
+    const parsed=parseArchiTrendCsv(text);
+    if(parsed.result.windows.length===0 && parsed.warnings.length){
+      document.getElementById('atSummary').innerHTML='<div class="warn">'+
+        escapeHtml(parsed.warnings.join(' / '))+'</div>';
+      return;
+    }
+    atCsvParse=parsed;
+    rebuildArchitrendPreview();
+  }catch(err){
+    alert('CSVの読み込みに失敗しました: '+err.message);
+  }
+}
+
+async function onAtPdfSelected(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!window.pdfjsLib){
+    alert('PDF.js の読み込みに失敗しています。ネット接続を確認してください');
+    return;
+  }
+  try{
+    document.getElementById('atSummary').innerHTML = '<p class="small">読み込み中...</p>';
+    document.getElementById('atReview').innerHTML = '';
+    const {full, chars, pages} = await extractPdfText(file);
+    if(chars < 50){
+      document.getElementById('atSummary').innerHTML = '<div class="warn">テキストを抽出できませんでした (スキャンPDFの可能性)。手動モードを使うか、テキスト埋め込みPDFを指定してください。</div>';
+      document.getElementById('atWarnList').innerHTML = '';
+      return;
+    }
+    atPdfParse=parseArchiTrendText(full,pages);
+    rebuildArchitrendPreview();
+  }catch(err){
+    alert('PDFの読み込みに失敗しました: '+err.message);
+  }
+}
+
+function startManualMode(saved){
+  setModeUI('manual');
+  initSelectors();
+  if(saved && saved.rooms && saved.rooms.length){
+    applyState(saved);
+    document.querySelectorAll('.peopleMoistRate').forEach(el=>{
+      if(el.value==='80') el.value='76';
+    });
+  }else{
+    addRoom({name:'LDKetc', fields:{roomArea:32.1, occCount:6, extraSens:50}, windows:[{}]});
+    addRoom({name:'個室', fields:{roomArea:10.8, occCount:1}});
+    addRoom({name:'主寝室', fields:{roomArea:10.1, occCount:2}});
+  }
+  runAll();
+}
+
+function startArchitrendMode(saved){
+  setModeUI('architrend');
+  initSelectors();
+  if(saved && saved.mode==='architrend' &&
+     ((saved.rooms||[]).length || (saved.atUnassigned||[]).length)){
+    applyState(saved);
+    atUnassignedWindows = saved.atUnassigned || [];
+    atAssignableRooms = saved.atRoomCandidates || [];
+    atNorthExcludedCount = saved.atNorthExcludedCount || 0;
+    renderUnassignedWindows();
+    runAll();
+    refreshNeedManual();
+  }else{
+    blankForArchitrend();
+    runAll();
+    refreshNeedManual();
+  }
+}
+
 // ========================= 初期化 =========================
 initSelectors();
 let saved=null;
 try{ saved = JSON.parse(localStorage.getItem(STORE_KEY)); }catch(err){}
-if(saved && saved.rooms && saved.rooms.length){
-  applyState(saved);
-  // 旧デフォルト(80g/h/人)のまま保存されている部屋だけ、新デフォルト(76g/h/人)に一度だけ移行する
-  // (自動保存されたブラウザ上の古い値が、HTML側の新デフォルトを上書きしてしまうため)
-  document.querySelectorAll('.peopleMoistRate').forEach(el=>{
-    if(el.value==='80') el.value='76';
-  });
-}else{
-  addRoom({name:'LDKetc', fields:{roomArea:32.1, occCount:6, extraSens:50}, windows:[{}]});
-  addRoom({name:'個室', fields:{roomArea:10.8, occCount:1}});
-  addRoom({name:'主寝室', fields:{roomArea:10.1, occCount:2}});
-}
-runAll();
+
+document.getElementById('modeManualBtn').addEventListener('click', ()=>{
+  const manualSaved=saved && (saved.mode==='manual' || (!saved.mode && (saved.rooms||[]).length)) ? saved : null;
+  startManualMode(manualSaved);
+});
+document.getElementById('modeAtBtn').addEventListener('click', ()=>{
+  const atSaved=saved && saved.mode==='architrend' ? saved : null;
+  startArchitrendMode(atSaved);
+});
+document.getElementById('atCsvInput').addEventListener('change', function(){ onAtCsvSelected(this); });
+document.getElementById('atPdfInput').addEventListener('change', function(){ onAtPdfSelected(this); });
+document.getElementById('atUnassignedList').addEventListener('input', function(){
+  syncUnassignedFromDom();
+  refreshNeedManual();
+});
+
+const _runAllOrig = runAll;
+runAll = function(){
+  _runAllOrig();
+  if(appMode==='architrend') refreshNeedManual();
+};
+
+// 起動時は毎回モード選択を表示する。同じモードを選べば保存内容を復元する。
 </script>
 </body>
 </html>
