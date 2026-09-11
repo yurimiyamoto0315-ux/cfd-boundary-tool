@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 165 590 525">
+  <defs>
+    <linearGradient id="_名称未設定グラデーション_498" data-name="名称未設定グラデーション 498" x1="11.8" y1="331.41" x2="317.37" y2="331.41" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".08" stop-color="#d6f3ff" stop-opacity=".3"/>
+      <stop offset=".22" stop-color="#a8e2ff" stop-opacity=".6"/>
+      <stop offset=".4" stop-color="#7ec8f0" stop-opacity=".85"/>
+      <stop offset=".55" stop-color="#6ba3d6"/>
+      <stop offset=".72" stop-color="#8497cf"/>
+      <stop offset=".88" stop-color="#a189c9"/>
+      <stop offset="1" stop-color="#8b8fc4"/>
+    </linearGradient>
+  </defs>
+  <polyline points="507.94 389.51 575.41 233.92 480.28 233.92 427.87 354.79" fill="none" stroke="#036eb8" stroke-miterlimit="10" stroke-width="5"/>
+  <path d="M507.94,389.51c-6.09,13.44-15.7,34.09-29.47,54.25-46.7,68.39-105.26,100.69-117.86,107.4-52.16,27.74-100.42,34.89-128.88,36.9l52.23-98.69c55.17-18.62,89.19-46.14,122.44-94.83,10.22-14.97,17.92-31.94,22.05-41.06" fill="none" stroke="#036eb8" stroke-miterlimit="10" stroke-width="5"/>
+  <path d="M213.6,553.87l-52.41,120.87h-95.13l67.47-155.59c53.11-127.46,182.33-195.92,276.21-198.55l-52.23,98.69c-55.17,18.62-89.19,46.14-122.44,94.83-10.22,14.97-17.92,31.94-22.05,41.06" fill="none" stroke="#036eb8" stroke-miterlimit="10" stroke-width="5"/>
+  <path d="M317.37,331.42l-120.62,157.95V173.46l120.62,157.96ZM115.78,229.15v204.54h80.96v-204.54h-80.96ZM56.26,433.46h43.33v-204.07h-43.33v204.07ZM11.8,433.69h28.27v-204.54H11.8v204.54Z" fill="url(#_名称未設定グラデーション_498)"/>
+</svg>

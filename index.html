@@ -2,292 +2,96 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>空調CFD 境界条件入力補助ツール (FlowDesigner用)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boundary Conditions — FlowDesigner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<style>
-  :root{
-    --ink:#3D3D3D;        /* 主要テキスト */
-    --ink2:#8C8C8C;       /* ラベル */
-    --ink3:#B4B4B4;       /* 補助 */
-    --rule:#E4E4E4;       /* 細罫 */
-    --rule2:#C9C9C9;      /* 中罫 */
-    --paper:#FFFFFF;
-    --heat:#DE5A3A;       /* アクセント (警告・要設定) */
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html{-webkit-text-size-adjust:100%;}
-  body{
-    font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
-    background:var(--paper); color:var(--ink);
-    font-size:13px; line-height:1.6;
-    -webkit-font-smoothing:antialiased;
-  }
-  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
-  .toprule{height:3px; background:var(--ink);}
-  .wrap{max-width:1240px; margin:0 auto; padding:0 28px 80px;}
-
-  /* ================= HEADER ================= */
-  header{
-    min-height:260px; padding:36px 30px 28px; border-bottom:1px solid var(--rule2);
-    display:flex; align-items:flex-end; gap:24px; flex-wrap:wrap;
-    background:
-      linear-gradient(90deg,rgba(255,255,255,.86) 0%,rgba(255,255,255,.62) 52%,rgba(255,255,255,.74) 100%),
-      url("./cfd-header-background.png") center 42% / cover no-repeat;
-  }
-  .h-title h1{
-    font-size:clamp(32px,5vw,54px); font-weight:600; letter-spacing:-.02em;
-    line-height:.98; text-transform:uppercase; color:var(--ink);
-  }
-  .h-title .jp{font-size:12px; font-weight:500; letter-spacing:.34em; margin-top:10px; color:var(--ink2);}
-  .h-meta{
-    margin-left:auto; text-align:right; font-size:10px; font-weight:500;
-    letter-spacing:.14em; text-transform:uppercase; line-height:2; color:var(--ink2);
-  }
-  .h-meta button{
-    font-family:inherit; border:1px solid var(--rule2); background:rgba(255,255,255,.88); color:var(--ink2);
-    font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-    padding:4px 12px; cursor:pointer; margin-left:6px;
-  }
-  .h-meta button:hover{border-color:var(--ink); color:var(--ink);}
-  .statusrow{display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:10px 0;
-    border-bottom:1px solid var(--rule); font-size:10px; font-weight:500; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--ink3);}
-
-  /* ================= SECTIONS / HEADINGS ================= */
-  h2{margin:88px 0 26px; padding-top:28px; border-top:2px solid var(--ink);
-    display:flex; align-items:center; gap:14px;
-    font-size:13px; font-weight:600; letter-spacing:.2em; color:var(--ink);}
-  h2 .stepnum{border:1px solid var(--ink); color:var(--ink); width:30px; height:30px;
-    display:inline-flex; align-items:center; justify-content:center; font-size:15px;
-    letter-spacing:0; flex-shrink:0; font-variant-numeric:tabular-nums;}
-  h2 label.done-label{margin-left:auto; font-size:10px; font-weight:600; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--ink2); display:flex; align-items:center; gap:6px; cursor:pointer;}
-  h3{font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase;
-    color:var(--ink); margin:1.5rem 0 0.7rem;}
-  p.desc{color:var(--ink2); font-size:12.5px; margin-top:0;}
-
-  .box{border:1px solid var(--rule); padding:18px 20px; margin-bottom:20px; background:var(--paper);}
-
-  /* ================= FORM ================= */
-  label{font-size:9.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--ink2); display:block; margin-bottom:4px;}
-  input[type=number], input[type=text], input[type=date], select{
-    width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; font-weight:600;
-    color:var(--ink); border:0; border-bottom:1px solid var(--rule2); border-radius:0;
-    background:transparent; padding:3px 2px 4px; font-variant-numeric:tabular-nums;
-  }
-  input:focus, select:focus{outline:none; border-bottom-color:var(--ink);}
-  input:read-only{color:var(--ink3); border-bottom-style:dashed;}
-  select{cursor:pointer;}
-
-  table{border-collapse:collapse; width:100%; font-size:12px; font-variant-numeric:tabular-nums;}
-  th,td{border:1px solid var(--rule); padding:6px 8px; text-align:right; vertical-align:middle;}
-  th{font-size:9.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--ink2); text-align:center; background:none;}
-  td:first-child, th:first-child{text-align:left;}
-  td.l{text-align:left;}
-
-  button{font-family:inherit; font-size:10.5px; font-weight:600; letter-spacing:.12em;
-    text-transform:uppercase; padding:8px 18px; cursor:pointer;
-    border:1px solid var(--rule2); background:var(--paper); color:var(--ink2); border-radius:0;}
-  button:hover{border-color:var(--ink); color:var(--ink);}
-  button.small-btn{padding:4px 12px; font-size:9.5px;}
-  button.copy-btn{padding:2px 10px; font-size:9px; margin:0; white-space:nowrap;}
-
-  .small{font-size:11.5px; color:var(--ink2);}
-  .row2{display:grid; grid-template-columns:repeat(2,1fr); gap:14px 18px; margin-bottom:10px;}
-  .row3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px 18px; margin-bottom:10px;}
-  .row4{display:grid; grid-template-columns:repeat(4,1fr); gap:14px 18px; margin-bottom:10px;}
-  .row5{display:grid; grid-template-columns:repeat(5,1fr); gap:14px 18px; margin-bottom:10px;}
-
-  /* ================= STATS / VALUES ================= */
-  .stat{border-left:1px solid var(--rule2); padding:4px 0 2px 12px;}
-  .stat .lbl{font-size:9px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ink2);}
-  .stat .val{font-size:19px; font-weight:600; letter-spacing:-.01em; color:var(--ink);
-    margin-top:4px; font-variant-numeric:tabular-nums;}
-  .stat.hl{border-left:3px solid var(--ink);}
-  .summary-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 18px;}
-
-  .cfd-value{border-bottom:1px solid var(--rule); padding:7px 2px;
-    display:flex; align-items:center; gap:12px; font-size:12.5px;}
-  .cfd-value .k{color:var(--ink2); font-size:11px; letter-spacing:.04em; flex:1;}
-  .cfd-value .v{font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
-
-  .warn{border:1px solid var(--heat); border-left:3px solid var(--heat);
-    padding:8px 12px; font-size:12px; font-weight:600; color:var(--heat); margin:10px 0;}
-  .note{border:1px solid var(--rule2); border-left:3px solid var(--ink2);
-    padding:8px 12px; font-size:12px; color:var(--ink2); margin:10px 0;}
-  .info{border:1px solid var(--rule2); border-left:3px solid var(--ink);
-    padding:10px 14px; font-size:12.5px; color:var(--ink); margin:10px 0; line-height:1.75;}
-  .ok{color:var(--ink2); font-weight:600;}
-
-  /* ================= NAV / STATUS ================= */
-  nav.toc{display:flex; flex-wrap:wrap; margin:16px 0 0;}
-  nav.toc a{font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--ink2); text-decoration:none; border:1px solid var(--rule2);
-    padding:7px 15px; margin:0 -1px -1px 0; display:inline-flex; align-items:center; gap:8px;
-    background:var(--paper);}
-  nav.toc a:hover{color:var(--ink); border-color:var(--ink); position:relative; z-index:1;}
-  nav.toc .st{font-size:9px; color:var(--ink3); letter-spacing:.1em;}
-  nav.toc .st.done{color:var(--heat); font-weight:700;}
-
-  /* ================= CHECKLIST ================= */
-  .checkitem{display:flex; align-items:flex-start; gap:10px; padding:9px 0;
-    border-bottom:1px solid var(--rule); font-size:12.5px;}
-  .checkitem:last-child{border-bottom:none;}
-  .checkitem input[type=checkbox]{margin-top:3px; width:auto;}
-  .checkitem .where{color:var(--ink3); font-size:9.5px; font-weight:600;
-    letter-spacing:.12em; text-transform:uppercase; display:block;}
-  pre.cmd{background:#F4F4F4; color:var(--ink); border:1px solid var(--rule2);
-    padding:8px 12px; font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12px;
-    display:inline-block; margin:4px 12px 4px 0; vertical-align:middle;}
-
-  /* ================= ROOMS ================= */
-  .room-card{border:1px solid var(--rule2); padding:18px 20px; margin-bottom:14px; background:var(--paper);}
-  .room-header{display:flex; align-items:center; gap:12px; margin-bottom:0.75rem;}
-  .room-header input[type=text]{font-size:16px; font-weight:600; width:auto; flex:1;}
-  .win-row{display:grid; grid-template-columns:1.2fr 0.8fr 1.4fr 1.4fr 0.9fr 0.8fr auto;
-    gap:8px; align-items:end; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--rule);}
-  .win-row label{font-size:8.5px;}
-  .calc-line{display:grid; grid-template-columns:1.2fr auto 1fr auto 1.2fr; gap:10px; align-items:end; margin-bottom:8px;}
-  .calc-line .eq{text-align:center; font-size:15px; color:var(--ink3); padding-bottom:6px;}
-  .calc-line .result{border-bottom:1px solid var(--rule2); padding:3px 2px 4px;
-    font-size:13px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums;}
-
-  /* ================= BADGES / DIAGRAMS ================= */
-  .tag-req{display:inline-block; border:1px solid var(--heat); color:var(--heat);
-    font-size:8.5px; font-weight:700; letter-spacing:.12em; padding:1px 6px; margin-left:6px;
-    vertical-align:middle; white-space:nowrap;}
-  .tag-at{display:inline-block; border:1px solid var(--ink2); color:var(--ink2);
-    font-size:8.5px; font-weight:700; letter-spacing:.12em; padding:1px 6px; margin-left:6px;
-    vertical-align:middle; white-space:nowrap;}
-  .field-user label{color:var(--ink);}
-  .legend-box{border:1px solid var(--rule2); padding:10px 14px; margin:16px 0 0;
-    font-size:11.5px; color:var(--ink2); display:flex; align-items:center; gap:10px;}
-  .diagram{border:1px solid var(--rule); padding:22px 18px; margin:16px 0 24px;
-    text-align:center; overflow-x:auto; background:var(--paper);}
-
-  .mode-gate{
-    position:fixed; inset:0; z-index:1000; background:rgba(255,255,255,.97);
-    display:flex; align-items:center; justify-content:center; padding:28px;
-  }
-  .mode-gate.hidden{display:none;}
-  .mode-card{max-width:720px; width:100%; border:1px solid var(--rule2); padding:36px 32px; background:var(--paper);}
-  .mode-card h1{font-size:28px; font-weight:600; letter-spacing:-.02em; margin-bottom:8px;}
-  .mode-card .lead{color:var(--ink2); font-size:13px; margin-bottom:28px; line-height:1.7;}
-  .mode-choices{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
-  .mode-choices button{
-    text-align:left; padding:22px 18px; border:1px solid var(--rule2); background:var(--paper);
-    color:var(--ink); text-transform:none; letter-spacing:.02em; font-size:13px; line-height:1.55;
-  }
-  .mode-choices button:hover{border-color:var(--ink);}
-  .mode-choices button strong{display:block; font-size:15px; margin-bottom:8px; letter-spacing:.04em;}
-  .mode-choices button span{display:block; color:var(--ink2); font-weight:500; font-size:12px;}
-
-  .need-manual input, .need-manual select{
-    border-bottom-color:var(--heat) !important;
-    background:rgba(222,90,58,.06);
-  }
-  .at-filled label::after{content:" AT"; font-size:8.5px; letter-spacing:.12em; color:var(--ink2); margin-left:6px;}
-
-  #atPanel{display:none; margin-top:16px;}
-  #atPanel.active{display:block;}
-  .at-warn-list{margin:8px 0 0; padding-left:18px; color:var(--heat); font-size:12px;}
-  .at-review{margin-top:14px; border-top:1px solid var(--rule); padding-top:14px;}
-  .at-review-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
-  .at-chip{display:inline-flex; align-items:baseline; gap:5px; border:1px solid var(--rule2);
-    padding:5px 9px; color:var(--ink2); font-size:10px; letter-spacing:.04em; background:#FAFAFA;}
-  .at-chip b{font-size:12px; color:var(--ink); font-weight:600;}
-  .at-chip.warn-chip{border-color:var(--heat); color:var(--heat); background:rgba(222,90,58,.04);}
-  .at-review details{border-top:1px solid var(--rule); padding:8px 0;}
-  .at-review details:last-of-type{border-bottom:1px solid var(--rule);}
-  .at-review summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
-    font-size:11px; font-weight:600; letter-spacing:.08em; color:var(--ink);}
-  .at-review summary::-webkit-details-marker{display:none;}
-  .at-review summary::before{content:"＋"; color:var(--ink3); width:12px;}
-  .at-review details[open] summary::before{content:"－";}
-  .at-review summary .count{margin-left:auto; color:var(--ink3); font-size:9px; font-weight:500;}
-  .at-review-body{padding:9px 4px 2px 20px;}
-  .at-review-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:5px 14px;}
-  .at-review-item{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted var(--rule);
-    padding:4px 0; font-size:11px;}
-  .at-review-item .src{color:var(--ink3); font-size:9px; white-space:nowrap;}
-  .at-room-chips{display:flex; flex-wrap:wrap; gap:5px;}
-  .at-room-chip{border:1px solid var(--rule); padding:3px 7px; font-size:10.5px; color:var(--ink);}
-  .at-room-chip.excluded{color:var(--ink3); border-style:dashed;}
-  .at-window-table{max-height:230px; overflow:auto;}
-  .at-window-table table{font-size:10.5px;}
-  .at-window-table th,.at-window-table td{padding:4px 6px;}
-  .at-review-actions{display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;}
-  .at-apply-btn{border-color:var(--ink); color:var(--paper); background:var(--ink);}
-  .at-apply-btn:hover{background:var(--paper); color:var(--ink);}
-  .at-validation-ok{color:#4F7B59;}
-  .at-validation-ng{color:var(--heat);}
-  .at-unassigned-row{display:grid; grid-template-columns:1.2fr 0.7fr 0.7fr 0.7fr 1.4fr auto;
-    gap:8px; align-items:end; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--rule);}
-  .room-card.non-habitable{border-left:3px solid var(--ink3); background:#FCFCFC;}
-  .room-kind{font-size:8.5px; letter-spacing:.1em; border:1px solid var(--rule2);
-    color:var(--ink3); padding:2px 6px; white-space:nowrap;}
-
-  footer{padding-top:22px; font-size:10px; font-weight:400; color:var(--ink3);
-    line-height:2; letter-spacing:.03em; border-top:1px solid var(--rule); margin-top:48px;}
-  footer b{color:var(--ink2); font-weight:600; letter-spacing:.12em;}
-
-  @media (max-width:900px){
-    .wrap{padding:0 16px 60px;}
-    header{min-height:230px; padding:28px 20px 22px; background-position:center center;}
-    .row4,.row5{grid-template-columns:repeat(2,1fr);}
-    .mode-choices{grid-template-columns:1fr;}
-    .at-review-grid{grid-template-columns:1fr;}
-  }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="modeGate" class="mode-gate">
-  <div class="mode-card">
-    <h1>CFD Boundary</h1>
-    <p class="lead">入力モードを選んでください。アーキトレンド連携では、PDFから確実に読めた値だけを自動入力し、曖昧な項目は空欄のまま手動入力します。</p>
-    <div class="mode-choices">
-      <button type="button" id="modeManualBtn">
-        <strong>手動モード</strong>
-        <span>従来どおり、すべての境界条件を手入力します。</span>
-      </button>
-      <button type="button" id="modeAtBtn">
-        <strong>アーキトレンド連携</strong>
-        <span>CSVを主入力にして窓・外皮を取得し、PDFがあればUA・U値・居室などを補完します。</span>
-      </button>
+<a class="skip-link" href="#main">本文へ</a>
+<div class="app-chrome">
+<header class="app-header">
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="段階ナビ" aria-controls="sidenav" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <a class="header-name" href="#common">
+    <img class="h-icon" src="./cfd-header-icon.svg" alt="">
+    <span class="header-title">
+      <span class="header-kicker">FlowDesigner Add-in</span>
+      <strong>Boundary Conditions</strong>
+      <span class="header-sub">Steady-State Cooling Load</span>
+    </span>
+  </a>
+  <div class="header-utils">
+    <div class="header-status">
+      <span id="modeInfo" class="visually-hidden">Mode unset</span>
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="saveInfo">入力内容はこのブラウザに自動保存されます</span>
     </div>
-  </div>
-</div>
-
-<div class="toprule"></div>
-<div class="wrap">
-
-<header>
-  <div class="h-title">
-    <h1>CFD<br>Boundary</h1>
-    <div class="jp">空調CFD 境界条件入力補助 — FLOWDESIGNER用</div>
-  </div>
-  <div class="h-meta">
-    FlowDesigner Steady-State Cooling<br>
-    SAT / Pseudo Thickness / Internal Gains / AC Supply<br>
-    Mesh 100mm
-    <div>
-      <button onclick="exportJSON()">JSON書き出し</button>
-      <button onclick="document.getElementById('importFile').click()">読み込み</button>
-      <button onclick="changeMode()">モード変更</button>
-      <button onclick="resetAll()">リセット</button>
+    <div class="header-actions">
+      <button type="button" onclick="exportJSON()">Export JSON</button>
+      <button type="button" onclick="document.getElementById('importFile').click()">Import</button>
+      <button type="button" onclick="resetAll()">Reset</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
     </div>
   </div>
 </header>
-
-<div class="statusrow">
-  <span id="modeInfo">モード未選択</span>
-  <span id="atRemainInfo" style="display:none; color:var(--heat);"></span>
-  <span id="saveInfo">入力内容はこのブラウザに自動保存されます</span>
+<div class="mode-tabs" id="modeTabs" role="tablist" aria-label="Input mode">
+  <button type="button" role="tab" class="is-current" data-mode="manual" aria-selected="true" tabindex="0"><span class="tab-idx">01</span><span class="tab-label">Manual</span></button>
+  <button type="button" role="tab" data-mode="architrend" aria-selected="false" tabindex="-1"><span class="tab-idx">02</span><span class="tab-label">Architrend</span></button>
+  <button type="button" role="tab" data-mode="energyplus" aria-selected="false" tabindex="-1"><span class="tab-idx">03</span><span class="tab-label">EnergyPlus</span></button>
+  <span id="atRemainInfo" class="mode-tabs-remain" style="display:none; color:var(--chrome-hot);"></span>
 </div>
+</div>
+
+<div id="navBackdrop" class="nav-backdrop"></div>
+<nav class="toc" id="sidenav" aria-label="Stages">
+  <p class="toc-group">Input</p>
+  <a href="#common">
+    <span class="toc-en">Common</span>
+    <span class="toc-jp">日時・気象</span>
+  </a>
+  <a href="#step1">
+    <span class="toc-en">01 Insulation / SAT <span class="st" id="st1">未</span></span>
+    <span class="toc-jp">断熱性能</span>
+  </a>
+  <a href="#step2">
+    <span class="toc-en">02 Internal Gains <span class="st" id="st2">未</span></span>
+    <span class="toc-jp">内部発熱・日射</span>
+  </a>
+  <a href="#step3">
+    <span class="toc-en">03 Air Conditioner <span class="st" id="st3">未</span></span>
+    <span class="toc-jp">エアコン</span>
+  </a>
+  <p class="toc-group">Export</p>
+  <a href="#idfmesh" class="toc-ssl">
+    <span class="toc-en">IDF Model</span>
+    <span class="toc-jp">色分けモデル</span>
+  </a>
+  <a href="#ssl" class="toc-ssl">
+    <span class="toc-en">SSL Export</span>
+    <span class="toc-jp">一括反映</span>
+  </a>
+  <p class="toc-group">Run</p>
+  <a href="#step4">
+    <span class="toc-en">04 Solver Setup <span class="st" id="st4">未</span></span>
+    <span class="toc-jp">解析設定</span>
+  </a>
+  <a href="#step5">
+    <span class="toc-en">05 Run <span class="st" id="st5">未</span></span>
+    <span class="toc-jp">解析実行</span>
+  </a>
+  <a href="#transfer">
+    <span class="toc-en">Transfer List</span>
+    <span class="toc-jp">手コピー用</span>
+  </a>
+</nav>
+
+<div class="wrap" id="main">
 
 <div id="atPanel" class="box">
   <h3 style="margin-top:0;">アーキトレンド 出力データ</h3>
@@ -308,68 +112,95 @@
   <ul class="at-warn-list" id="atWarnList" style="display:none;"></ul>
 </div>
 
-<p class="desc" style="margin-top:16px;">FlowDesigner初心者向け。上から順に入力すると、CFDに転記する境界条件の値がすべて計算されます。各値はコピーしてFlowDesignerの入力欄に貼り付けてください。ページ末尾に転記一覧があります。</p>
-
-<div class="diagram" style="margin-top:14px;">
-  <svg viewBox="0 0 1080 80" style="width:100%; max-width:1080px; height:auto;">
-    <defs>
-      <marker id="mkFlow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-        <path d="M0,0 L6,3 L0,6 Z" fill="#3D3D3D"/>
-      </marker>
-    </defs>
-    <g font-family="Helvetica,Arial,sans-serif" font-size="12" text-anchor="middle">
-      <rect x="8" y="10" width="136" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
-      <text x="76" y="42" fill="#3D3D3D">共通条件</text>
-
-      <rect x="162" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
-      <text x="230" y="32" fill="#3D3D3D" letter-spacing="2">STEP 1</text>
-      <text x="230" y="50" fill="#8C8C8C" font-size="11">断熱・SAT</text>
-
-      <rect x="316" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
-      <text x="384" y="32" fill="#3D3D3D" letter-spacing="2">STEP 2</text>
-      <text x="384" y="50" fill="#8C8C8C" font-size="11">内部発熱+日射</text>
-
-      <rect x="470" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
-      <text x="538" y="32" fill="#3D3D3D" letter-spacing="2">STEP 3</text>
-      <text x="538" y="50" fill="#8C8C8C" font-size="11">エアコン</text>
-
-      <rect x="624" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
-      <text x="692" y="32" fill="#3D3D3D" letter-spacing="2">STEP 4</text>
-      <text x="692" y="50" fill="#8C8C8C" font-size="11">解析設定</text>
-
-      <rect x="778" y="10" width="136" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
-      <text x="846" y="32" fill="#3D3D3D" letter-spacing="2">STEP 5</text>
-      <text x="846" y="50" fill="#8C8C8C" font-size="11">解析実行</text>
-
-      <rect x="932" y="10" width="136" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
-      <text x="1000" y="42" fill="#3D3D3D">転記一覧</text>
-    </g>
-    <g stroke="#3D3D3D" stroke-width="1.5" marker-end="url(#mkFlow)">
-      <line x1="144" y1="37" x2="160" y2="37"/>
-      <line x1="298" y1="37" x2="314" y2="37"/>
-      <line x1="452" y1="37" x2="468" y2="37"/>
-      <line x1="606" y1="37" x2="622" y2="37"/>
-      <line x1="760" y1="37" x2="776" y2="37"/>
-      <line x1="914" y1="37" x2="930" y2="37"/>
-    </g>
-  </svg>
+<div id="epPanel" class="box">
+  <h3 style="margin-top:0;">EnergyPlus IDF / SQL</h3>
+  <p class="small" style="margin-top:0;">部屋別モデルの IDF を主入力にします。床下・小屋裏ゾーンは除外し、居室の外壁面積・熱貫流・窓U・UA・外皮面積と、People の最大在室人数を入れます。SQL (<code>eplusout.sql</code>) は任意・推奨で、冷房ピークの日付と時刻を入れます。換気回数は 0.5 回/h、床・基礎Uと人体・機器の原単位は初期値が入っています。</p>
+  <div class="row2" style="max-width:760px; align-items:end;">
+    <div>
+      <label>EnergyPlus IDF <span class="tag-at">必須・主入力</span></label>
+      <input type="file" id="epIdfInput" accept=".idf,.IDF,text/plain">
+    </div>
+    <div>
+      <label>eplusout.sql <span class="small">任意・推奨</span></label>
+      <input type="file" id="epSqlInput" accept=".sql,.sqlite,.db,.sqlite3">
+    </div>
+  </div>
+  <p class="small" style="margin:9px 0 0;">1ゾーン集約モデルでも読めますが、居室ゾーンが複数ある IDF を前提にしています。在室人数は IDF の People（最大人数）から入れ、People が無い室は 0 人です。人体・機器発熱はその人数と床面積×原単位で計算します。</p>
+  <div id="epSqlStatus" class="small" style="margin-top:8px;"></div>
+  <div id="epSummary" style="margin-top:12px;"></div>
+  <div id="epReview"></div>
+  <ul class="at-warn-list" id="epWarnList" style="display:none;"></ul>
 </div>
 
-<div class="legend-box" id="legendManual"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
-<div class="legend-box" id="legendAt" style="display:none;"><span class="tag-req">要手動</span><span>のバッジと赤ハイライトは、CSV/PDFから確実に読めなかった空欄です。推測埋めはしません。必ず自分で入れてください。<span class="tag-at">AT</span> はアーキトレンド出力から自動入力した項目です。</span></div>
+<p class="desc" style="margin-top:16px;">FlowDesigner初心者向け。上から順に入力すると境界条件の値がすべて計算されます。Step 3のあと、SSL連携で FlowDesigner へ一括反映します。手でコピーする場合は末尾の転記一覧を使います。</p>
 
-<nav class="toc">
-  <a href="#common">共通条件</a>
-  <a href="#step1">1 断熱・SAT <span class="st" id="st1">未</span></a>
-  <a href="#step2">2 内部発熱+日射 <span class="st" id="st2">未</span></a>
-  <a href="#step3">3 エアコン <span class="st" id="st3">未</span></a>
-  <a href="#step4">4 解析設定 <span class="st" id="st4">未</span></a>
-  <a href="#step5">5 解析実行 <span class="st" id="st5">未</span></a>
-  <a href="#transfer">転記一覧</a>
-</nav>
+<div class="legend-box" id="legendManual"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
+<div class="legend-box" id="legendAt" style="display:none;"><span class="tag-req">要手動</span><span>のバッジと赤ハイライトは、CSV/PDFから確実に読めなかった空欄です。推測埋めはしません。床・基礎Uと人体・機器の原単位は初期値が入っています。在室人数は手入力です。<span class="tag-at">AT</span> はアーキトレンド出力から自動入力した項目です。</span></div>
+<div class="legend-box" id="legendEp" style="display:none;"><span class="tag-req">要手動</span><span>のバッジは IDF/SQL に無い項目です。壁U・窓U（複数なら面積加重）・UA・外皮面積・ピーク時刻・最大在室人数は自動入力します。人体・機器の原単位と床・基礎U、換気回数 0.5 回/h は初期値が入っています。<span class="tag-at">EP</span> は EnergyPlus から自動入力した項目です。</span></div>
 
 <!-- ================= 共通条件 ================= -->
-<h2 id="common">共通条件 (日時・気象・室内設定)</h2>
+<h2 id="common">
+  <span class="h2-text">
+    <span class="h2-en">Common</span>
+    <span class="h2-jp">日時・気象・室内設定</span>
+  </span>
+</h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · 共通条件</div>
+  <p class="small" style="margin-top:0;">建設地と、解析する日時・外気温を入れます。ここがStep 1のSATとStep 2の日射で共通して使う入力です。</p>
+  <div class="diagram">
+    <svg viewBox="0 0 1080 80" style="width:100%; max-width:1080px; height:auto;">
+      <defs>
+        <marker id="mkFlow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#3D3D3D"/>
+        </marker>
+      </defs>
+      <g font-family="Helvetica,Arial,sans-serif" font-size="11" text-anchor="middle">
+        <rect x="8" y="10" width="118" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
+        <text x="67" y="42" fill="#3D3D3D">共通条件</text>
+
+        <rect x="140" y="10" width="118" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="199" y="32" fill="#3D3D3D" letter-spacing="1">STEP 1</text>
+        <text x="199" y="50" fill="#8C8C8C" font-size="10">断熱・SAT</text>
+
+        <rect x="272" y="10" width="118" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="331" y="32" fill="#3D3D3D" letter-spacing="1">STEP 2</text>
+        <text x="331" y="50" fill="#8C8C8C" font-size="10">内部発熱</text>
+
+        <rect x="404" y="10" width="118" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="463" y="32" fill="#3D3D3D" letter-spacing="1">STEP 3</text>
+        <text x="463" y="50" fill="#8C8C8C" font-size="10">エアコン</text>
+
+        <rect x="536" y="10" width="118" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
+        <text x="595" y="32" fill="#3D3D3D" letter-spacing="1">IDF</text>
+        <text x="595" y="50" fill="#3D3D3D" font-size="10">色分け3DS</text>
+
+        <rect x="668" y="10" width="118" height="54" fill="#3D3D3D" stroke="#3D3D3D"/>
+        <text x="727" y="32" fill="#FFFFFF" letter-spacing="1">SSL</text>
+        <text x="727" y="50" fill="#FFFFFF" font-size="10">一括反映</text>
+
+        <rect x="800" y="10" width="118" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="859" y="32" fill="#3D3D3D" letter-spacing="1">STEP 4</text>
+        <text x="859" y="50" fill="#8C8C8C" font-size="10">解析設定</text>
+
+        <rect x="932" y="10" width="140" height="54" fill="#FFFFFF" stroke="#C9C9C9"/>
+        <text x="1002" y="32" fill="#3D3D3D" letter-spacing="1">STEP 5</text>
+        <text x="1002" y="50" fill="#8C8C8C" font-size="10">解析実行</text>
+      </g>
+      <g stroke="#3D3D3D" stroke-width="1.5" marker-end="url(#mkFlow)">
+        <line x1="126" y1="37" x2="138" y2="37"/>
+        <line x1="258" y1="37" x2="270" y2="37"/>
+        <line x1="390" y1="37" x2="402" y2="37"/>
+        <line x1="522" y1="37" x2="534" y2="37"/>
+        <line x1="654" y1="37" x2="666" y2="37"/>
+        <line x1="786" y1="37" x2="798" y2="37"/>
+        <line x1="918" y1="37" x2="930" y2="37"/>
+      </g>
+    </svg>
+  </div>
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">1. 敷地を指定</h3>
   <div class="row3">
@@ -385,6 +216,7 @@
   <div style="margin:4px 0 12px;">
     <button class="small-btn" id="fetchHottestBtn" type="button">最厳日・時刻を自動取得</button>
     <span class="small" id="fetchHottestInfo" style="margin-left:8px;">直近1年の気象データから最高気温となる日と時刻を取得します。</span>
+    <span class="small" id="epHottestNote" style="display:none; margin-left:8px;">EnergyPlus連携では、気温の最厳日ではなく SQL の冷房ピーク（日付・解析時刻）を使います。外気温の時系列がSQLに無いときは最高/最低気温だけ手入力してください。</span>
   </div>
   <div class="row4">
     <div class="field-user"><label>解析対象の日付<span class="tag-req">要設定</span></label><input type="date" id="calcDate" value="2026-07-25"></div>
@@ -406,11 +238,16 @@
   </div>
   <div class="small" id="commonSolarInfo"></div>
 </div>
+</div>
+</div>
 
 <!-- ================= STEP 1 ================= -->
-<h2 id="step1"><span class="stepnum">1</span>断熱性能・SAT設定<label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
+<h2 id="step1"><span class="stepnum">01</span><span class="h2-text"><span class="h2-en">Insulation / SAT</span><span class="h2-jp">断熱性能と相当外気温度</span></span><label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
 
-<div class="diagram">
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 1 断熱</div>
+  <div class="diagram">
   <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">住宅の壁を拡大すると、屋外側から何層も重なって断熱しています。この層構成がStep 1で設定する境界条件の元になります。</p>
   <svg viewBox="0 0 950 340" style="width:100%; max-width:950px; height:auto;">
     <defs>
@@ -484,7 +321,8 @@
     </g>
   </svg>
 </div>
-
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">1-1 ドア本体 (室内ドア)</h3>
   <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
@@ -521,9 +359,12 @@
   <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
   <div class="cfd-value"><span class="k">厚み [m] (15mm × 2枚想定)</span><span class="v">0.03</span><button class="copy-btn" data-copy="0.03">コピー</button></div>
 </div>
+</div>
+</div>
 
-<div class="box">
-  <h3 style="margin-top:0;">1-4 屋根・外壁 (SAT + 熱通過率)</h3>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 1-4 SAT</div>
   <div class="info">
     <b>相当外気温度 (SAT: Sol-Air Temperature) とは</b><br>
     壁や屋根など日射が当たる不透明な外皮表面は、外気温だけでなく日射も受けて温められています。SATは、その「外気温+日射の影響」をまとめて1つの仮想的な外気温として置き換えたものです。<br>
@@ -550,6 +391,10 @@
       <text x="540" y="74" font-size="11" text-anchor="middle" fill="#3D3D3D">室内へ入熱</text>
     </svg>
   </div>
+</aside>
+<div class="stage-work">
+<div class="box">
+  <h3 style="margin-top:0;">1-4 屋根・外壁 (SAT + 熱通過率)</h3>
   <div class="row2" style="max-width:500px;">
     <div class="field-user"><label>外壁の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWall" value="0.39" step="0.01"></div>
     <div class="field-user"><label>屋根の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uRoof" value="0.27" step="0.01"></div>
@@ -561,12 +406,24 @@
   <div class="summary-grid" id="satSolarInfo" style="margin-bottom:8px;"></div>
   <div id="satTableWrap"></div>
   <p class="small">※ 上のグラフはあくまで参考です。実際にCFDへ入力するのは、共通条件で指定した「解析対象の時刻」における下表のSAT値です。</p>
+  <div id="epWallBox" style="display:none; margin-top:18px;">
+    <h3>EnergyPlus 居室の壁・屋根 熱貫流</h3>
+    <div id="epWallTableWrap"></div>
+  </div>
+</div>
+</div>
 </div>
 
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 1-5 / 1-6 床と基礎</div>
+  <p class="small" style="margin-top:0;">1F床は熱通過率だけを入れます。基礎外周は日射が当たらない前提なので、SATではなく外気温をそのまま使います。</p>
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">1-5 1F床</h3>
   <div class="row2" style="max-width:500px;">
-    <div class="field-user"><label>熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uFloor1" value="0.28" step="0.01"></div>
+    <div><label>熱通過率 U (W/m²K)</label><input type="number" id="uFloor1" value="0.28" step="0.01"></div>
   </div>
   <div class="cfd-value"><span class="k">形状モデル > 属性: 熱通過率 / 材質: 杉</span><span class="v" id="uFloor1Disp">0.28</span><button class="copy-btn" id="uFloor1Copy" data-copy="0.28">コピー</button></div>
 </div>
@@ -575,13 +432,16 @@
   <h3 style="margin-top:0;">1-6 基礎外周 (基礎壁)</h3>
   <p class="small">基礎外周は日射が当たらない前提で、SATではなく外気温をそのまま使います。熱貫流率のデフォルトはRC基礎 (コンクリート150mm + 断熱材50mm) の値です。</p>
   <div class="row2" style="max-width:500px;">
-    <div class="field-user"><label>熱貫流率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uFound" value="0.46" step="0.01"></div>
+    <div><label>熱貫流率 U (W/m²K)</label><input type="number" id="uFound" value="0.46" step="0.01"></div>
   </div>
   <div id="foundWrap"></div>
 </div>
+</div>
+</div>
 
-<div class="box">
-  <h3 style="margin-top:0;">1-7 窓 (疑似厚みの逆算)</h3>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 1-7 窓の疑似厚み</div>
   <div class="info">
     <b>疑似厚みとは — 厚み0のパネルに、仮想の厚みで熱抵抗を持たせる</b><br>
     FlowDesigner上の窓は「発生パネル」、つまり<b>厚みを持たない面 (厚み0のパネル)</b> としてモデル化します。厚み0のままではガラスとしての断熱性能 (熱抵抗) を表現できないため、「厚みを考慮 = はい」にして材質と疑似厚みを入力します。するとCFDは、そのパネルが<b>あたかもその厚みの材質でできているかのように</b>熱抵抗 (= 疑似厚み ÷ 材質の熱伝導率λ) を計算してくれます。<br>
@@ -625,6 +485,10 @@
       <text x="590" y="100" font-size="10" text-anchor="middle" fill="#8C8C8C">なるよう d を逆算</text>
     </svg>
   </div>
+</aside>
+<div class="stage-work">
+<div class="box">
+  <h3 style="margin-top:0;">1-7 窓 (疑似厚みの逆算)</h3>
   <div class="row4">
     <div><label>建具の仕様</label><select id="winFrame"></select></div>
     <div><label>ガラス・中空層の仕様</label><select id="winGlass"></select></div>
@@ -642,15 +506,21 @@
     <div><label>外表面熱伝達率 (W/m²K)</label><input type="number" id="hoWin" value="25" step="0.5"></div>
     <div><label>CFD材質の熱伝導率 λ (W/mK)</label><input type="number" id="lamWin" value="1" step="0.1"></div>
   </div>
-  <div class="small" style="margin-bottom:8px;">躯体のみの熱抵抗 = 1/U − 1/外表面 − 1/内表面、疑似厚み = 躯体熱抵抗 × λ。上のU値は「建具の仕様・ガラス・付属部材」を選ぶと自動入力されます (出典: (社)日本サッシ協会「建具とガラスの組み合わせによる開口部の熱貫流率」2025/7改訂)。手入力で上書きも可能です。</div>
+  <div class="small" style="margin-bottom:8px;">躯体のみの熱抵抗 = 1/U − 1/外表面 − 1/内表面、疑似厚み = 躯体熱抵抗 × λ。EnergyPlus連携では各窓のUを部屋カードに入れ、ここは面積加重の代表値です。種類が複数あると下表と3DS色分けで疑似厚みを分けます。日射は各窓のη0です。</div>
   <div id="winWarn"></div>
   <div id="winWrap"></div>
+  <div id="winPerUWrap" style="margin-top:10px;"></div>
+</div>
+</div>
 </div>
 
 <!-- ================= STEP 2 ================= -->
-<h2 id="step2"><span class="stepnum">2</span>内部発熱+直達日射 (部屋ごとの発生エリア)<label class="done-label"><input type="checkbox" id="done2">このステップ完了</label></h2>
+<h2 id="step2"><span class="stepnum">02</span><span class="h2-text"><span class="h2-en">Internal Gains</span><span class="h2-jp">内部発熱と直達日射（部屋ごとの発生エリア）</span></span><label class="done-label"><input type="checkbox" id="done2">このステップ完了</label></h2>
 
-<div class="diagram">
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 2 内部発熱+直達日射</div>
+  <div class="diagram">
   <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">部屋の中では「人がいること」と「日射が入ること」自体が熱源になります。この2つ (+機器) の発熱・発湿を合計してStep 3で使います。</p>
   <svg viewBox="0 0 900 380" style="width:100%; max-width:900px; height:auto;">
     <defs>
@@ -707,7 +577,115 @@
 </div>
 
 <div class="box">
+  <h3 style="margin-top:0;">日射計算のしくみ (このツール内部の計算)</h3>
+  <p class="small" style="margin-top:0;">上に表示した「直達日射 I_DN」「太陽高度角」「太陽方位角」は、共通条件の日付・時刻・緯度経度から次の4段階で計算しています。各窓の直達日射 (W) は最後の式で決まり、Step 2の合計に加算されます。</p>
+
+  <div class="info">
+    <b>① 太陽位置 (高度角 h ・ 方位角 A)</b><br>
+    緯度・経度・日付・時刻から赤緯と時角を計算し、太陽の高さ (高度角 h) と向き (方位角 A、南=0°・東=−90°・西=+90°) を求めます。
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 780 210" style="width:100%; max-width:780px; height:auto;">
+      <defs>
+        <marker id="mkSun1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#DE5A3A"/>
+        </marker>
+      </defs>
+      <g font-family="Helvetica,Arial,sans-serif">
+        <text x="150" y="20" font-size="11" fill="#8C8C8C" text-anchor="middle">側面図 (高度角 h)</text>
+        <line x1="40" y1="165" x2="300" y2="165" stroke="#3D3D3D" stroke-width="1.5"/>
+        <text x="296" y="182" font-size="10" fill="#8C8C8C" text-anchor="end">地平線</text>
+        <circle cx="55" cy="165" r="4" fill="#3D3D3D"/>
+        <text x="55" y="187" font-size="9.5" fill="#8C8C8C" text-anchor="middle">観測点</text>
+        <circle cx="230" cy="60" r="16" fill="#F2A45C"/>
+        <g stroke="#F2A45C" stroke-width="2.5">
+          <line x1="230" y1="34" x2="230" y2="22"/>
+          <line x1="246" y1="44" x2="256" y2="34"/>
+          <line x1="246" y1="76" x2="256" y2="86"/>
+        </g>
+        <line x1="55" y1="165" x2="228" y2="63" stroke="#8C8C8C" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M97,165 A42,42 0 0 0 76,129" fill="none" stroke="#DE5A3A" stroke-width="1.5"/>
+        <text x="110" y="138" font-size="11" fill="#DE5A3A" font-weight="600">h</text>
+
+        <text x="590" y="20" font-size="11" fill="#8C8C8C" text-anchor="middle">平面図 (方位角 A、上から見た図)</text>
+        <circle cx="590" cy="115" r="80" fill="none" stroke="#C9C9C9" stroke-width="1.5"/>
+        <text x="590" y="28" font-size="10" fill="#8C8C8C" text-anchor="middle">北 180°</text>
+        <text x="590" y="207" font-size="10" fill="#3D3D3D" text-anchor="middle" font-weight="600">南 0°</text>
+        <text x="500" y="119" font-size="10" fill="#8C8C8C" text-anchor="middle">東 −90°</text>
+        <text x="680" y="119" font-size="10" fill="#8C8C8C" text-anchor="middle">西 +90°</text>
+        <line x1="590" y1="115" x2="590" y2="195" stroke="#C9C9C9" stroke-width="1"/>
+        <line x1="590" y1="115" x2="631" y2="150" stroke="#DE5A3A" stroke-width="2" marker-end="url(#mkSun1)"/>
+        <text x="646" y="160" font-size="10" fill="#DE5A3A" font-weight="600">太陽の方位 A</text>
+        <path d="M590,155 A40,40 0 0 0 613,148" fill="none" stroke="#DE5A3A" stroke-width="1.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="info">
+    <b>② 直達日射 I_DN (晴天モデル)</b><br>
+    I_DN = 1098 × exp(−0.057 / sin h) [W/m²]。太陽が低い (朝夕) ほど大気を長く通過して弱まり、高い (南中前後) ほど強くなります。高度角 h が0°以下 (日没後・日の出前) は0として扱います。
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 780 170" style="width:100%; max-width:620px; height:auto;">
+      <g font-family="Helvetica,Arial,sans-serif">
+        <rect x="30" y="30" width="720" height="90" fill="#EFEFEF"/>
+        <text x="390" y="22" font-size="10" fill="#8C8C8C" text-anchor="middle">大気層 (通過距離が長いほど日射は弱まる)</text>
+        <line x1="30" y1="120" x2="750" y2="120" stroke="#3D3D3D" stroke-width="1.5"/>
+        <circle cx="120" cy="45" r="13" fill="#F2A45C"/>
+        <line x1="120" y1="58" x2="230" y2="120" stroke="#DE5A3A" stroke-width="2.5"/>
+        <text x="175" y="150" font-size="10" fill="#3D3D3D" text-anchor="middle">低い太陽</text>
+        <text x="175" y="163" font-size="9.5" fill="#8C8C8C" text-anchor="middle">経路が長い → I_DN 小</text>
+        <circle cx="620" cy="50" r="13" fill="#F2A45C"/>
+        <line x1="620" y1="63" x2="620" y2="120" stroke="#DE5A3A" stroke-width="2.5"/>
+        <text x="620" y="150" font-size="10" fill="#3D3D3D" text-anchor="middle">高い太陽</text>
+        <text x="620" y="163" font-size="9.5" fill="#8C8C8C" text-anchor="middle">経路が短い → I_DN 大</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="info">
+    <b>③ 窓面への入射角 θ</b><br>
+    窓に垂直な向き (法線) と太陽光線のなす角 θ を、高度角 h・太陽方位角 A・窓の向き wAz から求めます (窓は鉛直面として計算)。<br>
+    cosθ = cos h × cos (A − wAz) → 窓が受ける日射 = I_DN × max(cosθ, 0)。裏を向いていて cosθ が負になる場合や、真北向きの窓 (このツールの簡略化ルール) は0として扱います。
+  </div>
+  <div class="info">
+    <b>④ 透過率 η → 室内への熱 (W)</b><br>
+    窓ガラス+付属部材 (ブラインド等) を通過する割合を日射熱取得率 η0 として窓ごとに設定します (下の窓入力欄)。最終的な直達日射による室内発熱は次の式です。<br>
+    <b>q = I_DN × cosθ × η0 × 窓面積 A [W]</b> ← この値がStep 2の「直達日射」として部屋ごとに合算されます。
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 780 220" style="width:100%; max-width:780px; height:auto;">
+      <defs>
+        <marker id="mkSun2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#DE5A3A"/>
+        </marker>
+      </defs>
+      <g font-family="Helvetica,Arial,sans-serif">
+        <rect x="330" y="30" width="14" height="150" fill="#EAF3FA" stroke="#3D3D3D" stroke-width="2"/>
+        <text x="337" y="200" font-size="10" fill="#8C8C8C" text-anchor="middle">窓 (鉛直面)</text>
+        <line x1="337" y1="105" x2="420" y2="105" stroke="#8C8C8C" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="424" y="109" font-size="9.5" fill="#8C8C8C">法線 (窓の向き wAz)</text>
+        <circle cx="180" cy="40" r="14" fill="#F2A45C"/>
+        <line x1="192" y1="52" x2="330" y2="105" stroke="#DE5A3A" stroke-width="2.5" marker-end="url(#mkSun2)"/>
+        <text x="220" y="65" font-size="10" fill="#DE5A3A" font-weight="600">I_DN</text>
+        <path d="M370,105 A33,33 0 0 0 357,80" fill="none" stroke="#3D3D3D" stroke-width="1.5"/>
+        <text x="378" y="88" font-size="11" fill="#3D3D3D" font-weight="600">θ</text>
+        <line x1="344" y1="105" x2="470" y2="105" stroke="#DE5A3A" stroke-width="3" marker-end="url(#mkSun2)"/>
+        <text x="460" y="90" font-size="10" fill="#b3611f" text-anchor="end">室内へ透過 (×η0)</text>
+        <line x1="330" y1="105" x2="260" y2="60" stroke="#B4B4B4" stroke-width="1.5" marker-end="url(#mkSun2)"/>
+        <text x="255" y="52" font-size="9.5" fill="#8C8C8C" text-anchor="middle">反射・吸収</text>
+        <text x="600" y="60" font-size="12" font-weight="600" fill="#3D3D3D" text-anchor="middle">q = I_DN・cosθ・η0・A</text>
+        <text x="600" y="78" font-size="10" fill="#8C8C8C" text-anchor="middle">[W] → Step 2 直達日射へ</text>
+      </g>
+    </svg>
+  </div>
+  <p class="small">屋根・外壁のSAT (Step 1) も同じ太陽位置とI_DNを使い、屋根は水平面、外壁は鉛直面として、それぞれの向きのcosθで日射量を計算しています。</p>
+</div>
+</aside>
+<div class="stage-work">
+<div class="box">
   <p class="small" style="margin-top:0;">部屋ごとにボリューム (発生エリア) を作成し、直達日射+人体+機器の発熱・発湿の合計を入力します。太陽条件は共通条件から自動計算されます。この合計はStep 3 (エアコン) の必要処理熱量の計算にそのまま使われます。</p>
+  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。各窓のη0はSHGC、Uは構成から入れ、日射はη0×日射×面積です。SQLから入れるのは冷房ピークの日付・時刻だけです。</div>
   <div class="note">対象とする部屋: 居室、および北面以外に窓がある非居室です。真北向きの窓はこのツールの簡略化ルールとして直達日射0 Wで除外します (北東・北西は計算対象)。</div>
   <div class="summary-grid" id="step2SolarInfo"></div>
 </div>
@@ -730,11 +708,16 @@
   </div>
 </div>
 <div class="box" id="roomTableWrap"></div>
+</div>
+</div>
 
 <!-- ================= STEP 3 ================= -->
-<h2 id="step3"><span class="stepnum">3</span>エアコンの設定<label class="done-label"><input type="checkbox" id="done3">このステップ完了</label></h2>
+<h2 id="step3"><span class="stepnum">03</span><span class="h2-text"><span class="h2-en">Air Conditioner</span><span class="h2-jp">エアコンの設定</span></span><label class="done-label"><input type="checkbox" id="done3">このステップ完了</label></h2>
 
-<div class="diagram">
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 3 エアコン</div>
+  <div class="diagram">
   <p class="small" style="margin:-4px 0 12px; font-weight:600; color:var(--ink);">室内の暖かい空気を吸い込み、Step 1・2の負荷を処理した分だけ冷たい風にして吹き出す — これがエアコンの役割です。</p>
   <svg viewBox="0 0 900 320" style="width:100%; max-width:800px; height:auto; display:block; margin:0 auto;">
     <defs>
@@ -776,7 +759,8 @@
     </g>
   </svg>
 </div>
-
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">3-1 機種の選択</h3>
   <div class="row4">
@@ -793,9 +777,12 @@
     <div style="align-self:end;" class="small" id="flowInfo"></div>
   </div>
 </div>
+</div>
+</div>
 
-<div class="box">
-  <h3 style="margin-top:0;">3-3 必要冷房処理熱量の計算</h3>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 3-3 必要処理熱量</div>
   <div class="diagram">
     <svg viewBox="0 0 700 130" style="width:100%; max-width:700px; height:auto;">
       <defs>
@@ -830,6 +817,10 @@
       </g>
     </svg>
   </div>
+</aside>
+<div class="stage-work">
+<div class="box">
+  <h3 style="margin-top:0;">3-3 必要冷房処理熱量の計算</h3>
   <div class="row4">
     <div class="field-user"><label>UA値 (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uaVal" value="0.37" step="0.01"></div>
     <div class="field-user"><label>外皮面積 (㎡)<span class="tag-req">要設定</span></label><input type="number" id="envArea" value="300" step="1"></div>
@@ -848,14 +839,22 @@
   </div>
   <div class="summary-grid" id="loadStats" style="margin-top:8px;"></div>
 </div>
+</div>
+</div>
 
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 3-4 / 3-5 吹出温度</div>
+  <p class="small" style="margin-top:0;">吹出温度 = 目標室温 − (必要処理熱量 ÷ 台数) / (ρ・cp・1台あたり風量)。全台が同じ風量で負荷を均等分担すると仮定しています。</p>
+  <div class="note">吹出湿度は業界慣行として95%RH固定です。吹出温度だけが台数・風量で変わります。</div>
+  <div class="note">吹き出した流量・温度が住戸全体に行きわたらない場合、処理熱量を満たしていても目標温度に達しないことがあります。そのときは吹出温度を変えて再解析します。</div>
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">3-4 吹出温度の算出 (全台数で均等に処理する前提)</h3>
   <p class="small">吹出温度 = 目標室温 − (必要処理熱量 ÷ 台数) / (ρ・cp・1台あたり風量)。すべての台数が同じ風量で稼働し、負荷を均等に分担すると仮定しています。</p>
   <div class="summary-grid" id="supplyStats"></div>
   <div id="acWarn"></div>
-  <div class="note">吹出湿度について: 空調機の冷却コイル出口 (吹出し前) の相対湿度は、業界の計算慣行として95%RH固定で扱うのが一般的です。本ツールもこれに合わせ、吹出口の相対湿度は常に95%RHとしてCFDに入力してください (吹出温度のみ台数・風量条件で変化します)。</div>
-  <div class="note">注意: 吹き出した流量・温度が住戸全体に正確に行きわたらない場合、処理熱量を満たしていても目標温度に到達するとは限りません。その場合は吹出温度を自分で変更し、何度か解析を繰り返して調整してください。</div>
 </div>
 
 <div class="box">
@@ -863,10 +862,117 @@
   <p class="small">同じ機種・同じ風量ノッチのまま台数だけを変えたら、1台あたりの処理熱量と吹出温度がどう変わるかの一覧です。現在選択中の台数の行を強調表示します。</p>
   <div id="acCountCompare"></div>
 </div>
+</div>
+</div>
+
+<!-- ================= IDF 色分け3DS ================= -->
+<h2 id="idfmesh" class="ssl-head"><span class="stepnum">IDF</span><span class="h2-text"><span class="h2-en">IDF Model</span><span class="h2-jp">色分けモデルを書き出す</span></span></h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · IDFモデル</div>
+  <p class="small" style="margin-top:0;">EnergyPlus の IDF 頂点から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
+  <div class="ssl-flow">
+    <div class="ssl-step"><span class="n">1</span><b>IDF を読む</b><span>EnergyPlusモードで部屋別 IDF を指定（このページ上部）</span></div>
+    <div class="ssl-step"><span class="n">2</span><b>3DS を書き出す</b><span>部材名付き・色分け。窓Uが複数なら色も分け、SSLが疑似厚みを色ごとに書く</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>FlowDesigner のインポートで 3DS を開く。単位は mm</span></div>
+    <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む</span></div>
+  </div>
+  <p class="small">エアコン吹出・ドア隙間は IDF に無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。</p>
+</aside>
+<div class="stage-work">
+<div class="ssl-banner">
+  IDF があれば、色分け済みの CFD モデル種をここから出せます。厚みは付けません。
+</div>
+<div class="box">
+  <h3 style="margin-top:0;">部材の内訳</h3>
+  <div id="idfMeshSummary"></div>
+  <div style="margin-top:14px;">
+    <button type="button" id="idfMeshExportBtn" class="at-apply-btn" disabled>3DS と名前CSVを書き出す</button>
+    <span class="small" id="idfMeshExportInfo" style="margin-left:10px;"></span>
+  </div>
+  <p class="small" style="margin:10px 0 0;">同時に名前CSVが落ちます。3DS の名前が切れたときはこの CSV が正です。窓Uが複数のときは色が分かれるので、FDのカテゴライズCSVでも別色になります。</p>
+</div>
+</div>
+</div>
+
+<!-- ================= SSL連携 ================= -->
+<h2 id="ssl" class="ssl-head"><span class="stepnum">SSL</span><span class="h2-text"><span class="h2-en">SSL Export</span><span class="h2-jp">境界条件を一括反映する</span></span></h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · SSL 一括反映</div>
+  <p class="small" style="margin-top:0;">Step 1〜3で計算した値を、手でコピーせず FlowDesigner へ流し込みます。SimpleSimLink (AKL提供) のCSV読み込みスクリプトが受け取る <b>objParam.csv</b> をここで作ります。</p>
+  <p class="small">アーキトレンドは不要です。手作りの箱モデルでも、オブジェクトを属性別に色分けしてあれば同じ手順です。</p>
+  <p class="small">初期温度・湿度・SATULIM・快適性は次の「4 解析設定」の値を使います。書き出す前に確認してください。手転記が必要なときは末尾の転記一覧を使います。</p>
+  <div class="ssl-flow">
+    <div class="ssl-step"><span class="n">1</span><b>FDで色リストを出す</b><span>プロジェクトを開いた状態で「【SSL】オブジェクトIDカテゴライズcsv出力.vbs」を実行</span></div>
+    <div class="ssl-step"><span class="n">2</span><b>CSVを読み込む</b><span>プロジェクトフォルダの objcatidlist.csv をファイル選択へ</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>色に属性を割当てる</b><span>外壁北・窓・吹出口など。同じ色分けなら次回から保存済みの割当を再利用</span></div>
+    <div class="ssl-step"><span class="n">4</span><b>objParam.csv を書く</b><span>「objParam.csv を書き出す」でダウンロード</span></div>
+    <div class="ssl-step"><span class="n">5</span><b>FDへ読み込む</b><span>プロジェクトフォルダに置いて「【SSL】自動化_objParamCSV読み込み.vbs」を実行</span></div>
+  </div>
+</aside>
+<div class="stage-work">
+<div class="ssl-banner">
+  手コピーを省略する段階です。色分け済みのFlowDesignerモデルがあれば、5手順で境界条件が入ります。
+</div>
+<div class="box">
+  <h3 style="margin-top:0;">2 色リストの読み込み</h3>
+  <div class="row2" style="max-width:760px; align-items:end;">
+    <div>
+      <label>objcatidlist.csv (FlowDesignerから出力)</label>
+      <input type="file" id="sslCatInput" accept="text/csv,.csv">
+    </div>
+    <div class="small" id="sslFileInfo" style="align-self:center;"></div>
+  </div>
+  <div class="row2" style="max-width:760px; margin-top:10px;">
+    <div>
+      <label>FDプロジェクトの流量単位 (エアコン風量の換算先)</label>
+      <select id="sslFlowUnit">
+        <option value="cmm" selected>m³/min (CMM・FD既定)</option>
+        <option value="cmh">m³/h (CMH)</option>
+      </select>
+    </div>
+    <div class="small" style="align-self:end;">FlowDesigner側の「領域の設定」の流量単位に合わせてください。SSLの空調解析系スクリプトは CMM 前提です。</div>
+  </div>
+  <div class="row2" style="max-width:760px; margin-top:10px;">
+    <div>
+      <label>木部の材質名 (FDの物性値一覧の登録名)</label>
+      <input type="text" id="sslMatWood" value="杉" list="sslMatList">
+    </div>
+    <div>
+      <label>窓の材質名 (FDの物性値一覧の登録名)</label>
+      <input type="text" id="sslMatGlass" value="ガラス板" list="sslMatList">
+    </div>
+  </div>
+  <datalist id="sslMatList">
+    <option value="杉"></option>
+    <option value="ガラス板"></option>
+    <option value="合板"></option>
+    <option value="石膏ボード"></option>
+    <option value="コンクリート"></option>
+    <option value="断熱材"></option>
+  </datalist>
+  <p class="small" style="margin:9px 0 0;">材質名はFlowDesignerの物性値一覧に登録されている名前と一致させてください。疑似厚みは材質の熱伝導率とセットで意味を持ちます。</p>
+  <h3>3 色 → 属性の割当</h3>
+  <div id="sslAssignWrap"></div>
+  <h3>4 書き出し</h3>
+  <div style="margin-top:4px;">
+    <button type="button" id="sslExportBtn" class="at-apply-btn">objParam.csv を書き出す</button>
+    <span class="small" id="sslExportInfo" style="margin-left:10px;"></span>
+  </div>
+  <ul class="at-warn-list" id="sslWarnList" style="display:none;"></ul>
+</div>
+</div>
+</div>
 
 <!-- ================= STEP 4 ================= -->
-<h2 id="step4"><span class="stepnum">4</span>解析設定の確認<label class="done-label"><input type="checkbox" id="done4">このステップ完了</label></h2>
-
+<h2 id="step4"><span class="stepnum">04</span><span class="h2-text"><span class="h2-en">Solver Setup</span><span class="h2-jp">解析設定の確認</span></span><label class="done-label"><input type="checkbox" id="done4">このステップ完了</label></h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 4 解析設定</div>
+  <p class="small" style="margin-top:0;">FlowDesignerの解析設定画面で、速度・温度・湿度と輻射・快適性指標を有効にします。特殊コマンド <b>SATULIM</b> は、SATを外気温として使うための指定です。</p>
+</aside>
+<div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">チェックリスト</h3>
   <div class="checkitem"><input type="checkbox" id="c41"><div><span class="where">解析設定 > 解析の基本設定 > 解析対象と初期値</span>「速度」「温度」「相対湿度」にチェック。初期値: 温度 <b id="initTEcho">25</b> ℃ / 相対湿度 <b id="initRHEcho">60</b> %</div></div>
@@ -900,10 +1006,17 @@
   </div>
   <div id="comfWrap"></div>
 </div>
+</div>
+</div>
 
 <!-- ================= STEP 5 ================= -->
-<h2 id="step5"><span class="stepnum">5</span>解析を実行する<label class="done-label"><input type="checkbox" id="done5">このステップ完了</label></h2>
-
+<h2 id="step5"><span class="stepnum">05</span><span class="h2-text"><span class="h2-en">Run</span><span class="h2-jp">解析を実行する</span></span><label class="done-label"><input type="checkbox" id="done5">このステップ完了</label></h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · Step 5 解析実行</div>
+  <p class="small" style="margin-top:0;">まずクイック解析で境界条件の入れ忘れや発散がないかを見ます。問題なければ精度解析 (収束判定 -3 目安) を回し、PMV / SET* / 作用温度を確認します。</p>
+</aside>
+<div class="stage-work">
 <div class="box">
   <div class="checkitem"><input type="checkbox" id="c51"><div>メッシュを作成する (手動メッシュ / 自動)。ドアの開閉状態 (開けた状態か閉めた状態か) を解析ケースに合わせて確認する</div></div>
   <div class="checkitem"><input type="checkbox" id="c52"><div><span class="where">通常解析 > ソルバーパラメータの設定</span>解析種類は「定常解析」を選択</div></div>
@@ -911,2172 +1024,50 @@
   <div class="checkitem"><input type="checkbox" id="c54"><div><b>精度解析</b>: 結果を評価する本解析用。収束判定は -3 を目安に (右に行くほど高精度・長時間)。日時指定が共通条件の日付と合っているか確認する</div></div>
   <div class="checkitem"><input type="checkbox" id="c55"><div>解析後、結果表示で PMV / SET* / 作用温度・温度・気流を確認する。目標温度に達していない場合はStep 3の吹出温度を下げて再解析する</div></div>
 </div>
+</div>
+</div>
 
 <!-- ================= 転記一覧 ================= -->
-<h2 id="transfer">転記一覧 (FlowDesignerへのコピー用まとめ)</h2>
-<p class="desc">上から順にFlowDesignerへ転記すれば境界条件の設定が完了します。</p>
+<h2 id="transfer">
+  <span class="h2-text">
+    <span class="h2-en">Transfer List</span>
+    <span class="h2-jp">手コピー用・SSLが使えないとき</span>
+  </span>
+</h2>
+<div class="stage-split">
+<aside class="stage-guide">
+  <div class="guide-now">いま · 転記一覧</div>
+  <p class="small" style="margin-top:0;">SSL連携が使えない場合の控えです。上から順にFlowDesignerへ転記すれば境界条件の設定が完了します。</p>
+</aside>
+<div class="stage-work">
+<p class="desc">通常は Step 3 のあとの SSL 一括反映を使います。ここは手コピー用の控えです。</p>
 <div class="box" id="transferWrap"></div>
+</div>
+</div>
 
 <footer>
   <b>SOURCES</b><br>
   SAT計算: sat_calculator.html / 内部発熱: internal_heat_load_calculator.html /
   疑似厚み・必要処理熱量・風量: 境界条件設定_窓修正.xlsx (Z-Tシリーズ実測) /
   ドア隙間開口率: 隙間モデル化ケース④ (上辺・UC開口率不均一)<br>
-  定常冷房解析・メッシュ100mm前提 — 計算値は転記一覧からFlowDesignerへコピーして使用
+  定常冷房解析・メッシュ100mm前提 — 境界条件は SSL 一括反映 (objParam.csv) で FlowDesigner へ渡す。手コピーは転記一覧を使用
 </footer>
 
 </div><!-- /.wrap -->
 
-<script>
-// ========================= 定数データ =========================
-// ドア隙間の開口率 (隙間モデル化ケース「④上辺・UC開口率不均一」のみ採用)
-// モデル高さは上辺・アンダーカットとも0.1m(100mm)に統一 (今回の解析メッシュが100mm均一のため)
-const doorGapTable = {
-  '開戸_15': {topR:25.2, ucR:29.0},
-  '引戸_15': {topR:29.5, ucR:27.7},
-  '開戸_45': {topR:25.2, ucR:57.0},
-  '引戸_45': {topR:29.5, ucR:56.5}
-};
-// (社)日本サッシ協会「建具とガラスの組み合わせ」による開口部の熱貫流率 [W/(m²K)] (2025/7改訂)
-// vals = [付属部材無し, シャッター・雨戸付, 和障子付, 風除室あり]
-const jsmaWinTable = {
-  '樹脂製建具又は木製建具': [
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層12mm以上', vals:[1.50,1.41,1.35,1.31]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層10mm以上12mm未満', vals:[1.60,1.49,1.43,1.38]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層8mm以上10mm未満', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層8mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層13mm以上', vals:[1.60,1.49,1.43,1.38]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層10mm以上13mm未満', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層7mm以上10mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層7mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層12mm以上', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層8mm以上12mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層8mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層16mm以上', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層10mm以上16mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層7mm以上10mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層7mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'三層複層ガラス / 一般ガラス (ガス無) / 中空層14mm以上', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / 一般ガラス (ガス無) / 中空層8mm以上14mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'三層複層ガラス / 一般ガラス (ガス無) / 中空層8mm未満', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層10mm以上', vals:[2.15,1.96,1.86,1.77]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層8mm以上10mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層8mm未満', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層14mm以上', vals:[2.15,1.96,1.86,1.77]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層11mm以上14mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層11mm未満', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層13mm以上', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層13mm未満', vals:[3.49,3.04,2.82,2.59]},
-    {label:'単板ガラス', vals:[6.51,5.23,4.76,3.95]}
-  ],
-  '樹脂 (又は木) と金属の複合材料製建具': [
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層14mm以上', vals:[1.60,1.49,1.43,1.38]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層11mm以上14mm未満', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層8mm以上11mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス入) / 中空層8mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層15mm以上', vals:[1.70,1.58,1.51,1.46]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層10mm以上15mm未満', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層7mm以上10mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス2枚 (ガス無) / 中空層7mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層12mm以上', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層8mm以上12mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス入) / 中空層8mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層16mm以上', vals:[1.90,1.75,1.66,1.60]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層10mm以上16mm未満', vals:[2.15,1.96,1.86,1.77]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層8mm以上10mm未満', vals:[2.33,2.11,1.99,1.89]},
-    {label:'三層複層ガラス / Low-Eガラス1枚 (ガス無) / 中空層8mm未満', vals:[2.91,2.59,2.41,2.26]},
-    {label:'三層複層ガラス / 一般ガラス (ガス無) / 厚さ問わず', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層14mm以上', vals:[2.33,2.11,1.99,1.89]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層14mm未満', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層9mm以上', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層9mm未満', vals:[3.49,3.04,2.82,2.59]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層11mm以上', vals:[3.49,3.04,2.82,2.59]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層11mm未満', vals:[4.07,3.49,3.21,2.90]},
-    {label:'単板ガラス', vals:[6.51,5.23,4.76,3.95]}
-  ],
-  'その他・金属製建具・金属製熱遮断構造建具等': [
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層10mm以上', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス入) / 中空層10mm未満', vals:[3.49,3.04,2.82,2.59]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層14mm以上', vals:[2.91,2.59,2.41,2.26]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層7mm以上14mm未満', vals:[3.49,3.04,2.82,2.59]},
-    {label:'複層ガラス / Low-Eガラス (ガス無) / 中空層7mm未満', vals:[4.07,3.49,3.21,2.90]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層8mm以上', vals:[4.07,3.49,3.21,2.90]},
-    {label:'複層ガラス / 一般ガラス (ガス無) / 中空層8mm未満', vals:[4.65,3.92,3.60,3.18]},
-    {label:'単板ガラス', vals:[6.51,5.23,4.76,3.95]}
-  ]
-};
-// 畳数→冷房能力の一般カタログ値 (定格/最大, kW)
-const acCatalog = [
-  {tatami:6,  rated:2.2, max:3.4},
-  {tatami:8,  rated:2.5, max:3.5},
-  {tatami:10, rated:2.8, max:4.0},
-  {tatami:12, rated:3.6, max:4.3},
-  {tatami:14, rated:4.0, max:5.0},
-  {tatami:18, rated:5.6, max:6.0},
-  {tatami:20, rated:6.3, max:7.1}
-];
-// Z-Tシリーズ フリーブロー風量 (㎥/h)
-// 30°は実測値が1点(1000㎥/h)のみのため、ノッチに関わらず同じ値を表示する
-const flowTable = {
-  '水平': {'強':608, '弱':478, '微':350},
-  '50°': {'強':1510, '弱':1010, '微':830},
-  '30°': {'強':1000, '弱':1000, '微':1000}
-};
-// チャート配色は cooling_load_viewer_2.html の PALETTE に合わせる
-const orientations = [
-  {name:'北', az:180, color:'#4FC4E4'},
-  {name:'北東', az:-135, color:'#54B857'},
-  {name:'東', az:-90, color:'#F2A45C'},
-  {name:'南東', az:-45, color:'#DD4FDD'},
-  {name:'南', az:0, color:'#ED6A47'},
-  {name:'南西', az:45, color:'#5D74C7'},
-  {name:'西', az:90, color:'#3E5ED0'},
-  {name:'北西', az:135, color:'#9AA0A6'}
-];
-if(window.Chart && Chart.defaults && Chart.defaults.font){
-  Chart.defaults.font.family='"Helvetica Neue",Helvetica,Arial,sans-serif';
-  Chart.defaults.color='#8C8C8C';
-}
-const etaTable = [
-  {label:"3層 Low-E複層/真空複層(日射取得型)", vals:[0.54,0.34,0.41,0.12]},
-  {label:"3層 Low-E複層/真空複層(日射遮蔽型)", vals:[0.33,0.22,0.26,0.08]},
-  {label:"3層 Low-E三層複層/真空複層(日射取得型)", vals:[0.59,0.37,0.44,0.14]},
-  {label:"3層 Low-E三層複層/真空複層(日射遮蔽型)", vals:[0.37,0.25,0.29,0.10]},
-  {label:"3層 三層複層または真空複層ガラス", vals:[0.72,0.38,0.53,0.18]},
-  {label:"2層 Low-E複層/真空ガラス(日射取得型)", vals:[0.64,0.38,0.47,0.15]},
-  {label:"2層 Low-E複層/真空ガラス(日射遮蔽型)", vals:[0.40,0.26,0.31,0.11]},
-  {label:"2層 二層複層・真空・単板2枚組合せ", vals:[0.79,0.38,0.57,0.17]},
-  {label:"1層 単板ガラス", vals:[0.88,0.38,0.62,0.19]}
-];
-const attachTable = ["付属部材なし","和障子","内付けの日射遮蔽部材(和障子を除く)","外付けの日射遮蔽部材"];
-const RHOCP = 1.2*1000/3600; // W per (m3/h * K)
-
-// ========================= 太陽位置・気温 =========================
-function solarPos(y,mo,d,hour,lat,lon){
-  const dt = new Date(y,mo-1,d);
-  const start = new Date(y,0,0);
-  const n = Math.floor((dt-start)/86400000);
-  const latR = lat*Math.PI/180;
-  const decl = 23.45*Math.sin(2*Math.PI*(284+n)/365)*Math.PI/180;
-  const B = 2*Math.PI*(n-81)/365;
-  const eot = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B);
-  const solarTime = hour + eot/60 + (lon-135)/15;
-  const H = (15*(solarTime-12))*Math.PI/180;
-  const sinAlt = Math.sin(latR)*Math.sin(decl)+Math.cos(latR)*Math.cos(decl)*Math.cos(H);
-  const alt = Math.asin(Math.max(-1,Math.min(1,sinAlt)));
-  let az=0;
-  if(alt>0){
-    let cosAz=(sinAlt*Math.sin(latR)-Math.sin(decl))/(Math.cos(alt)*Math.cos(latR));
-    cosAz=Math.max(-1,Math.min(1,cosAz));
-    az=Math.acos(cosAz);
-    if(H<0) az=-az;
-  }
-  return {alt, az, sinAlt};
-}
-function taAt(hour, tmax, tmin, tpeak){
-  const tave=(tmax+tmin)/2, tamp=(tmax-tmin)/2;
-  return tave + tamp*Math.cos(2*Math.PI*(hour-tpeak)/24);
-}
-function num(id){ return parseFloat(document.getElementById(id).value)||0; }
-function hasInput(id){
-  const el = document.getElementById(id);
-  return !!(el && String(el.value).trim() !== '');
-}
-function numOrNull(id){
-  if(!hasInput(id)) return null;
-  const v = parseFloat(document.getElementById(id).value);
-  return isFinite(v) ? v : null;
-}
-function readLatLon(){
-  if(!hasInput('lat') || !hasInput('lon')){
-    return {ok:false, reason:'緯度・経度が空欄です。敷地の値を入力してから実行してください。'};
-  }
-  const lat = parseFloat(document.getElementById('lat').value);
-  const lon = parseFloat(document.getElementById('lon').value);
-  if(!isFinite(lat) || !isFinite(lon)){
-    return {ok:false, reason:'緯度・経度の数値が不正です。'};
-  }
-  // 空欄→0 や未設定のまま API/太陽位置を叩くと赤道・本初子午線になり、4月最暑や夜ピークSATになる
-  if(Math.abs(lat) < 1e-9 && Math.abs(lon) < 1e-9){
-    return {ok:false, reason:'緯度・経度が 0 のままです。敷地の座標を入力してください。'};
-  }
-  return {ok:true, lat, lon};
-}
-function fmtU(v){ return (v===null || v===undefined || !isFinite(v)) ? '—' : v; }
-function getDateParts(){
-  const v = document.getElementById('calcDate').value || '2026-07-25';
-  const [y,mo,d] = v.split('-').map(Number);
-  return {y,mo,d};
-}
-
-// ========================= コピー =========================
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('.copy-btn');
-  if(!btn) return;
-  const text = (btn.dataset.copy||'').replace(/&#10;/g,'\n');
-  navigator.clipboard.writeText(text).then(()=>{
-    const o = btn.textContent;
-    btn.textContent = 'コピーしました';
-    setTimeout(()=>{ btn.textContent = o; }, 900);
-  });
-});
-function cfdRow(label, value, copyText){
-  const c = (copyText!==undefined? copyText : value);
-  return '<div class="cfd-value"><span class="k">'+label+'</span><span class="v">'+value+'</span><button class="copy-btn" data-copy="'+c+'">コピー</button></div>';
-}
-function cfdRowNoCopy(label, value){
-  return '<div class="cfd-value"><span class="k">'+label+'</span><span class="v">'+value+'</span></div>';
-}
-
-// ========================= Step 2: 部屋 =========================
-let roomCount=0, winCounter=0;
-function addRoom(defaults){
-  roomCount++;
-  const id = 'room'+roomCount;
-  const div = document.createElement('div');
-  const isNonHabitable=!!(defaults&&defaults.isNonHabitable);
-  div.className='room-card'+(isNonHabitable?' non-habitable':'');
-  div.id = id;
-  div.dataset.nonHabitable=isNonHabitable?'true':'false';
-  if(defaults&&defaults.atRoomKey) div.dataset.atRoomKey=defaults.atRoomKey;
-  div.innerHTML =
-    '<div class="room-header">'+
-      '<input type="text" class="roomName" value="'+(defaults&&defaults.name||('部屋'+roomCount))+'">'+
-      (isNonHabitable?'<span class="room-kind">非居室・窓日射用</span>':'')+
-      '<button class="small-btn" onclick="document.getElementById(\''+id+'\').remove(); runAll();">部屋を削除</button>'+
-    '</div>'+
-    '<h3 style="margin-top:0;">窓 (直達日射)</h3>'+
-    '<div class="winList"></div>'+
-    '<button class="small-btn" onclick="addWindow(\''+id+'\')">+ 窓を追加</button>'+
-
-    '<h3>人体</h3>'+
-    '<div class="calc-line">'+
-      '<div><label>発熱原単位 (W/人)</label><input type="number" class="peopleSensRate" value="60" step="1"></div>'+
-      '<div class="eq">×</div>'+
-      '<div><label>在室人数</label><input type="number" class="occCount" value="0" step="1"></div>'+
-      '<div class="eq">=</div>'+
-      '<div><label>顕熱 (W)</label><div class="result peopleSensResult">0 W</div></div>'+
-    '</div>'+
-    '<div class="calc-line">'+
-      '<div><label>発湿原単位 (g/h/人)</label><input type="number" class="peopleMoistRate" value="76" step="1"></div>'+
-      '<div class="eq">×</div>'+
-      '<div><label>在室人数</label><div class="result occCountEcho">0 人</div></div>'+
-      '<div class="eq">=</div>'+
-      '<div><label>発湿 (g/h)</label><div class="result peopleMoistResult">0 g/h</div></div>'+
-    '</div>'+
-
-    '<h3>機器・照明</h3>'+
-    '<div class="calc-line">'+
-      '<div><label>発熱密度 (W/㎡)</label><input type="number" class="equipSensRate" value="5" step="0.5"></div>'+
-      '<div class="eq">×</div>'+
-      '<div><label>床面積 (㎡)</label><input type="number" class="roomArea" value="10.0" step="0.1"></div>'+
-      '<div class="eq">=</div>'+
-      '<div><label>顕熱 (W)</label><div class="result equipSensResult">0 W</div></div>'+
-    '</div>'+
-    '<div class="calc-line">'+
-      '<div><label>発湿密度 (g/h/㎡、任意)</label><input type="number" class="equipMoistRate" value="0" step="0.5"></div>'+
-      '<div class="eq">×</div>'+
-      '<div><label>床面積 (㎡)</label><div class="result areaEcho">0 ㎡</div></div>'+
-      '<div class="eq">=</div>'+
-      '<div><label>発湿 (g/h)</label><div class="result equipMoistResult">0 g/h</div></div>'+
-    '</div>'+
-
-    '<h3>追加 (任意・冷蔵庫ベース分など)</h3>'+
-    '<div class="row3">'+
-      '<div><label>追加 顕熱 (W)</label><input type="number" class="extraSens" value="0" step="1"></div>'+
-      '<div><label>追加 発湿 (g/h)</label><input type="number" class="extraMoist" value="0" step="1"></div>'+
-    '</div>'+
-
-    '<div class="summary-grid" style="margin-top:1rem;" id="'+id+'_summary"></div>'+
-    '<h3>CFDへの入力値 (発生エリア)</h3>'+
-    '<div id="'+id+'_cfd"></div>';
-  document.getElementById('roomsWrap').appendChild(div);
-  if(defaults&&defaults.fields){
-    for(const cls in defaults.fields){
-      const el = div.querySelector('.'+cls);
-      if(el) el.value = defaults.fields[cls];
-    }
-  }
-  if(defaults&&defaults.windows){
-    defaults.windows.forEach(w=>addWindow(id, w));
-  }
-  runAll();
-  return id;
-}
-function addWindow(roomId, defaults){
-  winCounter++;
-  const wid = 'win'+winCounter;
-  const div = document.createElement('div');
-  div.className='win-row';
-  div.id = wid;
-  let glassOpts = etaTable.map((g,i)=>'<option value="'+i+'">'+g.label+'</option>').join('');
-  let attachOpts = attachTable.map((a,i)=>'<option value="'+i+'">'+a+'</option>').join('');
-  div.innerHTML =
-    '<div><label>名前</label><input type="text" class="wName" value="窓"></div>'+
-    '<div><label>方位 (南=0,東=-90,西=90)</label><input type="number" class="wAz" value="0" step="1"></div>'+
-    '<div><label>ガラス仕様</label><select class="glassSel" onchange="updateEta(\''+wid+'\')">'+glassOpts+'</select></div>'+
-    '<div><label>付属部材</label><select class="attachSel" onchange="updateEta(\''+wid+'\')">'+attachOpts+'</select></div>'+
-    '<div><label>η0</label><input type="number" class="wEta" value="0.54" step="0.01"></div>'+
-    '<div><label>面積 (㎡)</label><input type="number" class="wArea" value="1.0" step="0.1"></div>'+
-    '<button class="small-btn" onclick="document.getElementById(\''+wid+'\').remove(); runAll();">削除</button>';
-  document.getElementById(roomId).querySelector('.winList').appendChild(div);
-  if(defaults){
-    for(const cls in defaults){
-      const el = div.querySelector('.'+cls);
-      if(el) el.value = defaults[cls];
-    }
-  }
-  runAll();
-}
-function updateEta(wid){
-  const div = document.getElementById(wid);
-  const gi = +div.querySelector('.glassSel').value;
-  const ai = +div.querySelector('.attachSel').value;
-  div.querySelector('.wEta').value = etaTable[gi].vals[ai];
-  runAll();
-}
-
-// ========================= Step 3: 台数比較表 =========================
-function renderAcCompare(qReq, flowPer, acMax, targetT, currentCount){
-  let html = '<table><tr><th>台数</th><th>総風量 [㎥/h]</th><th>1台あたり処理熱量 [W]</th><th>1台あたり吹出温度 [℃]</th><th>能力判定</th></tr>';
-  for(let n=1; n<=6; n++){
-    const vT = flowPer*n;
-    const qPer = qReq/n;
-    const dT = vT>0 ? qReq/(RHOCP*vT) : 0;
-    const ts = targetT - dT;
-    const capOk = (acMax*1000*n) >= qReq;
-    const cur = (n===currentCount);
-    html += '<tr'+(cur?' style="background:#F4F4F4; font-weight:600;"':'')+'>'+
-      '<td>'+n+'台'+(cur?' ← 現在の設定':'')+'</td>'+
-      '<td>'+vT.toFixed(0)+'</td>'+
-      '<td>'+qPer.toFixed(0)+'</td>'+
-      '<td>'+ts.toFixed(2)+'</td>'+
-      '<td>'+(capOk?'<span class="ok">OK</span>':'<span style="color:#DE5A3A; font-weight:600;">能力不足</span>')+'</td></tr>';
-  }
-  html += '</table>';
-  document.getElementById('acCountCompare').innerHTML = html;
-}
-
-// ========================= メイン再計算 =========================
-let satChart=null, roomChart=null;
-let transferRows=[];
-function tr(step, target, item, value, copyVal){
-  transferRows.push({step, target, item, value, copy:(copyVal!==undefined?copyVal:value)});
-}
-
-function runAll(){
-  transferRows = [];
-  const {y,mo,d} = getDateParts();
-  const detailHour = num('detailHour');
-  const geo = readLatLon();
-  const lat = geo.ok ? geo.lat : null;
-  const lon = geo.ok ? geo.lon : null;
-  const tmax = numOrNull('tmax'), tmin = numOrNull('tmin'), tpeak = numOrNull('tpeak');
-  const rho=num('rho'), alpha=num('alpha'), ho=num('ho')||23, roofCorr=num('roofCorr');
-  const targetT=num('targetT'), initT=num('initT'), initRH=num('initRH');
-  const taReady = (tmax!==null && tmin!==null && tpeak!==null);
-
-  // ---- 太陽条件 (共通) ----
-  // 緯度経度が空/0のまま計算すると経度0°扱いになり、日本の時計時刻で夜に日射ピークが出る
-  let sp = {alt:0, az:0, sinAlt:0};
-  let idn=0, isky=0;
-  if(geo.ok){
-    sp = solarPos(y,mo,d,detailHour,lat,lon);
-    if(sp.alt>0){ idn=1098*Math.exp(-0.057/Math.sin(sp.alt)); isky=0.125*idn; }
-  }
-  const taNow = taReady ? taAt(detailHour, tmax, tmin, tpeak) : 0;
-  const altDeg=(sp.alt*180/Math.PI), azDeg=(sp.az*180/Math.PI);
-  let commonMsg = '';
-  if(!geo.ok){
-    commonMsg = '<span style="color:#DE5A3A; font-weight:600;">※'+geo.reason+' SAT・日射は計算しません。</span>';
-  }else if(!taReady){
-    commonMsg = '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
-      ' <span style="color:#DE5A3A; font-weight:600;">※最高/最低気温・ピーク時刻が未入力のため外気温=0として仮表示しています。</span>';
-  }else{
-    commonMsg =
-      '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+taNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
-      (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。日射はゼロとして計算します。</span>':'');
-  }
-  document.getElementById('commonSolarInfo').innerHTML = commonMsg;
-  // ================= Step 1 =================
-  // ドア隙間 (モデル高さは0.1m均一・開口率のみ表の値を使用)
-  const gapKey = document.getElementById('doorType').value+'_'+document.getElementById('doorUC').value;
-  const gap = doorGapTable[gapKey];
-  document.getElementById('doorGapWrap').innerHTML =
-    '<p class="small" style="margin:4px 0 8px;">モデル高さ: 上辺・アンダーカットとも <b>0.1 m</b> (100mm、解析メッシュに合わせて統一)</p>' +
-    cfdRow('上辺パネル: 開口率 [%]', gap.topR) +
-    cfdRow('アンダーカットパネル: 開口率 [%]', gap.ucR);
-  tr('1-2','ドア隙間 (上辺)','モデル高さ [m] / 開口率 [%]', '0.1 / '+gap.topR, gap.topR);
-  tr('1-2','ドア隙間 (UC)','モデル高さ [m] / 開口率 [%]', '0.1 / '+gap.ucR, gap.ucR);
-  tr('1-1','ドア本体 (形状モデル)','厚み [m] (材質: 杉)', 0.03);
-  tr('1-3','内壁・天井・床 (形状モデル)','厚み [m] (材質: 杉)', 0.03);
-
-  // SAT 日変化 (参考グラフ)
-  const hours=[]; for(let h=0; h<=24; h+=0.5) hours.push(h);
-  const series={}; orientations.forEach(o=>series[o.name]=[]);
-  const roofSeries=[];
-  if(geo.ok){
-    hours.forEach(hour=>{
-      const s = solarPos(y,mo,d,hour,lat,lon);
-      let hIdn=0, hIsky=0;
-      if(s.alt>0){ hIdn=1098*Math.exp(-0.057/Math.sin(s.alt)); hIsky=0.125*hIdn; }
-      const ta = taReady ? taAt(hour, tmax, tmin, tpeak) : 0;
-      orientations.forEach(o=>{
-        let iw=0;
-        if(s.alt>0){
-          const cosInc = Math.cos(s.alt)*Math.cos(s.az-o.az*Math.PI/180);
-          const ib = hIdn*Math.max(cosInc,0);
-          const idf = hIsky*0.5;
-          const ir = (hIdn*s.sinAlt+hIsky)*rho*0.5;
-          iw = ib+idf+ir;
-        }
-        series[o.name].push(ta + alpha*iw/ho);
-      });
-      let iRoof=0;
-      if(s.alt>0) iRoof = hIdn*Math.max(s.sinAlt,0) + hIsky;
-      roofSeries.push(ta + alpha*iRoof/ho - roofCorr);
-    });
-  }else{
-    hours.forEach(()=>{
-      orientations.forEach(o=> series[o.name].push(null));
-      roofSeries.push(null);
-    });
-  }
-  const labels = hours.map(h=>h+':00');
-  const datasets = orientations.map(o=>({
-    label:o.name, data:series[o.name], borderColor:o.color, backgroundColor:o.color,
-    borderWidth:2, pointRadius:0, tension:0.3, spanGaps:false
-  }));
-  datasets.push({label:'屋根(水平)', data:roofSeries, borderColor:'#3D3D3D', backgroundColor:'#3D3D3D',
-    borderWidth:2, borderDash:[5,3], pointRadius:0, tension:0.3, spanGaps:false});
-  if(satChart) satChart.destroy();
-  satChart = new Chart(document.getElementById('satChart'), {
-    type:'line', data:{labels, datasets},
-    options:{responsive:true, maintainAspectRatio:false, animation:false,
-      scales:{ x:{ticks:{maxTicksLimit:13}}, y:{title:{display:true,text:'SAT (℃) ※参考'}} }}
-  });
-
-  // SAT 指定時刻
-  if(!geo.ok){
-    document.getElementById('satSolarInfo').innerHTML =
-      '<div class="warn" style="grid-column:1/-1;">'+geo.reason+' 緯度・経度を入れるとSATグラフが正しくなります。</div>';
-  }else{
-    document.getElementById('satSolarInfo').innerHTML =
-      '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
-      '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
-      '<div class="stat"><div class="lbl">I_DN (直達)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
-      '<div class="stat"><div class="lbl">Isky (天空)</div><div class="val">'+isky.toFixed(0)+' W/m²</div></div>'+
-      '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+(taReady?taNow.toFixed(1)+' ℃':'—')+'</div></div>';
-  }
-
-  const uWall = numOrNull('uWall'), uRoof = numOrNull('uRoof');
-  const satByOri = {};
-  let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃) → 発生パネル「外気温」</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
-  orientations.forEach(o=>{
-    let iw=0, sat=taNow;
-    if(geo.ok && sp.alt>0){
-      const cosInc = Math.cos(sp.alt)*Math.cos(sp.az-o.az*Math.PI/180);
-      const ib = idn*Math.max(cosInc,0);
-      const idf = isky*0.5;
-      const ir = (idn*sp.sinAlt+isky)*rho*0.5;
-      iw = ib+idf+ir;
-      sat = taNow + alpha*iw/ho;
-    }else if(!geo.ok){
-      iw = 0; sat = NaN;
-    }
-    satByOri[o.name]=sat;
-    const satTxt = isFinite(sat) ? sat.toFixed(2) : '—';
-    table += '<tr><td>外壁 '+o.name+'</td><td>'+(geo.ok?iw.toFixed(1):'—')+'</td><td><b>'+satTxt+'</b></td><td>'+fmtU(uWall)+'</td>'+
-      '<td>'+(isFinite(sat)?'<button class="copy-btn" data-copy="'+sat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
-  });
-  let iRoof=0, roofSat=taNow-roofCorr;
-  if(geo.ok && sp.alt>0){ iRoof = idn*Math.max(sp.sinAlt,0)+isky; roofSat = taNow + alpha*iRoof/ho - roofCorr; }
-  else if(!geo.ok){ roofSat = NaN; }
-  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+(geo.ok?iRoof.toFixed(1):'—')+'</td><td><b>'+(isFinite(roofSat)?roofSat.toFixed(2):'—')+'</b></td><td>'+fmtU(uRoof)+'</td>'+
-    '<td>'+(isFinite(roofSat)?'<button class="copy-btn" data-copy="'+roofSat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
-  table += '</table>';
-  document.getElementById('satTableWrap').innerHTML = table;
-  if(geo.ok){
-    ['北','東','南','西'].forEach(nm=>{
-      tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
-      tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uWall));
-    });
-    tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofSat.toFixed(2));
-    tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', fmtU(uRoof));
-  }
-
-  // 1F床
-  const uFloor1 = numOrNull('uFloor1');
-  document.getElementById('uFloor1Disp').textContent = fmtU(uFloor1);
-  document.getElementById('uFloor1Copy').dataset.copy = uFloor1==null ? '' : uFloor1;
-  tr('1-5','1F床 (形状モデル)','熱通過率 [W/m²K]', fmtU(uFloor1));
-
-  // 基礎外周
-  const uFound = numOrNull('uFound');
-  document.getElementById('foundWrap').innerHTML =
-    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', taReady?taNow.toFixed(2):'—') +
-    cfdRow('熱貫流率 (熱通過率) [W/m²K]', fmtU(uFound));
-  if(taReady) tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
-  tr('1-6','基礎外周 (発生パネル)','熱通過率 [W/m²K]', fmtU(uFound));
-
-  // 窓 疑似厚み
-  const uWin=numOrNull('uWin'), hiWin=num('hiWin'), hoWin=num('hoWin'), lamWin=num('lamWin');
-  const rBody = (uWin && uWin>0) ? (1/uWin - 1/hoWin - 1/hiWin) : NaN;
-  const dWin = rBody*lamWin;
-  if(uWin===null){
-    document.getElementById('winWarn').innerHTML = '<div class="warn">窓U値が未入力です。</div>';
-    document.getElementById('winWrap').innerHTML = '';
-  }else if(!(rBody>0)){
-    document.getElementById('winWarn').innerHTML = '<div class="warn">U値が大きすぎて躯体熱抵抗が0以下になりました。U値・表面熱伝達率を確認してください。</div>';
-    document.getElementById('winWrap').innerHTML = '';
-  }else{
-    document.getElementById('winWarn').innerHTML = '';
-    document.getElementById('winWrap').innerHTML =
-      cfdRowNoCopy('種類', '外気温と固体表面までの熱伝達率') +
-      cfdRow('外気温 [℃]', taNow.toFixed(2)) +
-      cfdRow('内表面熱伝達率 [W/m²K]', hiWin) +
-      cfdRow('外表面熱伝達率 [W/m²K]', hoWin) +
-      cfdRowNoCopy('厚みを考慮 (パネル実体は厚み0のまま)', 'はい') +
-      cfdRowNoCopy('材質', 'ガラス板 (Low-E複層)') +
-      cfdRow('躯体のみの熱抵抗 [㎡K/W] (参考)', rBody.toFixed(4)) +
-      cfdRow('疑似厚み [m] (仮想の厚み・逆算値)', dWin.toFixed(4)) +
-      cfdRow('初期温度 [℃]', initT);
-    tr('1-7','窓 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
-    tr('1-7','窓 (発生パネル)','内表面熱伝達率 [W/m²K]', hiWin);
-    tr('1-7','窓 (発生パネル)','外表面熱伝達率 [W/m²K]', hoWin);
-    tr('1-7','窓 (発生パネル)','疑似厚み [m]', dWin.toFixed(4));
-  }
-
-  // ================= Step 2: 内部発熱 (Step 3のエアコン計算より先に集計) =================
-  document.getElementById('step2SolarInfo').innerHTML =
-    '<div class="stat"><div class="lbl">直達日射 I_DN (自動)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
-    '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
-    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>';
-
-  const results=[];
-  document.querySelectorAll('.room-card').forEach(card=>{
-    const name = card.querySelector('.roomName').value;
-    let solarW = 0;
-    card.querySelectorAll('.win-row').forEach(w=>{
-      const wAzDeg = parseFloat(w.querySelector('.wAz').value);
-      const wAz = wAzDeg*Math.PI/180;
-      const wTilt = Math.PI/2; // 一般的な壁面窓として垂直固定
-      const eta = parseFloat(w.querySelector('.wEta').value);
-      const area = parseFloat(w.querySelector('.wArea').value);
-      let q = 0;
-      const northFacing=Math.abs(Math.abs(wAzDeg)-180)<0.5;
-      if(sp.alt>0 && !northFacing){
-        const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
-        const ib = idn*Math.max(cosInc,0);
-        q = ib*eta*area;
-      }
-      solarW += q;
-    });
-    const occ = parseFloat(card.querySelector('.occCount').value)||0;
-    const peopleSens = (parseFloat(card.querySelector('.peopleSensRate').value)||0)*occ;
-    const peopleMoist = (parseFloat(card.querySelector('.peopleMoistRate').value)||0)*occ;
-    const roomArea = parseFloat(card.querySelector('.roomArea').value)||0;
-    const equipSens = (parseFloat(card.querySelector('.equipSensRate').value)||0)*roomArea;
-    const equipMoist = (parseFloat(card.querySelector('.equipMoistRate').value)||0)*roomArea;
-    const extraSens = parseFloat(card.querySelector('.extraSens').value)||0;
-    const extraMoist = parseFloat(card.querySelector('.extraMoist').value)||0;
-    const totalSens = solarW + peopleSens + equipSens + extraSens;
-    const totalMoist = peopleMoist + equipMoist + extraMoist;
-
-    card.querySelector('.peopleSensResult').textContent = peopleSens.toFixed(1)+' W';
-    card.querySelector('.occCountEcho').textContent = occ+' 人';
-    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h';
-    card.querySelector('.equipSensResult').textContent = equipSens.toFixed(1)+' W';
-    card.querySelector('.areaEcho').textContent = roomArea.toFixed(1)+' ㎡';
-    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h';
-    document.getElementById(card.id+'_summary').innerHTML =
-      '<div class="stat"><div class="lbl">直達日射</div><div class="val">'+solarW.toFixed(0)+' W</div></div>'+
-      '<div class="stat"><div class="lbl">人体顕熱</div><div class="val">'+peopleSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat"><div class="lbl">機器顕熱</div><div class="val">'+equipSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat"><div class="lbl">追加</div><div class="val">'+extraSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat hl"><div class="lbl">合計顕熱</div><div class="val">'+totalSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat hl"><div class="lbl">合計発湿</div><div class="val">'+totalMoist.toFixed(0)+' g/h</div></div>';
-    document.getElementById(card.id+'_cfd').innerHTML =
-      cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
-      cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
-      cfdRow('初期温度 [℃] (外気温と同じ)', taNow.toFixed(2)) +
-      cfdRow('初期湿度 [%]', initRH);
-    results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist});
-  });
-
-  const grand = results.reduce((a,r)=>{
-    a.solarW+=r.solarW; a.peopleSens+=r.peopleSens; a.equipSens+=r.equipSens;
-    a.extraSens+=r.extraSens; a.totalSens+=r.totalSens; a.totalMoist+=r.totalMoist;
-    return a;
-  }, {solarW:0, peopleSens:0, equipSens:0, extraSens:0, totalSens:0, totalMoist:0});
-
-  document.getElementById('grandTotalWrap').innerHTML =
-    '<div class="summary-grid">'+
-      '<div class="stat"><div class="lbl">直達日射 合計</div><div class="val">'+grand.solarW.toFixed(0)+' W</div></div>'+
-      '<div class="stat"><div class="lbl">人体顕熱 合計</div><div class="val">'+grand.peopleSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat"><div class="lbl">機器顕熱 合計</div><div class="val">'+grand.equipSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat hl"><div class="lbl">全室 合計顕熱</div><div class="val">'+grand.totalSens.toFixed(0)+' W</div></div>'+
-      '<div class="stat hl"><div class="lbl">全室 合計発湿</div><div class="val">'+grand.totalMoist.toFixed(0)+' g/h</div></div>'+
-    '</div>';
-
-  let rt = '<table><tr><th>室名</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計発湿(g/h)</th></tr>';
-  results.forEach(r=>{
-    rt += '<tr><td>'+r.name+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
-  });
-  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
-  document.getElementById('roomTableWrap').innerHTML = rt;
-
-  if(roomChart) roomChart.destroy();
-  roomChart = new Chart(document.getElementById('roomChart'), {
-    type:'bar',
-    data:{
-      labels: results.map(r=>r.name),
-      datasets:[
-        {label:'直達日射', data:results.map(r=>r.solarW), backgroundColor:'#F2A45C'},
-        {label:'人体顕熱', data:results.map(r=>r.peopleSens), backgroundColor:'#4FC4E4'},
-        {label:'機器顕熱', data:results.map(r=>r.equipSens), backgroundColor:'#ED6A47'},
-        {label:'追加', data:results.map(r=>r.extraSens), backgroundColor:'#9AA0A6'}
-      ]
-    },
-    options:{responsive:true, maintainAspectRatio:false, animation:false,
-      scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'顕熱 (W)'}} }}
-  });
-  results.forEach(r=>{
-    tr('2','発生エリア: '+r.name,'発熱量 [W]', r.totalSens.toFixed(1));
-    tr('2','発生エリア: '+r.name,'発湿量 [g/h]', r.totalMoist.toFixed(1));
-  });
-
-  // ================= Step 3: エアコン =================
-  document.getElementById('outTaDisp').value = taNow.toFixed(1);
-  document.getElementById('roomTDisp').value = targetT;
-  const cat = acCatalog[+document.getElementById('tatamiSel').value];
-  document.getElementById('acRatedInfo').textContent = '参考: '+cat.tatami+'畳クラス 定格 '+cat.rated+' kW / 最大 '+cat.max+' kW';
-  const dir = document.getElementById('dirSel').value;
-  const vol = document.getElementById('volSel').value;
-  document.getElementById('flowInfo').textContent = 'Z-Tシリーズ '+dir+'・'+vol+'風のフリーブロー値: '+flowTable[dir][vol]+' ㎥/h'+(dir==='30°' ? ' (実測値1点のみ・ノッチ共通)' : '');
-
-  const acMax=num('acMax'), acCount=Math.max(1, Math.round(num('acCount')));
-  const flowPer=num('flowPerUnit');
-  const ua=num('uaVal'), envA=num('envArea');
-  const dT = taNow - targetT;
-  const qEnv = ua*envA*dT;
-  const ventMode = document.getElementById('ventMode').value;
-  let qVent = 0;
-  if(ventMode!=='none'){
-    qVent = RHOCP*num('ach')*num('roomVol')*dT;
-    if(ventMode==='first') qVent *= (1 - num('hxRate')/100);
-  }
-  const qInt = grand.totalSens;
-  const qReq = qEnv + qVent + qInt;
-  document.getElementById('loadStats').innerHTML =
-    '<div class="stat"><div class="lbl">外皮負荷</div><div class="val">'+qEnv.toFixed(0)+' W</div></div>'+
-    '<div class="stat"><div class="lbl">換気負荷'+(ventMode==='none'?' (除外中)':'')+'</div><div class="val">'+qVent.toFixed(0)+' W</div></div>'+
-    '<div class="stat"><div class="lbl">内部発熱+日射 (Step 2合計)</div><div class="val">'+qInt.toFixed(0)+' W</div></div>'+
-    '<div class="stat hl"><div class="lbl">必要冷房処理熱量</div><div class="val">'+qReq.toFixed(0)+' W</div></div>';
-
-  const vTotal = flowPer*acCount;
-  const qPerUnit = qReq/acCount;
-  let ts = targetT, dts = 0;
-  if(vTotal>0){ dts = qReq/(RHOCP*vTotal); ts = targetT - dts; }
-  document.getElementById('supplyStats').innerHTML =
-    '<div class="stat"><div class="lbl">総風量 ('+acCount+'台)</div><div class="val">'+vTotal.toFixed(0)+' ㎥/h</div></div>'+
-    '<div class="stat"><div class="lbl">1台あたり処理熱量</div><div class="val">'+qPerUnit.toFixed(0)+' W</div></div>'+
-    '<div class="stat"><div class="lbl">必要温度差 ΔT</div><div class="val">'+dts.toFixed(2)+' K</div></div>'+
-    '<div class="stat hl"><div class="lbl">吹出温度 (CFD入力・全台共通)</div><div class="val">'+ts.toFixed(2)+' ℃ <button class="copy-btn" data-copy="'+ts.toFixed(2)+'">コピー</button></div></div>'+
-    '<div class="stat hl"><div class="lbl">吹出湿度 (CFD入力・業界慣行で95%RH固定)</div><div class="val">95 %RH <button class="copy-btn" data-copy="95">コピー</button></div></div>'+
-    '<div class="stat"><div class="lbl">吸込温度 (=目標室温)</div><div class="val">'+targetT.toFixed(1)+' ℃</div></div>';
-
-  let warns='';
-  const capW = acMax*1000*acCount;
-  if(qReq > capW){
-    warns += '<div class="warn">能力不足: 必要処理熱量 '+qReq.toFixed(0)+' W が最大冷房能力 '+capW.toFixed(0)+' W ('+acMax+' kW × '+acCount+'台) を超えています。畳数クラスを上げるか台数を増やしてください。</div>';
-  }else{
-    warns += '<div class="small ok">能力チェックOK: 負荷率 '+(qReq/capW*100).toFixed(0)+'% (必要 '+qReq.toFixed(0)+' W / 最大 '+capW.toFixed(0)+' W)</div>';
-  }
-  if(ts < 5) warns += '<div class="warn">吹出温度が '+ts.toFixed(1)+' ℃と極端に低くなっています。実機では出せない温度です。風量を増やす・台数を増やす・負荷を見直すなどしてください。</div>';
-  else if(ts < 10) warns += '<div class="warn">吹出温度が10℃を下回っています。実機の下限に近いため、風量アップや台数追加も検討してください。</div>';
-  document.getElementById('acWarn').innerHTML = warns;
-  renderAcCompare(qReq, flowPer, acMax, targetT, acCount);
-  tr('3','エアコン (吹出・1台あたり)','風量 [㎥/h]', flowPer);
-  tr('3','エアコン (吹出)','吹出温度 [℃]', ts.toFixed(2));
-  tr('3','エアコン (吹出)','吹出湿度 [%RH] (業界慣行で95%RH固定)', '95');
-  tr('3','エアコン (吸込)','吸込温度 [℃] (=目標室温)', targetT.toFixed(1));
-
-  // ================= Step 4 =================
-  document.getElementById('initTEcho').textContent = initT;
-  document.getElementById('initRHEcho').textContent = initRH;
-  const met = document.getElementById('metSel').value;
-  const clo = document.getElementById('cloSel').value;
-  const comfHum = num('comfHum');
-  document.getElementById('comfWrap').innerHTML =
-    cfdRow('快適性指標 > 湿度 [%]', comfHum) +
-    cfdRow('運動量 (代謝量) met', met) +
-    cfdRow('着衣量 clo', clo);
-  tr('4','解析対象と初期値','初期温度 [℃] / 相対湿度 [%]', initT+' / '+initRH, initT);
-  tr('4','特殊コマンド','コマンド (2行)', 'SATULIM ↵ /', 'SATULIM\n/');
-  tr('4','快適性指標','湿度 [%]', comfHum);
-  tr('4','快適性指標','代謝量 met', met);
-  tr('4','快適性指標','着衣量 clo', clo);
-
-  // ================= 転記一覧 =================
-  let tt = '<table><tr><th style="width:50px;">手順</th><th>転記先</th><th>項目</th><th style="width:130px;">値</th><th style="width:70px;"></th></tr>';
-  transferRows.forEach(r=>{
-    tt += '<tr><td>'+r.step+'</td><td class="l">'+r.target+'</td><td class="l">'+r.item+'</td><td><b>'+r.value+'</b></td>'+
-      '<td style="text-align:center;"><button class="copy-btn" data-copy="'+String(r.copy).replace(/"/g,'&quot;').replace(/\n/g,'&#10;')+'">コピー</button></td></tr>';
-  });
-  tt += '</table>';
-  document.getElementById('transferWrap').innerHTML = tt;
-
-  // ---- 進捗表示 ----
-  for(let i=1;i<=5;i++){
-    const done = document.getElementById('done'+i).checked;
-    const el = document.getElementById('st'+i);
-    el.textContent = done ? '済' : '未';
-    el.className = 'st'+(done?' done':'');
-  }
-
-  saveStateDebounced();
-}
-
-// ========================= 住所・最厳日/時刻の自動取得 =========================
-async function geocodeAddress(){
-  const address=document.getElementById('siteAddress').value.trim();
-  const btn=document.getElementById('geocodeAddressBtn');
-  const info=document.getElementById('geocodeAddressInfo');
-  if(!address){
-    info.textContent='建設地住所を入力してください。';
-    return;
-  }
-  btn.disabled=true;
-  info.textContent='住所から緯度・経度を検索中…';
-  try{
-    const url='https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(address);
-    const res=await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    if(!Array.isArray(data) || !data.length || !data[0].geometry) throw new Error('住所候補が見つかりません');
-    const coords=data[0].geometry.coordinates;
-    const lon=Number(coords[0]), lat=Number(coords[1]);
-    if(!isFinite(lat) || !isFinite(lon)) throw new Error('座標を取得できません');
-    document.getElementById('lat').value=lat.toFixed(6);
-    document.getElementById('lon').value=lon.toFixed(6);
-    const title=(data[0].properties&&data[0].properties.title)||address;
-    info.textContent='取得完了: '+title+' → 緯度 '+lat.toFixed(6)+' / 経度 '+lon.toFixed(6)+' (出典: 国土地理院)。続けて最厳日・時刻を取得してください。';
-    runAll();
-  }catch(err){
-    info.textContent='住所検索に失敗しました ('+err.message+')。住所を短くするか、緯度・経度を直接入力してください。';
-  }finally{
-    btn.disabled=false;
-  }
-}
-
-// Open-Meteo Historical Weather API (無料・APIキー不要) から直近1年の時別気温を取得し、
-// 日最高気温が最大の日を「最厳日」として解析日・解析時刻・最高/最低気温に自動反映する
-async function fetchHottestDay(){
-  const btn = document.getElementById('fetchHottestBtn');
-  const info = document.getElementById('fetchHottestInfo');
-  const geo = readLatLon();
-  if(!geo.ok){
-    info.textContent = geo.reason;
-    return;
-  }
-  const {lat, lon} = geo;
-  btn.disabled = true;
-  info.textContent = '気象データを取得中… (Open-Meteo)';
-  try{
-    const end = new Date(); end.setDate(end.getDate()-6); // アーカイブAPIは直近数日分が未確定のため余裕を持たせる
-    const start = new Date(end); start.setFullYear(start.getFullYear()-1);
-    // ローカル日付でYYYY-MM-DDを組む (toISOStringはUTCなので日本だと日付が1日ずれる)
-    const fmt = d=>{
-      const y=d.getFullYear();
-      const m=String(d.getMonth()+1).padStart(2,'0');
-      const day=String(d.getDate()).padStart(2,'0');
-      return y+'-'+m+'-'+day;
-    };
-    const url = 'https://archive-api.open-meteo.com/v1/archive?latitude='+lat+'&longitude='+lon+
-      '&start_date='+fmt(start)+'&end_date='+fmt(end)+'&hourly=temperature_2m&timezone=Asia%2FTokyo';
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    const times = data.hourly && data.hourly.time;
-    const temps = data.hourly && data.hourly.temperature_2m;
-    if(!times || !temps || !times.length) throw new Error('気象データが空でした');
-    const byDate = {};
-    for(let i=0;i<times.length;i++){
-      const d = times[i].slice(0,10);
-      const h = +times[i].slice(11,13);
-      const t = temps[i];
-      if(t===null || t===undefined) continue;
-      if(!byDate[d]) byDate[d] = [];
-      byDate[d].push({h:h, t:t});
-    }
-    let bestDate=null, bestMax=-Infinity, bestMin=Infinity, bestHour=14;
-    for(const d in byDate){
-      const arr = byDate[d];
-      if(arr.length < 20) continue; // 欠損の多い日は除外
-      let dMax=-Infinity, dMin=Infinity, dMaxH=14;
-      arr.forEach(x=>{
-        if(x.t>dMax){ dMax=x.t; dMaxH=x.h; }
-        if(x.t<dMin) dMin=x.t;
-      });
-      if(dMax>bestMax){ bestMax=dMax; bestMin=dMin; bestHour=dMaxH; bestDate=d; }
-    }
-    if(!bestDate) throw new Error('最高気温の日を特定できませんでした');
-    document.getElementById('calcDate').value = bestDate;
-    document.getElementById('detailHour').value = bestHour;
-    document.getElementById('tmax').value = bestMax.toFixed(1);
-    document.getElementById('tmin').value = bestMin.toFixed(1);
-    document.getElementById('tpeak').value = bestHour;
-    info.textContent = '取得完了: 最厳日 '+bestDate+' / 解析時刻 '+bestHour+'時 / 最高'+bestMax.toFixed(1)+'℃ / 最低'+bestMin.toFixed(1)+'℃ (出典: Open-Meteo)。';
-    runAll();
-  }catch(err){
-    info.textContent = '取得に失敗しました ('+err.message+')。オフライン、またはAPI一時停止の可能性があります。手動入力してください。';
-  }finally{
-    btn.disabled = false;
-  }
-}
-
-// ========================= プリセット連動 =========================
-function initSelectors(){
-  const ts = document.getElementById('tatamiSel');
-  ts.innerHTML = acCatalog.map((c,i)=>'<option value="'+i+'">'+c.tatami+'畳用</option>').join('');
-  ts.value = '0';
-
-  const wf = document.getElementById('winFrame');
-  wf.innerHTML = Object.keys(jsmaWinTable).map(k=>'<option value="'+k+'">'+k+'</option>').join('');
-  populateWinGlass();
-  syncUWinFromTable();
-}
-function populateWinGlass(){
-  const frame = document.getElementById('winFrame').value;
-  const wg = document.getElementById('winGlass');
-  wg.innerHTML = jsmaWinTable[frame].map((r,i)=>'<option value="'+i+'">'+r.label+'</option>').join('');
-}
-function syncUWinFromTable(){
-  if(appMode==='architrend') return; // AT連携ではPDFのUを優先 (表からの上書き禁止)
-  const frame = document.getElementById('winFrame').value;
-  const row = jsmaWinTable[frame][+document.getElementById('winGlass').value];
-  const attach = +document.getElementById('winAttach').value;
-  document.getElementById('uWin').value = row.vals[attach];
-  document.getElementById('winTableInfo').textContent = '選択中の熱貫流率: U='+row.vals[attach]+' W/(m²K) (出典: JSMA 2025/7改訂)';
-}
-document.addEventListener('change', function(e){
-  let needsRerun = false;
-  if(e.target.id==='tatamiSel'){
-    document.getElementById('acMax').value = acCatalog[+e.target.value].max;
-    needsRerun = true;
-  }
-  if(e.target.id==='dirSel' || e.target.id==='volSel'){
-    const dir = document.getElementById('dirSel').value;
-    const vol = document.getElementById('volSel').value;
-    document.getElementById('flowPerUnit').value = flowTable[dir][vol];
-    needsRerun = true;
-  }
-  if(e.target.id==='winFrame'){
-    populateWinGlass();
-    syncUWinFromTable();
-    needsRerun = true;
-  }
-  if(e.target.id==='winGlass' || e.target.id==='winAttach'){
-    syncUWinFromTable();
-    needsRerun = true;
-  }
-  if(needsRerun) runAll();
-});
-document.getElementById('fetchHottestBtn').addEventListener('click', fetchHottestDay);
-document.getElementById('geocodeAddressBtn').addEventListener('click', geocodeAddress);
-document.addEventListener('input', function(e){
-  if(e.target.matches('input, select')) runAll();
-});
-
-// ========================= 保存 / 読込 =========================
-const STORE_KEY = 'cfdBoundaryToolState_v2';
-let saveTimer=null;
-function saveStateDebounced(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{
-    try{
-      localStorage.setItem(STORE_KEY, JSON.stringify(gatherState()));
-      document.getElementById('saveInfo').textContent = '自動保存済み ('+new Date().toLocaleTimeString()+')';
-    }catch(err){}
-  }, 600);
-}
-function gatherState(){
-  const s = {mode: appMode, inputs:{}, checks:{}, rooms:[], atUnassigned: atUnassignedWindows.slice(),
-    atRoomCandidates:atAssignableRooms.slice(), atNorthExcludedCount};
-  document.querySelectorAll('input[id], select[id]').forEach(el=>{
-    if(el.type==='file') return;
-    if(el.id==='atPdfInput') return;
-    if(el.type==='checkbox') s.checks[el.id]=el.checked;
-    else s.inputs[el.id]=el.value;
-  });
-  document.querySelectorAll('.room-card').forEach(card=>{
-    const r = {name:card.querySelector('.roomName').value, fields:{}, windows:[],
-      isNonHabitable:card.dataset.nonHabitable==='true', atRoomKey:card.dataset.atRoomKey||''};
-    ['peopleSensRate','occCount','peopleMoistRate','equipSensRate','roomArea','equipMoistRate','extraSens','extraMoist'].forEach(cls=>{
-      const el = card.querySelector('.'+cls);
-      if(el) r.fields[cls] = el.value;
-    });
-    card.querySelectorAll('.win-row').forEach(w=>{
-      const win={};
-      ['wName','wAz','glassSel','attachSel','wEta','wArea'].forEach(cls=>{
-        const el = w.querySelector('.'+cls);
-        if(el) win[cls] = el.value;
-      });
-      r.windows.push(win);
-    });
-    s.rooms.push(r);
-  });
-  return s;
-}
-function applyState(s){
-  if(!s) return;
-  for(const id in (s.inputs||{})){
-    if(id==='winGlass') continue; // winFrame復元後に選択肢を再構築してから反映する
-    const el = document.getElementById(id);
-    if(el) el.value = s.inputs[id];
-  }
-  if('winFrame' in (s.inputs||{})) populateWinGlass();
-  if('winGlass' in (s.inputs||{})){
-    const el = document.getElementById('winGlass');
-    if(el) el.value = s.inputs.winGlass;
-  }
-  for(const id in (s.checks||{})){
-    const el = document.getElementById(id);
-    if(el) el.checked = s.checks[id];
-  }
-  document.getElementById('roomsWrap').innerHTML='';
-  roomCount=0; winCounter=0;
-  (s.rooms||[]).forEach(r=>addRoom(r));
-}
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(gatherState(), null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'cfd_boundary_settings.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-function importJSON(input){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e=>{
-    try{ applyState(JSON.parse(e.target.result)); runAll(); }
-    catch(err){ alert('JSONの読み込みに失敗しました: '+err.message); }
-  };
-  reader.readAsText(file);
-  input.value='';
-}
-function resetAll(){
-  if(!confirm('入力内容をすべてリセットしますか?')) return;
-  localStorage.removeItem(STORE_KEY);
-  location.reload();
-}
-
-// ========================= アーキトレンド連携 =========================
-var appMode = null; // 'manual' | 'architrend' (var: syncUWinFromTable より前でも参照可)
-let atUnassignedWindows = [];
-let atAssignableRooms = [];
-let atNorthExcludedCount = 0;
-let atLastParse = null;
-let atCsvParse = null;
-let atPdfParse = null;
-const AT_AZ = {南:0, 南東:-45, 東:-90, 北東:-135, 北:180, 北西:135, 西:90, 南西:45};
-function isNorthFacingAz(value){
-  const az=Number(value);
-  return Number.isFinite(az) && Math.abs(Math.abs(az)-180)<0.5;
-}
-const AT_BLANK_IDS = [
-  'calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT',
-  'uWall','uRoof','uFloor1','uFound','uWin','uaVal','envArea','roomVol','ach','hxRate','acMax'
-];
-const AT_MANUAL_IDS = AT_BLANK_IDS.concat(['acCount']);
-
-if(window.pdfjsLib){
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
-
-function changeMode(){
-  if(!confirm('モードを変更すると入力内容をリセットします。よろしいですか?')) return;
-  localStorage.removeItem(STORE_KEY);
-  location.reload();
-}
-
-function setModeUI(mode){
-  appMode = mode;
-  document.getElementById('modeGate').classList.add('hidden');
-  document.getElementById('modeInfo').textContent =
-    mode==='architrend' ? 'MODE: ARCHITREND' : 'MODE: MANUAL';
-  document.getElementById('atPanel').classList.toggle('active', mode==='architrend');
-  document.getElementById('legendManual').style.display = mode==='architrend' ? 'none' : 'flex';
-  document.getElementById('legendAt').style.display = mode==='architrend' ? 'flex' : 'none';
-  document.querySelectorAll('.tag-req').forEach(el=>{
-    if(el.closest('#legendManual') || el.closest('#legendAt')) return;
-    el.textContent = mode==='architrend' ? '要手動' : '要設定';
-  });
-}
-
-function blankForArchitrend(){
-  AT_BLANK_IDS.forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.value = '';
-  });
-  document.getElementById('roomsWrap').innerHTML = '';
-  roomCount = 0; winCounter = 0;
-  atUnassignedWindows = [];
-  atAssignableRooms = [];
-  atNorthExcludedCount = 0;
-  renderUnassignedWindows();
-}
-
-function markAtFilled(id, on){
-  const el = document.getElementById(id);
-  if(!el) return;
-  const wrap = el.closest('div');
-  if(!wrap) return;
-  wrap.classList.toggle('at-filled', !!on);
-}
-
-function tokenizeULine(s){
-  const out = [];
-  let i = 0;
-  const str = String(s).replace(/－/g, '-');
-  while(i < str.length){
-    if(str[i] === '-'){ i++; continue; }
-    const m = str.slice(i).match(/^(\d+\.\d{3})/);
-    if(m){ out.push(parseFloat(m[1])); i += m[1].length; continue; }
-    i++;
-  }
-  return out;
-}
-
-function normalizePdfText(s){
-  return String(s||'').replace(/\s+/g,'').replace(/[（）]/g, m=>m==='（'?'(':')');
-}
-
-function parseCsvRows(text){
-  const rows=[];
-  let row=[], field='', quoted=false;
-  const src=String(text||'').replace(/^\uFEFF/,'');
-  for(let i=0;i<src.length;i++){
-    const ch=src[i];
-    if(quoted){
-      if(ch==='"' && src[i+1]==='"'){ field+='"'; i++; }
-      else if(ch==='"') quoted=false;
-      else field+=ch;
-    }else if(ch==='"'){
-      quoted=true;
-    }else if(ch===','){
-      row.push(field); field='';
-    }else if(ch==='\n'){
-      row.push(field.replace(/\r$/,'')); rows.push(row); row=[]; field='';
-    }else{
-      field+=ch;
-    }
-  }
-  if(field!=='' || row.length){ row.push(field.replace(/\r$/,'')); rows.push(row); }
-  return rows;
-}
-
-function csvNumber(value){
-  const s=String(value==null?'':value).trim().replace(/,/g,'');
-  if(!s || s==='－' || s==='-') return null;
-  const n=Number(s);
-  return Number.isFinite(n)?n:null;
-}
-
-function emptyArchitrendResult(){
-  return {
-    projectName:null, workName:null, projectLocation:null,
-    ua:null, envArea:null, uRoof:null, uWall:null, uFloor:null, uFound:null, uWin:null,
-    trueNorthDeg:null, trueNorthNote:null,
-    rooms:[], habitableRooms:[], excludedRooms:[], windows:[],
-    notes:[], validation:{}, sources:{}, inputSources:{csv:false,pdf:false}
-  };
-}
-
-function parseArchiTrendCsv(text){
-  const rows=parseCsvRows(text).filter(row=>row.some(cell=>String(cell).trim()!==''));
-  const warnings=[];
-  const result=emptyArchitrendResult();
-  result.inputSources.csv=true;
-  if(rows.length<3) return {result,warnings:['CSVにデータ行がありません']};
-
-  const h1=rows[0].map(v=>String(v).trim());
-  const h2=(rows[1]||[]).map(v=>String(v).trim());
-  const indexOf=label=>h1.indexOf(label);
-  const indexOfSub=label=>h2.indexOf(label);
-  const idx={
-    part:indexOf('部位'), floor:indexOf('階'), name:indexOf('名称'), adjacent:indexOf('隣接空間'),
-    width:indexOfSub('幅'), height:indexOfSub('高'), area:indexOf('面積[㎡]'),
-    perimeter:indexOf('基礎周長[ｍ]'), spec:indexOf('仕様'), attachment:indexOf('付属品'),
-    glass:indexOf('ガラス仕様'), loss:indexOf('貫流熱損失[W/K]'),
-    gainCooling:indexOf('日射熱取得量冷房期'), gainHeating:indexOf('日射熱取得量暖房期')
-  };
-  const required=['part','floor','name','width','height','area','spec','gainCooling'];
-  const missing=required.filter(key=>idx[key]<0);
-  if(missing.length){
-    warnings.push('CSVの必須列を確認できません: '+missing.join(', '));
-    return {result,warnings};
-  }
-
-  const dataRows=rows.slice(2);
-  const windowRows=dataRows.filter(row=>String(row[idx.part]).trim()==='窓');
-  const seen=new Set();
-  windowRows.forEach(row=>{
-    const id=String(row[idx.name]||'').trim();
-    const idMatch=id.match(/^G(南東|南西|北東|北西|南|北|東|西)-(\d+)$/);
-    if(!idMatch || seen.has(id)) return;
-    seen.add(id);
-    const floor=String(row[idx.floor]||'').trim();
-    const orient=idMatch[1];
-    result.windows.push({
-      id, floor, orient,
-      width:csvNumber(row[idx.width]), height:csvNumber(row[idx.height]), area:csvNumber(row[idx.area]),
-      gain:csvNumber(row[idx.gainCooling]), gainCooling:csvNumber(row[idx.gainCooling]),
-      gainHeating:csvNumber(row[idx.gainHeating]),
-      spec:String(row[idx.spec]||'').trim(), glassSpec:String(row[idx.glass]||'').trim(),
-      attachment:String(row[idx.attachment]||'').trim(),
-      az:(orient in AT_AZ)?AT_AZ[orient]:null,
-      eta:null, tilt:90, roofLike:false,
-      sourceLabel:'CSV'
-    });
-  });
-
-  const totalRow=dataRows.find(row=>String(row[idx.part]).trim()==='外皮面積合計');
-  if(totalRow) result.envArea=csvNumber(totalRow[idx.area]);
-  result.sources.envArea=result.envArea!==null?'CSV':null;
-  result.csvEnvelopeRows=dataRows.filter(row=>{
-    const part=String(row[idx.part]||'').trim();
-    const adjacent=idx.adjacent>=0?String(row[idx.adjacent]||'').trim():'';
-    return ['屋根','外壁','床','基礎'].includes(part) && (adjacent==='外気' || part==='基礎');
-  }).map(row=>({
-    part:String(row[idx.part]||'').trim(), name:String(row[idx.name]||'').trim(),
-    area:csvNumber(row[idx.area]), perimeter:csvNumber(row[idx.perimeter]),
-    heatLoss:csvNumber(row[idx.loss]), spec:String(row[idx.spec]||'').trim()
-  }));
-
-  const areaSum=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
-  const gainSum=result.windows.reduce((sum,w)=>sum+(w.gainCooling||0),0);
-  const dimensionsOk=result.windows.length>0 && result.windows.every(w=>
-    w.width>0 && w.height>0 && w.area>0 && Math.abs(w.width*w.height-w.area)<0.02);
-  const gainsOk=result.windows.length>0 && result.windows.every(w=>w.gainCooling!==null);
-  result.validation.windows={
-    count:result.windows.length, areaSum, expectedArea:areaSum,
-    gainSum, expectedGain:gainSum,
-    areaOk:dimensionsOk, gainOk:gainsOk, source:'CSV'
-  };
-  result.notes.push('CSVから窓'+result.windows.length+'枚を取得しました');
-  if(!result.windows.length) warnings.push('CSVから窓行を取得できませんでした');
-  if(!dimensionsOk) warnings.push('幅×高さと面積が一致しない窓があります');
-  if(!result.envArea) warnings.push('CSVから外皮面積合計を取得できませんでした');
-  return {result,warnings};
-}
-
-function mergeArchitrendSources(csvParsed,pdfParsed){
-  if(!csvParsed && !pdfParsed) return null;
-  const pdfResult=pdfParsed&&pdfParsed.result;
-  const csvResult=csvParsed&&csvParsed.result;
-  const result=pdfResult ? JSON.parse(JSON.stringify(pdfResult)) : emptyArchitrendResult();
-  result.sources=result.sources||{};
-  result.inputSources={csv:!!csvParsed,pdf:!!pdfParsed};
-  result.notes=[...(result.notes||[])];
-  const warnings=[];
-  if(pdfResult){
-    ['projectName','workName','projectLocation','ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
-      if(result[key]!==null) result.sources[key]='PDF p.1';
-    });
-    if(result.habitableRooms.length) result.sources.rooms='PDF p.'+
-      ((result.validation.rooms&&result.validation.rooms.page)||9);
-  }
-
-  if(csvParsed){
-    result.envArea=csvResult.envArea;
-    result.sources.envArea=csvResult.envArea!==null?'CSV':null;
-    result.csvEnvelopeRows=csvResult.csvEnvelopeRows||[];
-    const pdfWindows=new Map((pdfResult&&pdfResult.windows||[]).map(w=>[w.id,w]));
-    result.windows=csvResult.windows.map(csvWindow=>{
-      const pdfWindow=pdfWindows.get(csvWindow.id);
-      return Object.assign({},csvWindow,{
-        eta:pdfWindow&&pdfWindow.eta!==null?pdfWindow.eta:null,
-        tilt:90,
-        sourceLabel:pdfWindow&&pdfWindow.eta!==null?'CSV + PDF p.'+(pdfWindow.sourcePage||1):'CSV'
-      });
-    });
-    result.validation=result.validation||{};
-    result.validation.windows=JSON.parse(JSON.stringify(csvResult.validation.windows));
-    if(pdfResult&&pdfResult.windows.length){
-      const csvIds=new Set(result.windows.map(w=>w.id));
-      const pdfIds=new Set(pdfResult.windows.map(w=>w.id));
-      const idsOk=csvIds.size===pdfIds.size && [...csvIds].every(id=>pdfIds.has(id));
-      const csvArea=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
-      const pdfArea=pdfResult.windows.reduce((sum,w)=>sum+(w.area||0),0);
-      result.validation.windows.crossOk=idsOk && Math.abs(csvArea-pdfArea)<0.03;
-      result.validation.windows.crossText='CSV/PDF 窓ID・面積';
-      if(!result.validation.windows.crossOk) warnings.push('CSVとPDFの窓IDまたは窓面積が一致しません');
-      else result.notes.push('CSVとPDFの窓'+result.windows.length+'枚・面積が一致しました');
-    }
-  }
-
-  if(csvParsed) warnings.push(...csvParsed.warnings);
-  if(pdfParsed){
-    pdfParsed.warnings.forEach(w=>{
-      if(/真北|物件名とフッター|建設地/.test(w)) warnings.push(w);
-    });
-  }
-  if(!csvParsed) warnings.push('CSV未指定です。窓情報はPDF解析結果を使用します');
-  if(!pdfParsed) warnings.push('PDF未指定のため、UA・U値・居室・窓ηは取得できません');
-  if(result.ua===null) warnings.push('UAは空欄です');
-  if([result.uRoof,result.uWall,result.uFloor,result.uFound,result.uWin].some(v=>v===null)){
-    warnings.push('PDFから確定できない部位U値は空欄です');
-  }
-  if(!result.habitableRooms.length) warnings.push('居室情報がないため、部屋は手動で作成してください');
-  const etaMissing=result.windows.filter(w=>w.eta===null).length;
-  if(etaMissing) warnings.push('窓ηが未取得の窓が'+etaMissing+'枚あります');
-  return {result,warnings:[...new Set(warnings)]};
-}
-
-function groupPdfItemsIntoLines(items){
-  const lines = [];
-  (items||[]).filter(it=>String(it.text||'').trim()).forEach(item=>{
-    let line = lines.find(row=>Math.abs(row.y-item.y)<=2.5);
-    if(!line){
-      line = {y:item.y, items:[]};
-      lines.push(line);
-    }
-    line.items.push(item);
-  });
-  lines.forEach(line=>{
-    line.items.sort((a,b)=>a.x-b.x);
-    line.text = line.items.map(it=>it.text).join(' ');
-    line.compact = normalizePdfText(line.text);
-  });
-  return lines;
-}
-
-function pdfNumNear(line, targetRatio, pageWidth, toleranceRatio){
-  if(!line || !pageWidth) return null;
-  const tol = pageWidth*(toleranceRatio||0.018);
-  let best=null, bestD=Infinity;
-  line.items.forEach(it=>{
-    const v = parseFloat(String(it.text).replace(/,/g,''));
-    if(!isFinite(v)) return;
-    const d = Math.abs(it.x-pageWidth*targetRatio);
-    if(d<tol && d<bestD){ best=v; bestD=d; }
-  });
-  return best;
-}
-
-function nearestPdfLine(lines, targetLine, predicate, maxDistance){
-  let best=null, bestD=Infinity;
-  lines.forEach(line=>{
-    if(!predicate(line)) return;
-    const d=Math.abs(line.y-targetLine.y);
-    if(d<bestD && d<maxDistance){ best=line; bestD=d; }
-  });
-  return best;
-}
-
-function isHabitableRoomName(name){
-  const n=String(name||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
-  return /^(LDK|L・D・K|居間|リビング|ダイニング|キッチン|洋室\d*|和室\d*|寝室|主寝室|子供|子ども|書斎)/i.test(n);
-}
-
-function parsePositionedWindows(layoutPages){
-  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('開口部[窓](冷房期)')));
-  if(!page) return null;
-  const width=page.width;
-  const windowIdPattern=/^G(南東|南西|北東|北西|南|北|東|西)-(\d+)$/;
-  const windowIdFromLine=line=>line.items
-    .filter(it=>it.x>width*0.105 && it.x<width*0.143)
-    .map(it=>String(it.text).trim()).join('').replace(/\s+/g,'');
-  const windowLines=page.lines.filter(line=>windowIdPattern.test(windowIdFromLine(line)));
-  if(!windowLines.length) return null;
-
-  const windows=[];
-  windowLines.forEach(line=>{
-    const idMatch=windowIdFromLine(line).match(windowIdPattern);
-    if(!idMatch) return;
-    const id='G'+idMatch[1]+'-'+idMatch[2];
-    const orient=idMatch[1];
-    const floorItem=line.items.find(it=>it.x>width*0.09 && it.x<width*0.105 && /^(R|1|2)$/.test(String(it.text).trim()));
-    const floor=floorItem?String(floorItem.text).trim():'';
-    windows.push({
-      id, orient, floor,
-      width:pdfNumNear(line,0.178,width,0.014),
-      height:pdfNumNear(line,0.207,width,0.014),
-      area:pdfNumNear(line,0.236,width,0.014),
-      gain:pdfNumNear(line,0.532,width,0.018),
-      az:(orient in AT_AZ)?AT_AZ[orient]:null,
-      eta:null,
-      tilt:90,
-      roofLike:false,
-      sourcePage:page.number,
-      _line:line
-    });
-  });
-
-  const orientations=[...new Set(windows.map(w=>w.orient))];
-  const nuMap={}, etaCandidates=[];
-  page.lines.forEach(line=>{
-    const nu=pdfNumNear(line,0.146,width,0.012);
-    if(nu!==null && nu>0.2 && nu<1.1){
-      const near=nearestPdfLine(windowLines,line,()=>true,width*0.045);
-      if(near){
-        const w=windows.find(win=>win._line===near);
-        if(w) nuMap[w.orient]=nu;
-      }
-    }
-    const eta=pdfNumNear(line,0.471,width,0.016);
-    if(eta!==null && eta>0.1 && eta<0.9 && !etaCandidates.includes(eta)) etaCandidates.push(eta);
-  });
-
-  let fC=null;
-  const noneLine=page.lines.find(line=>line.items.some(it=>String(it.text).trim()==='なし'));
-  if(noneLine) fC=pdfNumNear(noneLine,0.500,width,0.025);
-
-  windows.forEach(w=>{
-    const nu=nuMap[w.orient];
-    if(!(nu>0) || !(w.area>0) || !(w.gain>=0) || !(fC>0)) return;
-    const raw=w.gain/(nu*w.area*fC);
-    if(!etaCandidates.length) return;
-    let best=etaCandidates[0], bestD=Math.abs(raw-best);
-    etaCandidates.forEach(candidate=>{
-      const d=Math.abs(raw-candidate);
-      if(d<bestD){ best=candidate; bestD=d; }
-    });
-    if(bestD<=0.06) w.eta=best;
-  });
-
-  const totalLine=page.lines.find(line=>line.compact.includes('窓面積小計') && line.compact.includes('窓日射熱取得量小計'));
-  const expectedArea=totalLine?pdfNumNear(totalLine,0.232,width,0.025):null;
-  const expectedGain=totalLine?pdfNumNear(totalLine,0.532,width,0.025):null;
-  windows.forEach(w=>delete w._line);
-  return {windows, expectedArea, expectedGain, page:page.number};
-}
-
-function parsePositionedRooms(layoutPages){
-  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('居室区画面積表')));
-  if(!page) return null;
-  const width=page.width;
-  const roomNamePattern=/^(ＬＤＫ|LDK|玄関|ホール|階段|子供コーナー|子どもコーナー|脱衣室|ＵＢ|UB|洗面室|トイレ|収納|ローカ|廊下|洋室[０-９\d]*|和室[０-９\d]*|主寝室|寝室|ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ|ウォークインクローゼット|書庫|書斎)$/;
-  const rooms=[];
-  page.lines.forEach(line=>{
-    const nameItem=line.items.find(it=>roomNamePattern.test(String(it.text).trim()) && it.x<width*0.16);
-    if(!nameItem) return;
-    const area=pdfNumNear(line,0.199,width,0.025);
-    const typeItem=line.items.find(it=>/^[ABC]$/.test(String(it.text).trim()) && it.x>width*0.20 && it.x<width*0.24);
-    if(!(area>0) || !typeItem) return;
-    const name=String(nameItem.text).trim().replace('ＬＤＫ','LDK').replace('ＵＢ','UB')
-      .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
-    rooms.push({name,area,type:String(typeItem.text).trim(),sourcePage:page.number});
-  });
-
-  const summary={};
-  page.lines.forEach(line=>{
-    ['A','B','C'].forEach(type=>{
-      if(line.compact.includes(type+':') || line.compact.includes('S'+type+'=')){
-        const nums=line.items.map(it=>parseFloat(String(it.text).replace(/,/g,''))).filter(Number.isFinite);
-        if(nums.length) summary[type]=nums[nums.length-1];
-      }
-    });
-  });
-  return {rooms, summary, page:page.number};
-}
-
-function parsePositionedEnvelope(layoutPages){
-  const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('外皮性能計算表')));
-  if(!page) return null;
-  const width=page.width;
-  const leftNumberOnLine=keyword=>{
-    const key=normalizePdfText(keyword);
-    const line=page.lines.find(row=>row.compact.includes(key));
-    if(!line) return null;
-    const nums=line.items.filter(it=>it.x<width*0.42).map(it=>parseFloat(String(it.text).replace(/,/g,''))).filter(Number.isFinite);
-    return nums.length?nums[nums.length-1]:null;
-  };
-  const getU=label=>{
-    const key=normalizePdfText(label);
-    const lines=page.lines.filter(line=>line.compact.includes(key));
-    const vals=lines.map(line=>pdfNumNear(line,0.599,width,0.018)).filter(v=>v!==null);
-    return vals.length?[...new Set(vals.map(v=>v.toFixed(3)))].length===1?vals[0]:null:null;
-  };
-  const winLines=page.lines.filter(line=>/窓\(\d+\)/.test(line.compact));
-  const winUs=winLines.map(line=>pdfNumNear(line,0.599,width,0.018)).filter(v=>v!==null);
-  const uniqueWin=[...new Set(winUs.map(v=>v.toFixed(3)))];
-  return {
-    ua:leftNumberOnLine('外皮平均熱貫流率(UA)'),
-    envArea:leftNumberOnLine('外皮面積[㎡]'),
-    uRoof:getU('屋根(1)'), uWall:getU('外壁(1)'), uFloor:getU('床(1)'), uFound:getU('基礎(1)'),
-    uWin:uniqueWin.length===1?parseFloat(uniqueWin[0]):null,
-    page:page.number
-  };
-}
-
-function parseArchiTrendText(fullText, layoutPages){
-  const warnings = [];
-  const result = {
-    projectName: null,
-    workName: null,
-    projectLocation: null,
-    ua: null,
-    envArea: null,
-    uRoof: null,
-    uWall: null,
-    uFloor: null,
-    uFound: null,
-    uWin: null,
-    trueNorthDeg: null,
-    trueNorthNote: null,
-    rooms: [],
-    habitableRooms: [],
-    excludedRooms: [],
-    windows: [],
-    notes: [],
-    validation: {}
-  };
-
-  const lineText=(layoutPages||[]).flatMap(p=>p.lines.map(line=>line.text)).join('\n');
-  const projectPage=(layoutPages||[])[0];
-  if(projectPage){
-    const projectLine=projectPage.lines.find(line=>line.items.some(it=>String(it.text).trim()==='物件名'));
-    const labelItem=projectLine&&projectLine.items.find(it=>String(it.text).trim()==='物件名');
-    const valueItem=projectLine&&projectLine.items.find(it=>labelItem && it.x>labelItem.x && it.x<projectPage.width*0.45);
-    if(valueItem) result.projectName=String(valueItem.text).trim();
-  }
-  const workNames=[...lineText.matchAll(/工事名\s+(.+?)$/gm)].map(m=>m[1].trim()).filter(Boolean);
-  if(workNames.length) result.workName=workNames[0];
-  if(!result.workName){
-    const footerName=fullText.match(/テスト物件[^\n]+?(?:施工\)|工事)/);
-    if(footerName) result.workName=footerName[0].trim();
-  }
-  const location = lineText.match(/(?:建設地|物件所在地|建築地)\s+(.+?)$/m);
-  if(location) result.projectLocation=location[1].trim();
-
-  const uaEq = fullText.match(/外皮平均熱貫流率\(UA\)＝[^0-9]*([0-9]+\.[0-9]+)/);
-  if(uaEq) result.ua = parseFloat(uaEq[1]);
-  else warnings.push('UAを一意に読めませんでした');
-
-  const envA = fullText.match(/外皮面積合計\(A\)＝①\s*([0-9]+\.[0-9]+)/) ||
-               fullText.match(/外皮面積\[㎡\]\s*([0-9]+\.[0-9]+)/);
-  if(envA) result.envArea = parseFloat(envA[1]);
-  else warnings.push('外皮面積を一意に読めませんでした');
-
-  const uLine = fullText.match(/0\.2180\.405[0-9.\-－]+0\.259/);
-  if(uLine){
-    const vals = tokenizeULine(uLine[0]);
-    // 屋根, 外壁×4, 土台, ドア, 窓×3, 床, 基礎
-    if(vals.length >= 12){
-      result.uRoof = vals[0];
-      result.uWall = vals[1];
-      result.uFloor = vals[10];
-      result.uFound = vals[11];
-      const winUs = vals.slice(7, 10);
-      const uniq = [...new Set(winUs.map(v=>v.toFixed(3)))];
-      if(uniq.length === 1) result.uWin = winUs[0];
-      else warnings.push('窓Uが複数あり一意でないため空欄にします');
-    }else{
-      warnings.push('部位U値行のトークン数が不足しているため部位Uは空欄にします');
-    }
-  }else{
-    // フォールバック: ページ2の窓Uのみ (すべて同一なら採用)
-    const winUs = [...fullText.matchAll(/窓\([12]\)[^0-9]{0,80}?([0-9]+\.[0-9]{3})/g)].map(m=>parseFloat(m[1]));
-    const uniq = [...new Set(winUs.map(v=>v.toFixed(3)))];
-    if(uniq.length === 1) result.uWin = winUs[0];
-    else warnings.push('部位U値行を特定できなかったため屋根/外壁/床/基礎Uは空欄です');
-  }
-
-  const found = fullText.match(/土間基礎線熱貫流率\s*\[[^\]]*\]\s*([0-9]+\.[0-9]+)/);
-  if(found){
-    const v = parseFloat(found[1]);
-    if(v > 0 && v < 5) result.uFound = v;
-  }
-
-  const north = fullText.match(/真北[\s\S]{0,40}?([0-9]+\.[0-9]+)\s*度/);
-  if(north){
-    result.trueNorthDeg = parseFloat(north[1]);
-    result.trueNorthNote = 'PDFに真北関連角度 '+result.trueNorthDeg+'° の記載あり。補正の解釈が一意でないため自動補正はしません';
-    warnings.push(result.trueNorthNote);
-  }
-
-  // 窓 (冷房期・開口部[窓]表。小計〜q列は直後〜約2000文字に収まる)
-  const coolIdx = fullText.indexOf('開口部[窓](冷房期)');
-  const winSource = coolIdx >= 0 ? fullText.slice(coolIdx, coolIdx + 2500) : fullText;
-  const winRe = /(?:R\s*)?G(南東|南西|北東|北西|南|北|東|西)-(\d+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)/g;
-  const seen = new Set();
-  let wm;
-  while((wm = winRe.exec(winSource)) !== null){
-    const id = 'G'+wm[1]+'-'+wm[2];
-    if(seen.has(id)) continue;
-    seen.add(id);
-    const prev = winSource.slice(Math.max(0, wm.index-2), wm.index);
-    const roofLike = /R\s*$/.test(prev) || /^R\s/.test(wm[0]);
-    result.windows.push({
-      id,
-      orient: wm[1],
-      width: parseFloat(wm[3]),
-      height: parseFloat(wm[4]),
-      area: parseFloat(wm[5]),
-      az: (wm[1] in AT_AZ) ? AT_AZ[wm[1]] : null,
-      eta: null,
-      tilt:90,
-      roofLike
-    });
-  }
-
-  // η: 日射熱取得量 q=ν·A·η·fC が窓と同じ件数で読めるときだけ逆算して入れる
-  // (PDFテキストではη列が行にくっつかないが、q列は窓順の羅列として一意に取れる)
-  if(result.windows.length){
-    const gainBlock = winSource.match(/窓\s*日射熱取得量小計\s*([0-9]+\.[0-9]+)([\s\S]{0,1500})/);
-    const afterSum = gainBlock ? (gainBlock[2] || '') : '';
-    const sumQ = gainBlock ? parseFloat(gainBlock[1]) : null;
-    // 方位係数ν (地域依存) — 小計直後の 0.xxx 行
-    const nuNums = [...afterSum.matchAll(/(?:^|\n|\r|\s)(0\.\d{3})(?=\s|\n|\r|$)/g)].map(m=>parseFloat(m[1]));
-    const oriOrder = [];
-    result.windows.forEach(w=>{ if(!oriOrder.includes(w.orient)) oriOrder.push(w.orient); });
-    const nuMap = {};
-    // νは仕様η(0.290等)やfC(0.930)より前に来るので、先頭から方位数だけ使う
-    if(nuNums.length >= oriOrder.length){
-      oriOrder.forEach((o,i)=>{ nuMap[o] = nuNums[i]; });
-    }
-    // fC: 「なし」のあとに並ぶ係数のうち 0.9台
-    let fC = null;
-    const fcM = afterSum.match(/なし[\s\S]{0,80}?(0\.9\d{2})/);
-    if(fcM) fC = parseFloat(fcM[1]);
-    // q列: 0.07が窓件数分つながった行
-    const jammed = (afterSum.match(/0\.\d{2}(?:0\.\d{2}){5,}/) || [])[0] || '';
-    const qVals = [];
-    if(jammed){
-      let i=0;
-      while(i < jammed.length){
-        const m = jammed.slice(i).match(/^(0\.\d{2})/);
-        if(m){ qVals.push(parseFloat(m[1])); i += m[1].length; continue; }
-        i++;
-      }
-    }
-    const qSumOk = (sumQ!=null && qVals.length===result.windows.length &&
-      Math.abs(qVals.reduce((a,b)=>a+b,0) - sumQ) < 0.05);
-    const nuOk = oriOrder.every(o=> nuMap[o]!=null);
-    // 仕様のη候補 (日射遮蔽型/取得型など)。q逆算値を最も近い候補へ丸める
-    const specEtas = [];
-    const specBlock = afterSum.match(/日射遮蔽型[\s\S]{0,30}?(0\.\d{3})|日射取得型[\s\S]{0,30}?(0\.\d{3})/g) || [];
-    specBlock.forEach(s=>{
-      const m = s.match(/(0\.\d{3})/);
-      if(m){
-        const v = parseFloat(m[1]);
-        if(v < 0.9 && !specEtas.includes(v)) specEtas.push(v);
-      }
-    });
-    if(qSumOk && nuOk && fC!=null && fC>0){
-      let etaFilled = 0;
-      result.windows.forEach((w,i)=>{
-        const nu = nuMap[w.orient];
-        const den = nu * w.area * fC;
-        if(den > 1e-9){
-          let eta = qVals[i] / den;
-          if(eta > 0 && eta < 1.5){
-            if(specEtas.length){
-              let best = specEtas[0], bestD = Math.abs(eta-best);
-              specEtas.forEach(c=>{
-                const d = Math.abs(eta-c);
-                if(d < bestD){ best=c; bestD=d; }
-              });
-              if(bestD <= 0.05) eta = best;
-            }
-            w.eta = Math.round(eta*1000)/1000;
-            etaFilled++;
-          }
-        }
-      });
-      if(etaFilled === result.windows.length){
-        warnings.push('窓'+result.windows.length+'枚を自動取得 (面積・方位・η)。部屋への割当だけ手動です');
-      }else{
-        warnings.push('窓リストは取得済み。ηを一部しか復元できなかったため、空欄の窓は手動入力してください');
-      }
-    }else{
-      warnings.push('窓'+result.windows.length+'枚を自動取得 (面積・方位)。ηはPDF対応が一意でないため空欄 — 手動入力してください');
-    }
-  }else{
-    warnings.push('窓リストを読めませんでした');
-  }
-
-  // 居室 (出現順で抽出 → タイプ文字AAAAB... と突き合わせ)
-  const typeMatch = fullText.match(/([ABC]{10,})/);
-  const digitMap = {'１':'1','２':'2','３':'3','1':'1','2':'2','3':'3'};
-  const roomPatterns = [
-    {re: /ＬＤＫ\s*([0-9]+\.[0-9]+)|LDK\s*([0-9]+\.[0-9]+)/g, name:()=>'LDK', area:m=>parseFloat(m[1]||m[2])},
-    {re: /洋室([１２３123])([0-9]+\.[0-9]+)/g, name:m=>'洋室'+digitMap[m[1]], area:m=>parseFloat(m[2])},
-    {re: /子供コーナー\s*([0-9]+\.[0-9]+)/g, name:()=>'子供コーナー', area:m=>parseFloat(m[1])},
-    {re: /玄関\s*([0-9]+\.[0-9]+)/g, name:()=>'玄関', area:m=>parseFloat(m[1])},
-    {re: /ホール\s*([0-9]+\.[0-9]+)/g, name:()=>'ホール', area:m=>parseFloat(m[1])},
-    {re: /階段\s*([0-9]+\.[0-9]+)/g, name:()=>'階段', area:m=>parseFloat(m[1])},
-    {re: /脱衣室\s*([0-9]+\.[0-9]+)/g, name:()=>'脱衣室', area:m=>parseFloat(m[1])},
-    {re: /ＵＢ\s*([0-9]+\.[0-9]+)|UB\s*([0-9]+\.[0-9]+)/g, name:()=>'UB', area:m=>parseFloat(m[1]||m[2])},
-    {re: /洗面室\s*([0-9]+\.[0-9]+)/g, name:()=>'洗面室', area:m=>parseFloat(m[1])},
-    {re: /トイレ\s*([0-9]+\.[0-9]+)/g, name:()=>'トイレ', area:m=>parseFloat(m[1])},
-    {re: /収納\s*([0-9]+\.[0-9]+)/g, name:()=>'収納', area:m=>parseFloat(m[1])},
-    {re: /ローカ\s*([0-9]+\.[0-9]+)/g, name:()=>'ローカ', area:m=>parseFloat(m[1])},
-    {re: /ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ\s*([0-9]+\.[0-9]+)/g, name:()=>'WIC', area:m=>parseFloat(m[1])},
-    {re: /書庫\s*([0-9]+\.[0-9]+)/g, name:()=>'書庫', area:m=>parseFloat(m[1])}
-  ];
-  const roomHits = [];
-  roomPatterns.forEach(p=>{
-    const re = new RegExp(p.re.source, 'g');
-    let m;
-    while((m = re.exec(fullText)) !== null){
-      roomHits.push({index:m.index, name:p.name(m), area:p.area(m)});
-    }
-  });
-  roomHits.sort((a,b)=>a.index-b.index);
-  // 同名同面積の別室 (収納が複数など) は残す。同一indexの二重マッチだけ除外
-  const roomsDedup = [];
-  const seenIdx = new Set();
-  roomHits.forEach(r=>{
-    if(seenIdx.has(r.index)) return;
-    seenIdx.add(r.index);
-    roomsDedup.push(r);
-  });
-
-  if(typeMatch && roomsDedup.length){
-    const types = typeMatch[0];
-    const n = Math.min(types.length, roomsDedup.length);
-    for(let i=0;i<n;i++){
-      result.rooms.push({name: roomsDedup[i].name, area: roomsDedup[i].area, type: types[i]});
-    }
-    if(types.length !== roomsDedup.length){
-      warnings.push('居室タイプ文字数('+types.length+')と部屋数('+roomsDedup.length+')が一致しません。読めた範囲のみ採用');
-    }
-  }else if(roomsDedup.length){
-    roomsDedup.forEach(r=> result.rooms.push({name:r.name, area:r.area, type:null}));
-    warnings.push('居室タイプ(A/B/C)を読めなかったため、全部屋を窓割当候補にします');
-  }else{
-    warnings.push('居室リストを読めませんでした');
-  }
-
-  // 座標付き表解析を優先する。平文化で崩れやすい窓・居室表を行/列として読み直す
-  const envelopeLayout=parsePositionedEnvelope(layoutPages);
-  if(envelopeLayout){
-    ['ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
-      if(envelopeLayout[key]!==null) result[key]=envelopeLayout[key];
-    });
-    for(let i=warnings.length-1;i>=0;i--){
-      if((result.ua!==null && /^UAを/.test(warnings[i])) ||
-         (result.envArea!==null && /^外皮面積を/.test(warnings[i])) ||
-         (result.uRoof!==null && /部位U値/.test(warnings[i])) ||
-         (result.uWin!==null && /窓U/.test(warnings[i]))) warnings.splice(i,1);
-    }
-  }
-  const windowLayout=parsePositionedWindows(layoutPages);
-  if(windowLayout && windowLayout.windows.length){
-    result.windows=windowLayout.windows;
-    const areaSum=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
-    const gainSum=result.windows.reduce((sum,w)=>sum+(w.gain||0),0);
-    result.validation.windows={
-      count:result.windows.length,
-      areaSum, expectedArea:windowLayout.expectedArea,
-      gainSum, expectedGain:windowLayout.expectedGain,
-      areaOk:windowLayout.expectedArea!==null && Math.abs(areaSum-windowLayout.expectedArea)<0.03,
-      gainOk:windowLayout.expectedGain!==null && Math.abs(gainSum-windowLayout.expectedGain)<0.03,
-      page:windowLayout.page
-    };
-    for(let i=warnings.length-1;i>=0;i--){
-      if(/窓リスト|窓\d+枚|窓のη/.test(warnings[i])) warnings.splice(i,1);
-    }
-    result.notes.push('窓'+result.windows.length+'枚を座標付き表から抽出しました。部屋への割当のみ手動です');
-  }
-  const roomLayout=parsePositionedRooms(layoutPages);
-  if(roomLayout && roomLayout.rooms.length){
-    result.rooms=roomLayout.rooms;
-    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
-    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
-    const sums={A:0,B:0,C:0};
-    result.rooms.forEach(r=>{ if(r.type in sums) sums[r.type]+=r.area; });
-    result.validation.rooms={
-      sums, expected:roomLayout.summary,
-      ok:['A','B','C'].every(t=>roomLayout.summary[t]!=null && Math.abs(sums[t]-roomLayout.summary[t])<0.03),
-      page:roomLayout.page
-    };
-    for(let i=warnings.length-1;i>=0;i--){
-      if(/居室リスト|居室タイプ/.test(warnings[i])) warnings.splice(i,1);
-    }
-  }else{
-    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
-    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
-  }
-  if(!result.projectLocation) warnings.unshift('建設地の記載がないため、住所または緯度・経度を入力してください');
-  if(result.projectName && result.workName && normalizePdfText(result.projectName)!==normalizePdfText(result.workName)){
-    warnings.unshift('物件名とフッターの工事名が一致しません。物件名を優先します');
-  }
-
-  return {result, warnings};
-}
-
-async function extractPdfText(file){
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
-  let full = '';
-  let chars = 0;
-  const pages=[];
-  for(let i=1;i<=pdf.numPages;i++){
-    const page = await pdf.getPage(i);
-    const viewport=page.getViewport({scale:1});
-    const content = await page.getTextContent();
-    const text = content.items.map(it=>it.str).join(' ');
-    chars += text.replace(/\s/g,'').length;
-    full += text + '\n';
-    const positioned=content.items.map(it=>({
-      text:it.str, x:it.transform[4], y:it.transform[5],
-      width:it.width||0, height:it.height||0
-    }));
-    pages.push({number:i,width:viewport.width,height:viewport.height,items:positioned,
-      lines:groupPdfItemsIntoLines(positioned)});
-  }
-  return {full, chars, numPages: pdf.numPages, pages};
-}
-
-function escapeHtml(value){
-  return String(value==null?'':value)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-function renderArchitrendReview(parsed, applied){
-  const {result,warnings}=parsed;
-  const roomValidation=result.validation.rooms;
-  const winValidation=result.validation.windows;
-  const validations=[
-    roomValidation ? {ok:roomValidation.ok,text:'室面積 A/B/C 合計'} : {ok:false,text:'室面積合計を未検証'},
-    winValidation ? {ok:winValidation.areaOk,text:'窓面積・寸法'} : {ok:false,text:'窓面積を未検証'},
-    winValidation ? {ok:winValidation.gainOk,text:'窓日射取得量'} : {ok:false,text:'窓日射取得量を未検証'}
-  ];
-  if(winValidation&&winValidation.crossText){
-    validations.push({ok:winValidation.crossOk,text:winValidation.crossText});
-  }
-  const orientationCounts={};
-  result.windows.forEach(w=>{ orientationCounts[w.orient]=(orientationCounts[w.orient]||0)+1; });
-  const uaText=result.ua==null?'—':result.ua;
-  const areaText=result.envArea==null?'—':result.envArea+'㎡';
-  const windowArea=winValidation?winValidation.areaSum:result.windows.reduce((s,w)=>s+(w.area||0),0);
-  const review=document.getElementById('atReview');
-  document.getElementById('atSummary').innerHTML='';
-  const sources=result.sources||{};
-  const sourceOf=(key,fallback)=>sources[key]||fallback||'—';
-
-  const buildingItems=[
-    ['物件名',result.projectName||'不明',sourceOf('projectName',result.inputSources.pdf?'PDF p.1':'—')],
-    ['フッター工事名',result.workName||'不明',sourceOf('workName',result.inputSources.pdf?'PDF 各頁':'—')],
-    ['建設地',result.projectLocation||'記載なし (手動)','—'],
-    ['UA',uaText,sourceOf('ua')],
-    ['外皮面積',areaText,sourceOf('envArea')],
-    ['屋根U',result.uRoof==null?'—':result.uRoof,sourceOf('uRoof')],
-    ['外壁U',result.uWall==null?'—':result.uWall,sourceOf('uWall')],
-    ['床U',result.uFloor==null?'—':result.uFloor,sourceOf('uFloor')],
-    ['基礎U',result.uFound==null?'—':result.uFound,sourceOf('uFound')],
-    ['窓U',result.uWin==null?'—':result.uWin,sourceOf('uWin')]
-  ];
-  const windowRows=result.windows.map(w=>
-    '<tr><td>'+escapeHtml(w.id)+'</td><td>'+escapeHtml(w.floor||'—')+'</td>'+
-    '<td>'+escapeHtml(w.orient||'—')+'</td><td>'+escapeHtml(w.width==null?'—':w.width)+'</td>'+
-    '<td>'+escapeHtml(w.height==null?'—':w.height)+'</td><td>'+escapeHtml(w.area==null?'—':w.area)+'</td>'+
-    '<td>'+escapeHtml(w.eta==null?'—':w.eta)+'</td><td class="src">'+
-    escapeHtml(w.sourceLabel||(w.sourcePage?'PDF p.'+w.sourcePage:'—'))+'</td></tr>'
-  ).join('');
-  const orientationText=Object.entries(orientationCounts).map(([k,v])=>k+v).join(' / ')||'なし';
-  const statusClass=applied?'at-validation-ok':'';
-  review.innerHTML=
-    '<div class="at-review">'+
-      '<div class="at-review-head">'+
-        '<span class="at-chip"><span>入力</span><b>'+
-          (result.inputSources.csv?'CSV':'')+(result.inputSources.csv&&result.inputSources.pdf?' + ':'')+
-          (result.inputSources.pdf?'PDF':'')+'</b></span>'+
-        '<span class="at-chip"><span>物件</span><b>'+escapeHtml(result.projectName||'不明')+'</b></span>'+
-        '<span class="at-chip"><span>UA</span><b>'+escapeHtml(uaText)+'</b></span>'+
-        '<span class="at-chip"><span>外皮</span><b>'+escapeHtml(areaText)+'</b></span>'+
-        '<span class="at-chip"><span>居室</span><b>'+result.habitableRooms.length+'室</b></span>'+
-        '<span class="at-chip"><span>窓</span><b>'+result.windows.length+'枚 / '+windowArea.toFixed(2)+'㎡</b></span>'+
-        '<span class="at-chip warn-chip"><span>要確認</span><b>'+warnings.length+'件</b></span>'+
-      '</div>'+
-      '<details '+(warnings.length?'open':'')+'><summary>要確認 <span class="count">'+warnings.length+'件</span></summary>'+
-        '<div class="at-review-body">'+
-          (warnings.length?'<ul class="at-warn-list">'+warnings.map(w=>'<li>'+escapeHtml(w)+'</li>').join('')+'</ul>':'<span class="small">問題はありません。</span>')+
-          '<div style="margin-top:7px;">'+validations.map(v=>'<span class="'+(v.ok?'at-validation-ok':'at-validation-ng')+'" style="margin-right:12px;">'+(v.ok?'✓ ':'× ')+escapeHtml(v.text)+'</span>').join('')+'</div>'+
-        '</div></details>'+
-      '<details><summary>建物・外皮 <span class="count">'+buildingItems.length+'項目</span></summary>'+
-        '<div class="at-review-body at-review-grid">'+buildingItems.map(item=>
-          '<div class="at-review-item"><span>'+escapeHtml(item[0])+'</span><span><b>'+escapeHtml(item[1])+'</b> <small class="src">'+escapeHtml(item[2])+'</small></span></div>'
-        ).join('')+'</div></details>'+
-      '<details><summary>部屋 <span class="count">'+result.habitableRooms.length+'居室を作成 / '+result.excludedRooms.length+'非居室を窓割当候補</span></summary>'+
-        '<div class="at-review-body"><div class="at-room-chips">'+
-          result.habitableRooms.map(r=>'<span class="at-room-chip">'+escapeHtml(r.name)+' '+r.area.toFixed(2)+'㎡</span>').join('')+
-        '</div><div class="small" style="margin-top:8px;">窓割当時に作成する非居室候補: '+
-          result.excludedRooms.map(r=>'<span class="at-room-chip excluded">'+escapeHtml(r.name)+'</span>').join(' ')+
-        '</div><div class="small" style="margin-top:6px;">出典: '+escapeHtml(sourceOf('rooms','—'))+'</div></div></details>'+
-      '<details><summary>窓 <span class="count">'+escapeHtml(orientationText)+' / 合計'+windowArea.toFixed(2)+'㎡</span></summary>'+
-        '<div class="at-review-body at-window-table"><table><tr><th>ID</th><th>階</th><th>方位</th><th>幅</th><th>高</th><th>面積</th><th>η</th><th>出典</th></tr>'+
-          windowRows+'</table></div></details>'+
-      '<details><summary>対象外として無視 <span class="count">会社・設計者情報</span></summary>'+
-        '<div class="at-review-body small">TEL/FAX、設計者名、登録番号などの会社情報は解析条件として使用しません。</div></details>'+
-      '<div class="at-review-actions">'+
-        (applied?'<span class="'+statusClass+'">✓ 確認内容を入力へ反映済み</span>':
-          '<button type="button" class="at-apply-btn" onclick="confirmApplyArchitrend()">確認して入力へ反映</button>'+
-          '<span class="small">反映後も各値は編集できます。</span>')+
-      '</div>'+
-    '</div>';
-}
-
-function confirmApplyArchitrend(){
-  if(!atLastParse) return;
-  applyArchitrendParse(atLastParse);
-}
-
-function applyArchitrendParse(parsed){
-  const {result, warnings} = parsed;
-  blankForArchitrend();
-
-  const filled = [];
-  function setVal(id, v){
-    if(v==null || Number.isNaN(v)) return;
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.value = (typeof v === 'number') ? String(v) : v;
-    markAtFilled(id, true);
-    filled.push(id);
-  }
-
-  setVal('uaVal', result.ua);
-  setVal('envArea', result.envArea);
-  setVal('uRoof', result.uRoof);
-  setVal('uWall', result.uWall);
-  setVal('uFloor1', result.uFloor);
-  setVal('uFound', result.uFound);
-  setVal('uWin', result.uWin);
-  if(result.projectLocation) setVal('siteAddress',result.projectLocation);
-
-  atAssignableRooms=(result.rooms||[]).map((r,i)=>Object.assign({},r,{
-    key:'at-room-'+i, habitable:isHabitableRoomName(r.name)
-  }));
-  const rooms = result.habitableRooms || result.rooms.filter(r=>isHabitableRoomName(r.name));
-  const usedCandidateKeys=new Set();
-  rooms.forEach(r=>{
-    const candidate=atAssignableRooms.find(c=>!usedCandidateKeys.has(c.key) &&
-      c.name===r.name && Math.abs((c.area||0)-(r.area||0))<0.01);
-    if(candidate) usedCandidateKeys.add(candidate.key);
-    addRoom({
-      name: r.name,
-      atRoomKey:candidate?candidate.key:'',
-      fields:{
-        roomArea: String(r.area),
-        occCount: '',
-        peopleSensRate: '',
-        peopleMoistRate: '',
-        equipSensRate: '',
-        equipMoistRate: '',
-        extraSens: '',
-        extraMoist: ''
-      },
-      windows: []
-    });
-    // 面積は AT 由来
-    const cards = document.querySelectorAll('.room-card');
-    const card = cards[cards.length-1];
-    if(card){
-      const areaEl = card.querySelector('.roomArea');
-      if(areaEl){
-        const wrap = areaEl.closest('div');
-        if(wrap) wrap.classList.add('at-filled');
-      }
-    }
-  });
-
-  const assignableWindows=result.windows.filter(w=>!isNorthFacingAz(w.az));
-  atNorthExcludedCount=result.windows.length-assignableWindows.length;
-  atUnassignedWindows = assignableWindows.map(w=>({
-    wName: w.id,
-    wAz: w.az==null ? '' : String(w.az),
-    wEta: w.eta==null ? '' : String(w.eta),
-    wArea: w.area==null ? '' : String(w.area),
-    glassSel: '0',
-    attachSel: '0',
-    roofLike: !!w.roofLike
-  }));
-  renderUnassignedWindows();
-
-  renderArchitrendReview(parsed,true);
-  runAll();
-  refreshNeedManual();
-}
-
-function renderUnassignedWindows(){
-  const box = document.getElementById('atUnassignedBox');
-  const list = document.getElementById('atUnassignedList');
-  const northInfo=document.getElementById('atNorthExcludedInfo');
-  if(northInfo) northInfo.textContent=atNorthExcludedCount>0
-    ? ' 今回は北面窓 '+atNorthExcludedCount+'枚を除外済みです。':'';
-  if(!atUnassignedWindows.length){
-    box.style.display = 'none';
-    list.innerHTML = '';
-    return;
-  }
-  box.style.display = 'block';
-  const roomOpts = ['<option value="">部屋を選択...</option>'];
-  const existingKeys=new Set();
-  document.querySelectorAll('.room-card').forEach(card=>{
-    if(card.dataset.atRoomKey) existingKeys.add(card.dataset.atRoomKey);
-    roomOpts.push('<option value="'+card.id+'">'+escapeHtml(card.querySelector('.roomName').value)+
-      (card.dataset.nonHabitable==='true'?' (非居室)':'')+'</option>');
-  });
-  atAssignableRooms.forEach((room,i)=>{
-    if(existingKeys.has(room.key)) return;
-    roomOpts.push('<option value="candidate:'+i+'">'+escapeHtml(room.name)+
-      (room.habitable?'':' (非居室・選択時に自動作成)')+'</option>');
-  });
-  list.innerHTML = atUnassignedWindows.map((w,i)=>{
-    return '<div class="at-unassigned-row" data-idx="'+i+'">'+
-      '<div class="'+(w.wName?'at-filled':'need-manual')+'"><label>名前</label><input type="text" class="uName" value="'+(w.wName||'')+'"></div>'+
-      '<div class="'+(w.wAz===''?'need-manual':'at-filled')+'"><label>方位角</label><input type="number" class="uAz" value="'+w.wAz+'" step="1"></div>'+
-      '<div class="'+(w.wEta===''?'need-manual':'at-filled')+'"><label>η0</label><input type="number" class="uEta" value="'+w.wEta+'" step="0.01"></div>'+
-      '<div class="'+(w.wArea===''?'need-manual':'at-filled')+'"><label>面積</label><input type="number" class="uArea" value="'+w.wArea+'" step="0.01"></div>'+
-      '<div class="need-manual"><label>割当先部屋</label><select class="uRoom">'+roomOpts.join('')+'</select></div>'+
-      '<button type="button" class="small-btn" onclick="assignUnassignedWindow('+i+')">割当</button>'+
-    '</div>';
-  }).join('');
-}
-
-function syncUnassignedFromDom(){
-  document.querySelectorAll('#atUnassignedList .at-unassigned-row').forEach(row=>{
-    const i = +row.dataset.idx;
-    if(!atUnassignedWindows[i]) return;
-    atUnassignedWindows[i].wName = row.querySelector('.uName').value;
-    atUnassignedWindows[i].wAz = row.querySelector('.uAz').value;
-    atUnassignedWindows[i].wEta = row.querySelector('.uEta').value;
-    atUnassignedWindows[i].wArea = row.querySelector('.uArea').value;
-  });
-}
-
-function assignUnassignedWindow(idx){
-  syncUnassignedFromDom();
-  const row = document.querySelector('#atUnassignedList .at-unassigned-row[data-idx="'+idx+'"]');
-  if(!row) return;
-  const roomChoice = row.querySelector('.uRoom').value;
-  if(!roomChoice){ alert('割当先の部屋を選んでください'); return; }
-  const w = atUnassignedWindows[idx];
-  if(!w) return;
-  if(w.wAz==='' || w.wEta==='' || w.wArea===''){
-    alert('方位・η・面積が空欄のままです。割当前にすべて入力してください');
-    return;
-  }
-  let roomId=roomChoice;
-  if(roomChoice.startsWith('candidate:')){
-    const candidate=atAssignableRooms[+roomChoice.split(':')[1]];
-    if(!candidate){ alert('割当先の部屋情報を取得できません'); return; }
-    const isNonHabitable=!candidate.habitable;
-    roomId=addRoom({
-      name:candidate.name, atRoomKey:candidate.key, isNonHabitable,
-      fields:{
-        roomArea:String(candidate.area||''),
-        occCount:isNonHabitable?'0':'',
-        peopleSensRate:isNonHabitable?'0':'',
-        peopleMoistRate:isNonHabitable?'0':'',
-        equipSensRate:isNonHabitable?'0':'',
-        equipMoistRate:isNonHabitable?'0':'',
-        extraSens:'0', extraMoist:'0'
-      },
-      windows:[]
-    });
-  }
-  addWindow(roomId, {
-    wName: w.wName,
-    wAz: w.wAz,
-    wEta: w.wEta,
-    wArea: w.wArea,
-    glassSel: w.glassSel||'0',
-    attachSel: w.attachSel||'0'
-  });
-  atUnassignedWindows.splice(idx, 1);
-  renderUnassignedWindows();
-  runAll();
-  refreshNeedManual();
-}
-
-function refreshNeedManual(){
-  if(appMode !== 'architrend'){
-    document.getElementById('atRemainInfo').style.display = 'none';
-    document.querySelectorAll('.need-manual').forEach(el=>{
-      if(!el.closest('#atUnassignedBox') && !el.closest('#atUnassignedList')) el.classList.remove('need-manual');
-    });
-    return;
-  }
-  let remain = 0;
-  AT_MANUAL_IDS.forEach(id=>{
-    const el = document.getElementById(id);
-    if(!el) return;
-    const wrap = el.closest('div') || el.parentElement;
-    const empty = el.value==='' || el.value==null;
-    wrap.classList.toggle('need-manual', empty);
-    if(!empty) wrap.classList.add('at-filled');
-    else wrap.classList.remove('at-filled');
-    // PDF由来でない共通条件などは埋まっても AT にしない
-    if(['calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT','roomVol','ach','hxRate','acMax','acCount'].includes(id)){
-      wrap.classList.remove('at-filled');
-    }
-    if(empty) remain++;
-  });
-  document.querySelectorAll('.room-card').forEach(card=>{
-    ['occCount','peopleSensRate','peopleMoistRate','equipSensRate','roomArea'].forEach(cls=>{
-      const el = card.querySelector('.'+cls);
-      if(!el) return;
-      const wrap = el.closest('div') || el.parentElement;
-      const empty = el.value==='';
-      // roomArea が AT で埋まっている場合は要手動にしない
-      if(cls==='roomArea' && el.value!==''){
-        wrap.classList.remove('need-manual');
-        return;
-      }
-      wrap.classList.toggle('need-manual', empty);
-      if(empty) remain++;
-    });
-    card.querySelectorAll('.win-row').forEach(w=>{
-      ['wAz','wEta','wArea'].forEach(cls=>{
-        const el = w.querySelector('.'+cls);
-        if(!el) return;
-        const wrap = el.closest('div') || el.parentElement;
-        const empty = el.value==='';
-        wrap.classList.toggle('need-manual', empty);
-        if(empty) remain++;
-      });
-    });
-  });
-  remain += atUnassignedWindows.length;
-  const info = document.getElementById('atRemainInfo');
-  info.style.display = 'inline';
-  info.textContent = remain>0
-    ? ('要手動 残 '+remain+' 件')
-    : '連携入力完了';
-  info.style.color = remain>0 ? 'var(--heat)' : 'var(--ink2)';
-}
-
-function rebuildArchitrendPreview(){
-  const merged=mergeArchitrendSources(atCsvParse,atPdfParse);
-  if(!merged) return;
-  atLastParse=merged;
-  renderArchitrendReview(merged,false);
-}
-
-async function readCsvFile(file){
-  const buffer=await file.arrayBuffer();
-  let text=new TextDecoder('utf-8').decode(buffer);
-  if(text.includes('\uFFFD')){
-    try{ text=new TextDecoder('shift_jis').decode(buffer); }catch(err){}
-  }
-  return text;
-}
-
-async function onAtCsvSelected(input){
-  const file=input.files&&input.files[0];
-  if(!file) return;
-  try{
-    document.getElementById('atSummary').innerHTML='<p class="small">CSVを読み込み中...</p>';
-    const text=await readCsvFile(file);
-    const parsed=parseArchiTrendCsv(text);
-    if(parsed.result.windows.length===0 && parsed.warnings.length){
-      document.getElementById('atSummary').innerHTML='<div class="warn">'+
-        escapeHtml(parsed.warnings.join(' / '))+'</div>';
-      return;
-    }
-    atCsvParse=parsed;
-    rebuildArchitrendPreview();
-  }catch(err){
-    alert('CSVの読み込みに失敗しました: '+err.message);
-  }
-}
-
-async function onAtPdfSelected(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  if(!window.pdfjsLib){
-    alert('PDF.js の読み込みに失敗しています。ネット接続を確認してください');
-    return;
-  }
-  try{
-    document.getElementById('atSummary').innerHTML = '<p class="small">読み込み中...</p>';
-    document.getElementById('atReview').innerHTML = '';
-    const {full, chars, pages} = await extractPdfText(file);
-    if(chars < 50){
-      document.getElementById('atSummary').innerHTML = '<div class="warn">テキストを抽出できませんでした (スキャンPDFの可能性)。手動モードを使うか、テキスト埋め込みPDFを指定してください。</div>';
-      document.getElementById('atWarnList').innerHTML = '';
-      return;
-    }
-    atPdfParse=parseArchiTrendText(full,pages);
-    rebuildArchitrendPreview();
-  }catch(err){
-    alert('PDFの読み込みに失敗しました: '+err.message);
-  }
-}
-
-function startManualMode(saved){
-  setModeUI('manual');
-  initSelectors();
-  if(saved && saved.rooms && saved.rooms.length){
-    applyState(saved);
-    document.querySelectorAll('.peopleMoistRate').forEach(el=>{
-      if(el.value==='80') el.value='76';
-    });
-  }else{
-    addRoom({name:'LDKetc', fields:{roomArea:32.1, occCount:6, extraSens:50}, windows:[{}]});
-    addRoom({name:'個室', fields:{roomArea:10.8, occCount:1}});
-    addRoom({name:'主寝室', fields:{roomArea:10.1, occCount:2}});
-  }
-  runAll();
-}
-
-function startArchitrendMode(saved){
-  setModeUI('architrend');
-  initSelectors();
-  if(saved && saved.mode==='architrend' &&
-     ((saved.rooms||[]).length || (saved.atUnassigned||[]).length)){
-    applyState(saved);
-    atUnassignedWindows = saved.atUnassigned || [];
-    atAssignableRooms = saved.atRoomCandidates || [];
-    atNorthExcludedCount = saved.atNorthExcludedCount || 0;
-    renderUnassignedWindows();
-    runAll();
-    refreshNeedManual();
-  }else{
-    blankForArchitrend();
-    runAll();
-    refreshNeedManual();
-  }
-}
-
-// ========================= 初期化 =========================
-initSelectors();
-let saved=null;
-try{ saved = JSON.parse(localStorage.getItem(STORE_KEY)); }catch(err){}
-
-document.getElementById('modeManualBtn').addEventListener('click', ()=>{
-  const manualSaved=saved && (saved.mode==='manual' || (!saved.mode && (saved.rooms||[]).length)) ? saved : null;
-  startManualMode(manualSaved);
-});
-document.getElementById('modeAtBtn').addEventListener('click', ()=>{
-  const atSaved=saved && saved.mode==='architrend' ? saved : null;
-  startArchitrendMode(atSaved);
-});
-document.getElementById('atCsvInput').addEventListener('change', function(){ onAtCsvSelected(this); });
-document.getElementById('atPdfInput').addEventListener('change', function(){ onAtPdfSelected(this); });
-document.getElementById('atUnassignedList').addEventListener('input', function(){
-  syncUnassignedFromDom();
-  refreshNeedManual();
-});
-
-const _runAllOrig = runAll;
-runAll = function(){
-  _runAllOrig();
-  if(appMode==='architrend') refreshNeedManual();
-};
-
-// 起動時は毎回モード選択を表示する。同じモードを選べば保存内容を復元する。
-</script>
+<script src="js/01-constants.js"></script>
+<script src="js/02-solar.js"></script>
+<script src="js/03-utils.js"></script>
+<script src="js/04-rooms.js"></script>
+<script src="js/05-ac.js"></script>
+<script src="js/06-run-all.js"></script>
+<script src="js/07-external-api.js"></script>
+<script src="js/08-presets.js"></script>
+<script src="js/09-state.js"></script>
+<script src="js/10-architrend.js"></script>
+<script src="js/12-energyplus.js"></script>
+<script src="js/13-ssl-export.js"></script>
+<script src="js/14-idf-mesh.js"></script>
+<script src="js/11-init.js"></script>
 </body>
 </html>
