@@ -5,8 +5,17 @@ try{ saved = JSON.parse(localStorage.getItem(STORE_KEY)); }catch(err){}
 
 document.getElementById('atCsvInput').addEventListener('change', function(){ onAtCsvSelected(this); });
 document.getElementById('atPdfInput').addEventListener('change', function(){ onAtPdfSelected(this); });
+const at3dsInput = document.getElementById('at3dsInput');
+if(at3dsInput){
+  at3dsInput.addEventListener('click', function(){ this.value=''; });
+  at3dsInput.addEventListener('change', function(){ onAt3dsSelected(this); });
+}
+document.getElementById('epIdfInput').addEventListener('click', function(){ this.value=''; });
+document.getElementById('epSqlInput').addEventListener('click', function(){ this.value=''; });
+document.getElementById('epEpwInput').addEventListener('click', function(){ this.value=''; });
 document.getElementById('epIdfInput').addEventListener('change', function(){ onEpIdfSelected(this); });
 document.getElementById('epSqlInput').addEventListener('change', function(){ onEpSqlSelected(this); });
+document.getElementById('epEpwInput').addEventListener('change', function(){ onEpEpwSelected(this); });
 document.getElementById('atUnassignedList').addEventListener('input', function(){
   syncUnassignedFromDom();
   refreshNeedManual();

@@ -94,6 +94,7 @@ function addWindow(roomId, defaults){
     '<div><label>面積 (㎡)</label><input type="number" class="wArea" value="1.0" step="0.1"></div>'+
     '<div><label>U (W/m²K)</label><input type="number" class="wU" value="" step="0.01" placeholder="共通"></div>'+
     '<div><label>疑似厚み</label><div class="result wDummy">—</div></div>'+
+    '<div class="small wSolarHint" style="grid-column:1/-1;"></div>'+
     '<button class="small-btn" onclick="document.getElementById(\''+wid+'\').remove(); runAll();">削除</button>';
   document.getElementById(roomId).querySelector('.winList').appendChild(div);
   if(defaults){

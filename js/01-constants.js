@@ -129,7 +129,14 @@ const TOOL_DEFAULTS = {
   peopleMoistRate: 76,
   equipSensRate: 5,
   equipMoistRate: 0,
-  ach: 0.5
+  ach: 0.5,
+  lat: 35.68,
+  lon: 139.77,
+  calcDate: '2026-07-25',
+  detailHour: 14,
+  solarFc: 0.10,
+  sslMatWood: '2杉(1)',
+  sslMatGlass: '1ガラス板(Low-E複層)'
 };
 // 窓Uの種類ごとに 3DS / SSL で色を分ける。先頭は従来の窓色 (80,180,220)
 const WINDOW_U_COLOR_PALETTE = [
@@ -142,4 +149,33 @@ const WINDOW_U_COLOR_PALETTE = [
   {r:0, g:130, b:190},
   {r:70, g:40, b:160}
 ];
+// FDに置いたモジュール／埋メの確定色。IDF 3DSパレットと合わせて SSL が自動割当する。
+const SSL_FIXED_COLORS = [
+  {hex:'#808080', key:'ac_body'},
+  {hex:'#003cff', key:'ac_supply'},
+  {hex:'#1d6d35', key:'ac_return'},
+  {hex:'#ff6018', key:'doorbody'},
+  {hex:'#8c5a32', key:'doorbody'},
+  {hex:'#62a446', key:'doorgap_top'},
+  {hex:'#008080', key:'doorgap_uc'},
+  {hex:'#3d3d3d', key:'fill_solid'}
+];
+const SSL_COLOR_TOLERANCE = 12;
+// 重なり時の優先度（大きい方が残る）。SSL公式IDは無いので 90001 を書き、読み込みVBSが obj set priority する。
+const SSL_PRIORITY = {
+  wall_北:10, wall_東:10, wall_南:10, wall_西:10,
+  roof:10, floor1:10, found:10, innerwall:10, attic:10, fill_solid:10,
+  window:30, doorbody:30,
+  doorgap_top:50, doorgap_uc:50, ac_body:50,
+  ac_supply:90, ac_return:90
+};
+const SSL_PRIORITY_PARAM_ID = 90001;
+const FILL_SOLID_COLOR = {r:61, g:61, b:61, mat:'FILL'};
+const GAIN_VOLUME_SETBACK_M = 0.3;
+function gainVolumeColor(i){
+  const n = i||0;
+  const g = 176 - (n % 8) * 16;
+  const b = 168 - Math.floor(n / 8) * 18;
+  return {r:255, g:Math.max(80, g), b:Math.max(80, b), mat:'GAIN'+String(n)};
+}
 

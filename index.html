@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boundary Conditions — FlowDesigner</title>
+<link rel="icon" href="./favicon.ico" sizes="32x32">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta property="og:title" content="Boundary Conditions — FlowDesigner">
+<meta property="og:image" content="./apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
@@ -69,7 +74,7 @@
   </a>
   <p class="toc-group">Export</p>
   <a href="#idfmesh" class="toc-ssl">
-    <span class="toc-en">IDF Model</span>
+    <span class="toc-en">3DS Model</span>
     <span class="toc-jp">色分けモデル</span>
   </a>
   <a href="#ssl" class="toc-ssl">
@@ -106,26 +111,42 @@
       <input type="file" id="atPdfInput" accept="application/pdf,.pdf">
     </div>
   </div>
-  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFがある場合のみ居室を作成し、廊下・水回り・収納等は除外します。</p>
+  <div class="row2" style="max-width:760px; align-items:end; margin-top:10px;">
+    <div>
+      <label>テクスチャ無し 3DS <span class="tag-at">色分けモデル用</span></label>
+      <input type="file" id="at3dsInput" accept=".3ds,.3DS">
+      <p class="small" id="at3dsFileEcho" style="margin:6px 0 0;"></p>
+    </div>
+  </div>
+  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFがある場合のみ居室を作成し、廊下・水回り・収納等は除外します。3DSは内壁の無い外皮です。方位色分けし庇を除き、屋根の上を埋めます。メッシュはブラウザに保存しないので、開き直したら選び直してください。</p>
   <div id="atSummary" style="margin-top:12px;"></div>
   <div id="atReview"></div>
   <ul class="at-warn-list" id="atWarnList" style="display:none;"></ul>
 </div>
 
 <div id="epPanel" class="box">
-  <h3 style="margin-top:0;">EnergyPlus IDF / SQL</h3>
-  <p class="small" style="margin-top:0;">部屋別モデルの IDF を主入力にします。床下・小屋裏ゾーンは除外し、居室の外壁面積・熱貫流・窓U・UA・外皮面積と、People の最大在室人数を入れます。SQL (<code>eplusout.sql</code>) は任意・推奨で、冷房ピークの日付と時刻を入れます。換気回数は 0.5 回/h、床・基礎Uと人体・機器の原単位は初期値が入っています。</p>
+  <h3 style="margin-top:0;">EnergyPlus IDF / SQL / EPW</h3>
+  <p class="small" style="margin-top:0;">部屋別モデルの IDF を主入力にします。床下・小屋裏ゾーンは除外し、居室の外壁面積・熱貫流・窓U・UA・外皮面積と、People の最大在室人数を入れます。SQL (<code>eplusout.sql</code>) は任意・推奨で、冷房ピークの日付と時刻に加え、Hourly の面日射があれば Grasshopper と同じ SAT/ETD と窓の透過日射を使います。EPW は SQL に外気温が無いときの控えです。換気回数は 0.5 回/h、床・基礎Uと人体・機器の原単位は初期値が入っています。</p>
   <div class="row2" style="max-width:760px; align-items:end;">
     <div>
       <label>EnergyPlus IDF <span class="tag-at">必須・主入力</span></label>
       <input type="file" id="epIdfInput" accept=".idf,.IDF,text/plain">
+      <p class="small" id="epIdfFileEcho" style="margin:6px 0 0;"></p>
     </div>
     <div>
       <label>eplusout.sql <span class="small">任意・推奨</span></label>
       <input type="file" id="epSqlInput" accept=".sql,.sqlite,.db,.sqlite3">
+      <p class="small" id="epSqlFileEcho" style="margin:6px 0 0;"></p>
     </div>
   </div>
-  <p class="small" style="margin:9px 0 0;">1ゾーン集約モデルでも読めますが、居室ゾーンが複数ある IDF を前提にしています。在室人数は IDF の People（最大人数）から入れ、People が無い室は 0 人です。人体・機器発熱はその人数と床面積×原単位で計算します。</p>
+  <div class="row2" style="max-width:760px; align-items:end; margin-top:10px;">
+    <div>
+      <label>EPW <span class="small">任意・外気温</span></label>
+      <input type="file" id="epEpwInput" accept=".epw,.EPW">
+      <p class="small" id="epEpwFileEcho" style="margin:6px 0 0;"></p>
+    </div>
+  </div>
+  <p class="small" style="margin:9px 0 0;">SAT/ETD には SQL の面入射日射 (Hourly)、窓の有効熱取得には透過日射 (Hourly) が必要です。時系列はブラウザに保存しないので、開き直したら SQL と EPW を選び直してください。在室人数は IDF の People（最大人数）から入れ、People が無い室は 0 人です。</p>
   <div id="epSqlStatus" class="small" style="margin-top:8px;"></div>
   <div id="epSummary" style="margin-top:12px;"></div>
   <div id="epReview"></div>
@@ -173,8 +194,8 @@
         <text x="463" y="50" fill="#8C8C8C" font-size="10">エアコン</text>
 
         <rect x="536" y="10" width="118" height="54" fill="#F4F4F4" stroke="#3D3D3D"/>
-        <text x="595" y="32" fill="#3D3D3D" letter-spacing="1">IDF</text>
-        <text x="595" y="50" fill="#3D3D3D" font-size="10">色分け3DS</text>
+        <text x="595" y="32" fill="#3D3D3D" letter-spacing="1">3DS</text>
+        <text x="595" y="50" fill="#3D3D3D" font-size="10">色分けモデル</text>
 
         <rect x="668" y="10" width="118" height="54" fill="#3D3D3D" stroke="#3D3D3D"/>
         <text x="727" y="32" fill="#FFFFFF" letter-spacing="1">SSL</text>
@@ -235,6 +256,7 @@
     <div><label>外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
     <div><label>地面反射率 ρ</label><input type="number" id="rho" value="0.20" step="0.01"></div>
     <div><label>屋根の夜間放射補正 ΔR/ho (℃)</label><input type="number" id="roofCorr" value="4" step="0.5"></div>
+    <div><label>対流成分比 f_c (窓日射)</label><input type="number" id="solarFc" value="0.10" step="0.01" min="0" max="1"></div>
   </div>
   <div class="small" id="commonSolarInfo"></div>
 </div>
@@ -325,7 +347,7 @@
 <div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">1-1 ドア本体 (室内ドア)</h3>
-  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
+  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">2杉(1)</span></div>
   <div class="cfd-value"><span class="k">厚み [m]</span><span class="v">0.03</span><button class="copy-btn" data-copy="0.03">コピー</button></div>
 </div>
 
@@ -356,7 +378,7 @@
 
 <div class="box">
   <h3 style="margin-top:0;">1-3 内壁・天井・床 (間仕切り)</h3>
-  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">杉</span></div>
+  <div class="cfd-value"><span class="k">形状モデル > 材質</span><span class="v">2杉(1)</span></div>
   <div class="cfd-value"><span class="k">厚み [m] (15mm × 2枚想定)</span><span class="v">0.03</span><button class="copy-btn" data-copy="0.03">コピー</button></div>
 </div>
 </div>
@@ -369,7 +391,7 @@
     <b>相当外気温度 (SAT: Sol-Air Temperature) とは</b><br>
     壁や屋根など日射が当たる不透明な外皮表面は、外気温だけでなく日射も受けて温められています。SATは、その「外気温+日射の影響」をまとめて1つの仮想的な外気温として置き換えたものです。<br>
     SAT = 外気温 Ta + α×(壁面が受ける日射量)/外表面熱伝達率 ho − (屋根のみ) 夜間放射による低下分。<br>
-    CFDの発生パネルで「外気温」にこのSATを入力することで、日射で暖められた壁からの入熱を、外気温と熱通過率だけの単純な計算で再現できます。
+    EnergyPlus の SQL に面日射があるときは、この SAT を ISO 13786 の遅れ φ と減衰率 η で ETD にし、発生パネルの外気温は <b>室温 + ETD</b> とします (q = U × ETD)。SQL が無いときは従来どおり晴天モデルの SAT を外気温に入れます。
   </div>
   <div class="diagram">
     <svg viewBox="0 0 620 140" style="width:100%; max-width:620px; height:auto;">
@@ -405,7 +427,7 @@
   </div>
   <div class="summary-grid" id="satSolarInfo" style="margin-bottom:8px;"></div>
   <div id="satTableWrap"></div>
-  <p class="small">※ 上のグラフはあくまで参考です。実際にCFDへ入力するのは、共通条件で指定した「解析対象の時刻」における下表のSAT値です。</p>
+  <p class="small">※ 上のグラフはあくまで参考です。CFDへ入れるのは下表の「CFD 外気温」です。SQLがあるときは室温+ETD、無いときはSATです。</p>
   <div id="epWallBox" style="display:none; margin-top:18px;">
     <h3>EnergyPlus 居室の壁・屋根 熱貫流</h3>
     <div id="epWallTableWrap"></div>
@@ -425,7 +447,7 @@
   <div class="row2" style="max-width:500px;">
     <div><label>熱通過率 U (W/m²K)</label><input type="number" id="uFloor1" value="0.28" step="0.01"></div>
   </div>
-  <div class="cfd-value"><span class="k">形状モデル > 属性: 熱通過率 / 材質: 杉</span><span class="v" id="uFloor1Disp">0.28</span><button class="copy-btn" id="uFloor1Copy" data-copy="0.28">コピー</button></div>
+  <div class="cfd-value"><span class="k">形状モデル > 属性: 熱通過率 / 材質: 2杉(1)</span><span class="v" id="uFloor1Disp">0.28</span><button class="copy-btn" id="uFloor1Copy" data-copy="0.28">コピー</button></div>
 </div>
 
 <div class="box">
@@ -651,7 +673,8 @@
   <div class="info">
     <b>④ 透過率 η → 室内への熱 (W)</b><br>
     窓ガラス+付属部材 (ブラインド等) を通過する割合を日射熱取得率 η0 として窓ごとに設定します (下の窓入力欄)。最終的な直達日射による室内発熱は次の式です。<br>
-    <b>q = I_DN × cosθ × η0 × 窓面積 A [W]</b> ← この値がStep 2の「直達日射」として部屋ごとに合算されます。
+    <b>q_eff = q_raw × [f_c + (1−f_c)×r_G]</b> ← この値がStep 2の「直達日射」として部屋ごとに合算されます。<br>
+    q_raw は、SQL に透過日射があればその値 (W)、無ければ <b>I_DN × cosθ × η0 × A</b> です。r_G は表2.12の方位×時刻（北面は1.0）、f_c の初期値は 0.10 です。
   </div>
   <div class="diagram">
     <svg viewBox="0 0 780 220" style="width:100%; max-width:780px; height:auto;">
@@ -685,7 +708,7 @@
 <div class="stage-work">
 <div class="box">
   <p class="small" style="margin-top:0;">部屋ごとにボリューム (発生エリア) を作成し、直達日射+人体+機器の発熱・発湿の合計を入力します。太陽条件は共通条件から自動計算されます。この合計はStep 3 (エアコン) の必要処理熱量の計算にそのまま使われます。</p>
-  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。各窓のη0はSHGC、Uは構成から入れ、日射はη0×日射×面積です。SQLから入れるのは冷房ピークの日付・時刻だけです。</div>
+  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。各窓のη0はSHGC、Uは構成から入れます。SQLに透過日射があればそれを r_G 補正して使い、無ければ η0×日射×面積に r_G を掛けます。SQLからピーク日付・時刻も入れます。</div>
   <div class="note">対象とする部屋: 居室、および北面以外に窓がある非居室です。真北向きの窓はこのツールの簡略化ルールとして直達日射0 Wで除外します (北東・北西は計算対象)。</div>
   <div class="summary-grid" id="step2SolarInfo"></div>
 </div>
@@ -865,32 +888,32 @@
 </div>
 </div>
 
-<!-- ================= IDF 色分け3DS ================= -->
-<h2 id="idfmesh" class="ssl-head"><span class="stepnum">IDF</span><span class="h2-text"><span class="h2-en">IDF Model</span><span class="h2-jp">色分けモデルを書き出す</span></span></h2>
+<!-- ================= 色分け3DS ================= -->
+<h2 id="idfmesh" class="ssl-head"><span class="stepnum">3DS</span><span class="h2-text"><span class="h2-en">3DS Model</span><span class="h2-jp">色分けモデルを書き出す</span></span></h2>
 <div class="stage-split">
 <aside class="stage-guide">
-  <div class="guide-now">いま · IDFモデル</div>
-  <p class="small" style="margin-top:0;">EnergyPlus の IDF 頂点から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
+  <div class="guide-now">いま · 色分けモデル</div>
+  <p class="small" style="margin-top:0;" id="idfMeshGuide">EnergyPlus の IDF、または Architrend のテクスチャ無し 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
   <div class="ssl-flow">
-    <div class="ssl-step"><span class="n">1</span><b>IDF を読む</b><span>EnergyPlusモードで部屋別 IDF を指定（このページ上部）</span></div>
-    <div class="ssl-step"><span class="n">2</span><b>3DS を書き出す</b><span>部材名付き・色分け。窓Uが複数なら色も分け、SSLが疑似厚みを色ごとに書く</span></div>
-    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>FlowDesigner のインポートで 3DS を開く。単位は mm</span></div>
-    <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む</span></div>
+    <div class="ssl-step"><span class="n">1</span><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはテクスチャ無し3DS（このページ上部）</span></div>
+    <div class="ssl-step"><span class="n">2</span><b>3DS を書き出す</b><span>部材名付き・色分け。埋メは *_cfd_fill.3ds、内部発熱は *_cfd_gain.3ds で別ファイル</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。埋メは障害物ソリッド</span></div>
+    <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
   </div>
-  <p class="small">エアコン吹出・ドア隙間は IDF に無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。</p>
+  <p class="small">エアコン吹出・ドア隙間は元モデルに無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。Architrend は内壁も元データにありません。</p>
 </aside>
 <div class="stage-work">
-<div class="ssl-banner">
-  IDF があれば、色分け済みの CFD モデル種をここから出せます。厚みは付けません。
+<div class="ssl-banner" id="idfMeshBanner">
+  EnergyPlus の IDF、または Architrend の 3DS を読むと、色分け済みの CFD モデル種を出せます。厚みは付けません。
 </div>
 <div class="box">
   <h3 style="margin-top:0;">部材の内訳</h3>
   <div id="idfMeshSummary"></div>
   <div style="margin-top:14px;">
-    <button type="button" id="idfMeshExportBtn" class="at-apply-btn" disabled>3DS と名前CSVを書き出す</button>
+    <button type="button" id="idfMeshExportBtn" class="at-apply-btn" disabled>3DS・埋メ・発熱3DS・名前CSVを書き出す</button>
     <span class="small" id="idfMeshExportInfo" style="margin-left:10px;"></span>
   </div>
-  <p class="small" style="margin:10px 0 0;">同時に名前CSVが落ちます。3DS の名前が切れたときはこの CSV が正です。窓Uが複数のときは色が分かれるので、FDのカテゴライズCSVでも別色になります。</p>
+  <p class="small" style="margin:10px 0 0;">家パネルは *_cfd.3ds。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds。切妻などの屋根の上・2F持ち出しの下・基礎下は *_cfd_fill.3ds の三角柱（障害物）。名前が切れたときは名前CSVが正です。扉色は #ff6018 です。</p>
 </div>
 </div>
 </div>
@@ -906,14 +929,14 @@
   <div class="ssl-flow">
     <div class="ssl-step"><span class="n">1</span><b>FDで色リストを出す</b><span>プロジェクトを開いた状態で「【SSL】オブジェクトIDカテゴライズcsv出力.vbs」を実行</span></div>
     <div class="ssl-step"><span class="n">2</span><b>CSVを読み込む</b><span>プロジェクトフォルダの objcatidlist.csv をファイル選択へ</span></div>
-    <div class="ssl-step"><span class="n">3</span><b>色に属性を割当てる</b><span>外壁北・窓・吹出口など。同じ色分けなら次回から保存済みの割当を再利用</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>色に属性を割当てる</b><span>3DS色とAC・扉モジュール色は自動割当。手直し可</span></div>
     <div class="ssl-step"><span class="n">4</span><b>objParam.csv を書く</b><span>「objParam.csv を書き出す」でダウンロード</span></div>
-    <div class="ssl-step"><span class="n">5</span><b>FDへ読み込む</b><span>プロジェクトフォルダに置いて「【SSL】自動化_objParamCSV読み込み.vbs」を実行</span></div>
+    <div class="ssl-step"><span class="n">5</span><b>FDへ読み込む</b><span>「【SSL】自動化_objParamCSV読み込み.vbs」。外壁を発生パネルにし、優先度も入れる</span></div>
   </div>
 </aside>
 <div class="stage-work">
 <div class="ssl-banner">
-  手コピーを省略する段階です。色分け済みのFlowDesignerモデルがあれば、5手順で境界条件が入ります。
+  objParam.csv を読むとき、外壁・屋根・窓・基礎を発生パネルへ変え、薄い赤の内部発熱ソリッドを発生エリアへ変え、優先度（壁10・窓30・隙間50・吹出90）も入れます。内壁と埋メは形状モデルのままです。
 </div>
 <div class="box">
   <h3 style="margin-top:0;">2 色リストの読み込み</h3>
@@ -937,16 +960,16 @@
   <div class="row2" style="max-width:760px; margin-top:10px;">
     <div>
       <label>木部の材質名 (FDの物性値一覧の登録名)</label>
-      <input type="text" id="sslMatWood" value="杉" list="sslMatList">
+      <input type="text" id="sslMatWood" value="2杉(1)" list="sslMatList">
     </div>
     <div>
       <label>窓の材質名 (FDの物性値一覧の登録名)</label>
-      <input type="text" id="sslMatGlass" value="ガラス板" list="sslMatList">
+      <input type="text" id="sslMatGlass" value="1ガラス板(Low-E複層)" list="sslMatList">
     </div>
   </div>
   <datalist id="sslMatList">
-    <option value="杉"></option>
-    <option value="ガラス板"></option>
+    <option value="2杉(1)"></option>
+    <option value="1ガラス板(Low-E複層)"></option>
     <option value="合板"></option>
     <option value="石膏ボード"></option>
     <option value="コンクリート"></option>
@@ -1055,19 +1078,21 @@
 
 </div><!-- /.wrap -->
 
-<script src="js/01-constants.js"></script>
-<script src="js/02-solar.js"></script>
-<script src="js/03-utils.js"></script>
-<script src="js/04-rooms.js"></script>
-<script src="js/05-ac.js"></script>
-<script src="js/06-run-all.js"></script>
-<script src="js/07-external-api.js"></script>
-<script src="js/08-presets.js"></script>
-<script src="js/09-state.js"></script>
-<script src="js/10-architrend.js"></script>
-<script src="js/12-energyplus.js"></script>
-<script src="js/13-ssl-export.js"></script>
-<script src="js/14-idf-mesh.js"></script>
-<script src="js/11-init.js"></script>
+<script src="js/01-constants.js?v=20260914y"></script>
+<script src="js/02-solar.js?v=20260914y"></script>
+<script src="js/03-utils.js?v=20260914y"></script>
+<script src="js/04-rooms.js?v=20260914y"></script>
+<script src="js/05-ac.js?v=20260914y"></script>
+<script src="js/15-sat-etd.js?v=20260914y"></script>
+<script src="js/06-run-all.js?v=20260914y"></script>
+<script src="js/07-external-api.js?v=20260914y"></script>
+<script src="js/08-presets.js?v=20260914y"></script>
+<script src="js/09-state.js?v=20260914y"></script>
+<script src="js/10-architrend.js?v=20260914y"></script>
+<script src="js/12-energyplus.js?v=20260914y"></script>
+<script src="js/13-ssl-export.js?v=20260914y"></script>
+<script src="js/14-idf-mesh.js?v=20260914y"></script>
+<script src="js/16-at-3ds.js?v=20260914y"></script>
+<script src="js/11-init.js?v=20260914y"></script>
 </body>
 </html>

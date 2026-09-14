@@ -45,6 +45,22 @@ function applySharedToolDefaults(){
   fillIfEmpty(document.getElementById('uFloor1'), TOOL_DEFAULTS.uFloor1);
   fillIfEmpty(document.getElementById('uFound'), TOOL_DEFAULTS.uFound);
   fillIfEmpty(document.getElementById('ach'), TOOL_DEFAULTS.ach);
+  fillIfEmpty(document.getElementById('solarFc'), TOOL_DEFAULTS.solarFc);
+  const latEl = document.getElementById('lat');
+  const lonEl = document.getElementById('lon');
+  const latN = latEl ? parseFloat(latEl.value) : NaN;
+  const lonN = lonEl ? parseFloat(lonEl.value) : NaN;
+  const geoMissing = !isFinite(latN) || !isFinite(lonN) ||
+    (Math.abs(latN)<1e-9 && Math.abs(lonN)<1e-9);
+  if(geoMissing){
+    if(latEl) latEl.value = String(TOOL_DEFAULTS.lat);
+    if(lonEl) lonEl.value = String(TOOL_DEFAULTS.lon);
+  }
+  fillIfEmpty(document.getElementById('calcDate'), TOOL_DEFAULTS.calcDate);
+  const hourEl = document.getElementById('detailHour');
+  if(hourEl && (hourEl.value==='' || hourEl.value==null || parseFloat(hourEl.value)===0)){
+    hourEl.value = String(TOOL_DEFAULTS.detailHour);
+  }
   document.querySelectorAll('.room-card').forEach(card=>{
     const zero = card.dataset.nonHabitable==='true';
     fillIfEmpty(card.querySelector('.peopleSensRate'), zero ? 0 : TOOL_DEFAULTS.peopleSensRate);
@@ -79,8 +95,14 @@ function readLatLon(){
 }
 function fmtU(v){ return (v===null || v===undefined || !isFinite(v)) ? '—' : v; }
 function getDateParts(){
-  const v = document.getElementById('calcDate').value || '2026-07-25';
-  const [y,mo,d] = v.split('-').map(Number);
+  const fallback = (typeof TOOL_DEFAULTS!=='undefined' && TOOL_DEFAULTS.calcDate) ? TOOL_DEFAULTS.calcDate : '2026-07-25';
+  const v = (document.getElementById('calcDate') && document.getElementById('calcDate').value) || fallback;
+  const parts = String(v).split('-').map(Number);
+  const y=parts[0], mo=parts[1], d=parts[2];
+  if(!isFinite(y) || !isFinite(mo) || !isFinite(d) || mo<1 || mo>12 || d<1 || d>31){
+    const fb = fallback.split('-').map(Number);
+    return {y:fb[0], mo:fb[1], d:fb[2]};
+  }
   return {y,mo,d};
 }
 

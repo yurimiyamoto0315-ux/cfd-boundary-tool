@@ -61,6 +61,8 @@ const SSL_SJIS_MAP = {
 "\u30AC":[0x83,0x4B],
 "\u30B9":[0x83,0x58],
 "\u677F":[0x94,0xC2],
+"\u8907":[0x95,0xA1],
+"\u5C64":[0x91,0x77],
 "\u5408":[0x8D,0x87],
 "\u77F3":[0x90,0xCE],
 "\u818F":[0x8D,0x70],
@@ -70,7 +72,14 @@ const SSL_SJIS_MAP = {
 "\u30F3":[0x83,0x93],
 "\u30EA":[0x83,0x8A],
 "\u65AD":[0x92,0x66],
-"\u6750":[0x8D,0xDE]
+"\u6750":[0x8D,0xDE],
+"\u3057":[0x82,0xB5],
+"\u306A":[0x82,0xC8],
+"\uFF08":[0x81,0x69],
+"\uFF09":[0x81,0x6A],
+"\u969C":[0x8F,0xE1],
+"\u5BB3":[0x8A,0x51],
+"\u7269":[0x95,0xA8]
 };
 
 // 文字列 → Shift-JISバイト列。マップにない非ASCII文字は bad に集める
@@ -134,6 +143,11 @@ const SSL_CATEGORIES = [
     {id:25, label:'材質', input:'sslMatWood'},
     {id:26, label:'疑似厚み', tr:['1-3','内壁・天井・床 (形状モデル)','厚み [m] (材質: 杉)']}
   ]},
+  {key:'attic', label:'小屋裏内壁 (形状モデル・厚みを考慮)', params:[
+    {id:23, label:'属性', fixed:'厚みを考慮'},
+    {id:25, label:'材質', input:'sslMatWood'},
+    {id:26, label:'疑似厚み', tr:['1-3','内壁・天井・床 (形状モデル)','厚み [m] (材質: 杉)']}
+  ]},
   {key:'doorbody', label:'ドア本体 (形状モデル・厚みを考慮)', params:[
     {id:23, label:'属性', fixed:'厚みを考慮'},
     {id:25, label:'材質', input:'sslMatWood'},
@@ -154,6 +168,12 @@ const SSL_CATEGORIES = [
   {key:'ac_return', label:'エアコン吸込 (吸込口)', params:[
     {id:42, label:'設定方法', fixed:'流量'},
     {id:44, label:'流量', flow:true}
+  ]},
+  {key:'ac_body', label:'エアコン本体 (形状モデル・障害物)', params:[
+    {id:1, label:'属性', fixed:'考慮しない（障害物）'}
+  ]},
+  {key:'fill_solid', label:'外形埋メ (形状モデル・障害物)', params:[
+    {id:1, label:'属性', fixed:'考慮しない（障害物）'}
   ]}
 ];
 
@@ -178,6 +198,84 @@ function sslTrVal(step, target, item){
   if(s==='' || s==='—' || s==='null' || s==='NaN') return null;
   return s;
 }
+function sslNormName(s){
+  if(typeof idfNameKey==='function') return idfNameKey(s);
+  return String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function sslRowCopy(row){
+  if(!row) return null;
+  const s = String(row.copy===undefined ? row.value : row.copy).trim();
+  if(s==='' || s==='—' || s==='null' || s==='NaN') return null;
+  return s;
+}
+function sslRoomLookupNames(assignName){
+  const out=[];
+  function add(n){
+    n=String(n||'').trim();
+    if(!n) return;
+    if(out.indexOf(n)===-1) out.push(n);
+  }
+  add(assignName);
+  const cards=(typeof document!=='undefined' && document.querySelectorAll) ? document.querySelectorAll('.room-card') : [];
+  const want=sslNormName(assignName);
+  for(let i=0;i<cards.length;i++){
+    const card=cards[i];
+    const el=card.querySelector && card.querySelector('.roomName');
+    const display=el ? String(el.value||'').trim() : '';
+    const ep=card.dataset && card.dataset.epZone ? String(card.dataset.epZone).trim() : '';
+    if((display && sslNormName(display)===want) || (ep && sslNormName(ep)===want)){
+      add(display);
+      add(ep);
+    }
+  }
+  return out;
+}
+function sslPickUniqueRowVal(rows){
+  const vals=rows.map(sslRowCopy).filter(function(v){ return v!==null; });
+  if(!vals.length) return null;
+  if(vals.every(function(v){ return v===vals[0]; })) return vals[0];
+  return null;
+}
+function sslTrValRoom(item, assignName){
+  const prefix='発生エリア: ';
+  const names=sslRoomLookupNames(assignName);
+  for(let i=0;i<names.length;i++){
+    const v=sslTrVal('2', prefix+names[i], item);
+    if(v!==null) return v;
+  }
+  const rows=(typeof transferRows!=='undefined') ? transferRows : [];
+  const keys=names.map(sslNormName).filter(Boolean);
+  const idfHits=[];
+  const seenIdf={};
+  rows.forEach(function(r){
+    if(r.step!=='2' || r.item!==item) return;
+    const t=String(r.target||'');
+    if(t.indexOf(prefix)!==0) return;
+    if(keys.indexOf(sslNormName(t.slice(prefix.length)))<0) return;
+    if(seenIdf[t]) return;
+    seenIdf[t]=true;
+    idfHits.push(r);
+  });
+  if(idfHits.length){
+    const v=sslPickUniqueRowVal(idfHits);
+    if(v!==null) return v;
+  }
+  const subHits=[];
+  const seenSub={};
+  rows.forEach(function(r){
+    if(r.step!=='2' || r.item!==item) return;
+    const t=String(r.target||'');
+    if(t.indexOf(prefix)!==0) return;
+    const nk=sslNormName(t.slice(prefix.length));
+    if(!nk) return;
+    const hit=keys.some(function(k){ return k && (nk.indexOf(k)>=0 || k.indexOf(nk)>=0); });
+    if(!hit || seenSub[t]) return;
+    seenSub[t]=true;
+    subHits.push(r);
+  });
+  if(subHits.length===1) return sslRowCopy(subHits[0]);
+  return null;
+}
 function sslFlowValue(){
   const v = sslTrVal('3','エアコン (吹出・1台あたり)','風量 [㎥/h]');
   if(v===null) return null;
@@ -186,10 +284,19 @@ function sslFlowValue(){
   const unit = document.getElementById('sslFlowUnit').value;
   return unit==='cmm' ? String(Math.round(n/60*100)/100) : String(n);
 }
-function sslResolveParam(p, warns, catLabel){
+function sslResolveParam(p, warns, catLabel, roomName){
   let v = null;
   if(p.fixed!==undefined){
     v = p.fixed;
+  }else if(p.roomGain){
+    const item = p.roomGain==='heat' ? '発熱量 [W]' : '発湿量 [g/h]';
+    v = sslTrValRoom(item, roomName || '');
+    if(v===null){
+      v = '0';
+      warns.push(catLabel+': 「'+p.label+'」が未計算のため 0 で出力します (Step 2 の室名と割当を確認してください)');
+    }else if(p.roomGain==='heat' && Number(v)===0){
+      warns.push(catLabel+': 発熱量が 0 W です。Step 2 の入力を確認してください');
+    }
   }else if(p.tr){
     v = sslTrVal(p.tr[0], p.tr[1], p.tr[2]);
     if(v===null) warns.push(catLabel+': 「'+p.label+'」が未計算のため出力しません (該当の入力欄を確認してください)');
@@ -224,14 +331,98 @@ function sslSplitCsvLine(line){
   cols.push(cur);
   return cols;
 }
-function sslCssColor(rgbStr){
-  const nums=(rgbStr.match(/\d+/g)||[]).map(Number);
-  if(nums.length>=3) return 'rgb('+nums[0]+','+nums[1]+','+nums[2]+')';
-  if(nums.length===1){ // VBのRGB()値 (R + G*256 + B*65536) と仮定
-    const n=nums[0];
-    return 'rgb('+(n&255)+','+((n>>8)&255)+','+((n>>16)&255)+')';
+function sslParseRgb(rgbStr){
+  const s=String(rgbStr||'').trim();
+  const hex=s.match(/^#([0-9a-fA-F]{6})$/);
+  if(hex){
+    const n=parseInt(hex[1],16);
+    return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
   }
-  return '#CCCCCC';
+  const nums=(s.match(/\d+/g)||[]).map(Number);
+  if(nums.length>=3 && nums.slice(0,3).every(function(v){ return v>=0 && v<=255; })){
+    return {r:nums[0], g:nums[1], b:nums[2]};
+  }
+  if(nums.length===1){
+    const n=nums[0];
+    return {r:n&255, g:(n>>8)&255, b:(n>>16)&255};
+  }
+  return null;
+}
+function sslCssColor(rgbStr){
+  const rgb=sslParseRgb(rgbStr);
+  if(!rgb) return '#CCCCCC';
+  return 'rgb('+rgb.r+','+rgb.g+','+rgb.b+')';
+}
+function sslHexToRgb(hex){
+  return sslParseRgb('#'+String(hex||'').replace(/^#/,''));
+}
+function sslRgbChebyshev(a,b){
+  return Math.max(Math.abs(a.r-b.r), Math.abs(a.g-b.g), Math.abs(a.b-b.b));
+}
+function sslColorCatalog(){
+  const items=[];
+  function add(key, rgb, src){
+    if(!rgb) return;
+    items.push({key:key, r:rgb.r, g:rgb.g, b:rgb.b, src:src});
+  }
+  if(typeof SSL_FIXED_COLORS!=='undefined'){
+    SSL_FIXED_COLORS.forEach(function(e){ add(e.key, sslHexToRgb(e.hex), 'fixed'); });
+  }
+  if(typeof IDF_MESH_PALETTE!=='undefined'){
+    Object.keys(IDF_MESH_PALETTE).forEach(function(k){
+      const p=IDF_MESH_PALETTE[k];
+      add(k, {r:p.r, g:p.g, b:p.b}, 'palette');
+    });
+  }
+  sslWindowUGroups().forEach(function(g){
+    add('window', g.color, 'window');
+  });
+  if(typeof epParse!=='undefined' && epParse && (epParse.gainVolumes||[]).length){
+    const cards=(typeof document!=='undefined' && document.querySelectorAll) ? document.querySelectorAll('.room-card[data-ep-zone]') : [];
+    epParse.gainVolumes.forEach(function(g){
+      if(!g || !g.color) return;
+      let name=g.zone||'';
+      for(let i=0;i<cards.length;i++){
+        const ep=cards[i].dataset && cards[i].dataset.epZone;
+        const same=ep===g.zone || sslNormName(ep)===sslNormName(g.zone);
+        if(same){
+          const el=cards[i].querySelector && cards[i].querySelector('.roomName');
+          if(el && String(el.value).trim()) name=String(el.value).trim();
+        }
+      }
+      if(name) add('room:'+name, {r:g.color.r, g:g.color.g, b:g.color.b}, 'gain');
+    });
+  }
+  return items;
+}
+function sslGuessCategory(rgbStr){
+  const rgb=sslParseRgb(rgbStr);
+  if(!rgb) return '';
+  const tol=(typeof SSL_COLOR_TOLERANCE==='number')?SSL_COLOR_TOLERANCE:12;
+  let best=null;
+  sslColorCatalog().forEach(function(it){
+    const d=sslRgbChebyshev(rgb, it);
+    if(d>tol) return;
+    const rank=(it.src==='fixed'?0:it.src==='gain'?0:it.src==='window'?1:2);
+    if(!best || d<best.d || (d===best.d && rank<best.rank)){
+      best={key:it.key, d:d, rank:rank};
+    }
+  });
+  return best?best.key:'';
+}
+function sslPriorityForKey(key){
+  if(!key || key==='exclude' || String(key).indexOf('room:')===0) return null;
+  if(typeof SSL_PRIORITY==='object' && SSL_PRIORITY[key]!=null) return SSL_PRIORITY[key];
+  return null;
+}
+function sslFillEmptyAssigns(assign){
+  const next=assign||{};
+  sslColors.forEach(function(c){
+    if(next[c.rgb]) return;
+    const g=sslGuessCategory(c.rgb);
+    if(g) next[c.rgb]=g;
+  });
+  return next;
 }
 function parseSslCat(text, fileName){
   const map={}; const order=[];
@@ -239,7 +430,7 @@ function parseSslCat(text, fileName){
     if(!line.trim()) return;
     const cols=sslSplitCsvLine(line);
     const key=String(cols[0]).trim();
-    if(key==='' || !/\d/.test(key)) return;              // RGB値に数字が無い行 (見出し等) はスキップ
+    if(key==='' || !sslParseRgb(key)) return;
     const ids=(cols.slice(1).join(' ').match(/\d+/g)||[]).map(Number);
     if(!ids.length) return;
     if(!map[key]){ map[key]={rgb:key, css:sslCssColor(key), ids:[]}; order.push(key); }
@@ -248,15 +439,22 @@ function parseSslCat(text, fileName){
   sslColors = order.map(k=>map[k]);
   sslFileName = fileName||'';
   const next={};
+  let autoCount=0;
   sslColors.forEach(c=>{
     if(sslAssign[c.rgb]) next[c.rgb] = sslAssign[c.rgb];
-    else if(sslWindowGroupForRgb(c.rgb)) next[c.rgb] = 'window';
-    else next[c.rgb] = '';
+    else {
+      const g=sslGuessCategory(c.rgb);
+      next[c.rgb] = g;
+      if(g) autoCount++;
+    }
   });
   sslAssign = next;
-  document.getElementById('sslFileInfo').textContent =
-    sslColors.length ? sslFileName+' — '+sslColors.length+'色 / オブジェクト'+sslColors.reduce((a,c)=>a+c.ids.length,0)+'個 を読み込みました'
-                     : '色とオブジェクトIDの行が見つかりませんでした。objcatidlist.csv (色モードで出力) か確認してください。';
+  const info=document.getElementById('sslFileInfo');
+  if(info){
+    info.textContent = sslColors.length
+      ? sslFileName+' — '+sslColors.length+'色 / オブジェクト'+sslColors.reduce((a,c)=>a+c.ids.length,0)+'個を読み込み、'+autoCount+'色を自動割当しました'
+      : '色とオブジェクトIDの行が見つかりませんでした。objcatidlist.csv (色モードで出力) か確認してください。';
+  }
   renderSslAssign();
   if(typeof saveStateDebounced==='function') saveStateDebounced();
 }
@@ -291,6 +489,22 @@ function sslCategoryOptions(){
   opts.push({key:'exclude', label:'対象外 (書き出さない)'});
   return opts;
 }
+function sslIsUnassigned(rgb){
+  return !sslAssign[rgb];
+}
+function sslAssignCounts(){
+  let open=0, done=0;
+  sslColors.forEach(c=>{ if(sslIsUnassigned(c.rgb)) open++; else done++; });
+  return {open, done, total:sslColors.length};
+}
+function sslAssignStatusHtml(){
+  const n=sslAssignCounts();
+  if(!n.total) return '';
+  if(n.open){
+    return '<p class="ssl-assign-status"><span class="ssl-remain">未割当 '+n.open+' 色</span> / 割当済 '+n.done+' 色。赤い行はまだ書き出されません。</p>';
+  }
+  return '<p class="ssl-assign-status"><span class="ssl-ok">全 '+n.total+' 色を割当済み</span>（対象外も含む）</p>';
+}
 let sslLastRoomsJson='';
 function renderSslAssign(){
   const wrap=document.getElementById('sslAssignWrap');
@@ -302,21 +516,31 @@ function renderSslAssign(){
     return;
   }
   const opts=sslCategoryOptions();
-  let html='<table><tr><th style="width:70px;">色</th><th>RGB値</th><th style="width:110px;">オブジェクト数</th><th>割当カテゴリ</th></tr>';
-  sslColors.forEach((c,idx)=>{
+  const order=sslColors.map((c,idx)=>({c,idx}))
+    .sort((a,b)=> Number(sslIsUnassigned(b.c.rgb))-Number(sslIsUnassigned(a.c.rgb)));
+  let html=sslAssignStatusHtml();
+  html+='<table><tr><th style="width:70px;">色</th><th>RGB値</th><th style="width:110px;">オブジェクト数</th><th>FDオブジェクトID</th><th>割当カテゴリ</th></tr>';
+  order.forEach(({c,idx})=>{
     const cur=sslAssign[c.rgb]||'';
+    const open=sslIsUnassigned(c.rgb);
     const g=sslWindowGroupForRgb(c.rgb);
     const d=g?sslWindowDummyVal(c.rgb):null;
-    const hint=g?(' <span class="small">U='+g.u+(d?(' → d='+d+'m'):'')+'</span>'):'';
+    const pri=sslPriorityForKey(cur);
+    const hintParts=[];
+    if(g) hintParts.push('U='+g.u+(d?(' → d='+d+'m'):''));
+    if(pri!=null) hintParts.push('優先度 '+pri);
+    const hint=hintParts.length?(' <span class="small">'+hintParts.join(' / ')+'</span>'):'';
+    const tag=open?'<span class="ssl-unassigned-tag">未割当</span>':'';
     let sel='<select class="ssl-assign" data-idx="'+idx+'">';
     opts.forEach(o=>{
       sel+='<option value="'+sslEscapeHtml(o.key)+'"'+(o.key===cur?' selected':'')+'>'+sslEscapeHtml(o.label)+'</option>';
     });
-    sel+='</select>'+hint;
-    html+='<tr>'+
+    sel+='</select>'+tag+hint;
+    html+='<tr'+(open?' class="ssl-unassigned"':'')+'>'+
       '<td><span style="display:inline-block; width:38px; height:18px; border:1px solid #C9C9C9; background:'+c.css+'; vertical-align:middle;"></span></td>'+
       '<td class="l">'+sslEscapeHtml(c.rgb)+'</td>'+
       '<td>'+c.ids.length+'</td>'+
+      '<td class="l small">'+sslEscapeHtml(c.ids.join(', '))+'</td>'+
       '<td class="l">'+sel+'</td></tr>';
   });
   html+='</table>';
@@ -325,12 +549,6 @@ function renderSslAssign(){
 }
 
 // ---------- objParam.csv 生成 ----------
-function sslParseRgb(rgbStr){
-  const css = sslCssColor(rgbStr);
-  const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(css);
-  if(!m) return null;
-  return {r:+m[1], g:+m[2], b:+m[3]};
-}
 function sslWindowUGroups(){
   if(typeof uniqueSortedWinU!=='function') return [];
   let us = [];
@@ -344,9 +562,9 @@ function sslWindowGroupForRgb(rgbStr){
   const rgb = sslParseRgb(rgbStr);
   if(!rgb) return null;
   const groups = sslWindowUGroups();
+  const tol=(typeof SSL_COLOR_TOLERANCE==='number')?SSL_COLOR_TOLERANCE:12;
   for(let i=0;i<groups.length;i++){
-    const c = groups[i].color;
-    if(c.r===rgb.r && c.g===rgb.g && c.b===rgb.b) return groups[i];
+    if(sslRgbChebyshev(groups[i].color, rgb)<=tol) return groups[i];
   }
   return null;
 }
@@ -369,13 +587,21 @@ function sslWindowDummyVal(rgbStr){
 function sslCategoryByKey(key){
   if(key.indexOf('room:')===0){
     const name=key.slice(5);
-    return {key, label:'発生エリア: '+name, params:[
+    return {key, label:'発生エリア: '+name, roomName:name, params:[
       {id:76, label:'発生種類', fixed:'全体'},
-      {id:77, label:'発熱量', tr:['2','発生エリア: '+name,'発熱量 [W]']},
-      {id:78, label:'発湿量', tr:['2','発生エリア: '+name,'発湿量 [g/h]']}
+      {id:77, label:'発熱量', roomGain:'heat'},
+      {id:78, label:'発湿量', roomGain:'moist'}
     ]};
   }
   return SSL_CATEGORIES.find(c=>c.key===key)||null;
+}
+var _sslEnsuring=false;
+function sslEnsureCalcs(){
+  if(_sslEnsuring) return;
+  if(typeof runAll!=='function') return;
+  _sslEnsuring=true;
+  try{ runAll(); }
+  finally{ _sslEnsuring=false; }
 }
 function buildObjParam(){
   const warns=[]; const lines=[];
@@ -388,8 +614,16 @@ function buildObjParam(){
     const cat=sslCategoryByKey(key);
     if(!cat){ warns.push('RGB '+c.rgb+': 割当カテゴリが見つかりません (部屋名の変更など)。割当し直してください'); return; }
     if(!resolvedCache[key]){
-      resolvedCache[key]=cat.params.map(p=>({id:p.id, val:sslResolveParam(p, warns, cat.label)}))
-                                   .filter(pv=>pv.val!==null);
+      const params=cat.params.slice();
+      const pri=sslPriorityForKey(key);
+      if(typeof SSL_PRIORITY_PARAM_ID==='number' && SSL_PRIORITY_PARAM_ID && pri!=null){
+        params.push({id:SSL_PRIORITY_PARAM_ID, label:'優先度', fixed:String(pri)});
+      }
+      resolvedCache[key]=params.map(p=>({id:p.id, val:sslResolveParam(p, warns, cat.label, cat.roomName)}))
+                               .filter(pv=>{
+                                 if(cat.roomName && (pv.id===77 || pv.id===78)) return pv.val!=null && pv.val!=='';
+                                 return pv.val!==null;
+                               });
     }
     let pvs=resolvedCache[key];
     if(key==='window' && sslSplitWindowDummy()){
@@ -433,6 +667,7 @@ function updateSslPreview(){
 function sslDownloadCsv(){
   const info=document.getElementById('sslExportInfo');
   if(!sslColors.length){ if(info) info.textContent='先に objcatidlist.csv を読み込んでください。'; return; }
+  sslEnsureCalcs();
   const built=buildObjParam();
   renderSslWarns(built.warns);
   if(!built.lines.length){
@@ -476,7 +711,7 @@ if(typeof applyState==='function'){
     if(s && s.ssl){
       sslFileName=s.ssl.fileName||'';
       sslColors=Array.isArray(s.ssl.colors)?s.ssl.colors:[];
-      sslAssign=s.ssl.assign||{};
+      sslAssign=sslFillEmptyAssigns(s.ssl.assign||{});
       const fi=document.getElementById('sslFileInfo');
       if(fi) fi.textContent=sslColors.length?(sslFileName?sslFileName+' — ':'')+sslColors.length+'色を復元しました':'';
       renderSslAssign();
@@ -488,6 +723,7 @@ if(typeof runAll==='function'){
   const _sslRunAllPrev=runAll;
   runAll=function(){
     _sslRunAllPrev();
+    if(_sslEnsuring) return;
     if(JSON.stringify(sslRoomNames())!==sslLastRoomsJson) renderSslAssign();
     else updateSslPreview();
   };
@@ -502,7 +738,7 @@ document.getElementById('sslAssignWrap').addEventListener('change', function(e){
   const c=sslColors[+sel.dataset.idx];
   if(!c) return;
   sslAssign[c.rgb]=sel.value;
-  updateSslPreview();
+  renderSslAssign();
   if(typeof saveStateDebounced==='function') saveStateDebounced();
 });
 ['sslFlowUnit','sslMatWood','sslMatGlass'].forEach(id=>{

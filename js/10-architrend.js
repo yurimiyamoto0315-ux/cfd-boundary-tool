@@ -58,6 +58,15 @@ function setModeUI(mode){
     if(el.closest('#legendManual') || el.closest('#legendAt') || el.closest('#legendEp')) return;
     el.textContent = (mode==='architrend' || mode==='energyplus') ? '要手動' : '要設定';
   });
+  if(mode!=='architrend'){
+    atUnassignedWindows = [];
+    atAssignableRooms = [];
+    atNorthExcludedCount = 0;
+    const box = document.getElementById('atUnassignedBox');
+    const list = document.getElementById('atUnassignedList');
+    if(box) box.style.display = 'none';
+    if(list) list.innerHTML = '';
+  }
 }
 
 function blankForArchitrend(){
@@ -952,9 +961,14 @@ function renderUnassignedWindows(){
   const northInfo=document.getElementById('atNorthExcludedInfo');
   if(northInfo) northInfo.textContent=atNorthExcludedCount>0
     ? ' 今回は北面窓 '+atNorthExcludedCount+'枚を除外済みです。':'';
+  if(typeof appMode!=='undefined' && appMode!=='architrend'){
+    if(box) box.style.display = 'none';
+    if(list) list.innerHTML = '';
+    return;
+  }
   if(!atUnassignedWindows.length){
-    box.style.display = 'none';
-    list.innerHTML = '';
+    if(box) box.style.display = 'none';
+    if(list) list.innerHTML = '';
     return;
   }
   box.style.display = 'block';
@@ -1187,12 +1201,14 @@ function startArchitrendMode(saved){
     applySharedToolDefaults();
     runAll();
     refreshNeedManual();
+    if(typeof at3dsEcho==='function') at3dsEcho();
     if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
   }else{
     blankForArchitrend();
     applySharedToolDefaults();
     runAll();
     refreshNeedManual();
+    if(typeof at3dsEcho==='function') at3dsEcho();
     if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
   }
 }

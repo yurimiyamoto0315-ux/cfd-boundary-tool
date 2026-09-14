@@ -7,8 +7,17 @@ function tr(step, target, item, value, copyVal){
 
 function runAll(){
   transferRows = [];
+  if(typeof applySharedToolDefaults==='function') applySharedToolDefaults();
+  if(typeof appMode!=='undefined' && appMode==='energyplus' && typeof applyEpWindowsToRooms==='function'){
+    try{
+      applyEpWindowsToRooms();
+      if(typeof applyEpWindowUToRooms==='function') applyEpWindowUToRooms();
+    }catch(err){
+      console.error('EnergyPlus窓の反映に失敗', err);
+    }
+  }
   const {y,mo,d} = getDateParts();
-  const detailHour = num('detailHour');
+  const detailHour = hasInput('detailHour') ? parseFloat(document.getElementById('detailHour').value) : TOOL_DEFAULTS.detailHour;
   const geo = readLatLon();
   const lat = geo.ok ? geo.lat : null;
   const lon = geo.ok ? geo.lon : null;
@@ -27,16 +36,26 @@ function runAll(){
   }
   const taNow = taReady ? taAt(detailHour, tmax, tmin, tpeak) : 0;
   const altDeg=(sp.alt*180/Math.PI), azDeg=(sp.az*180/Math.PI);
+  const solarFc = (typeof readSolarFc==='function') ? readSolarFc() : 0.10;
+  const epSat = (typeof computeEpSatBundle==='function')
+    ? computeEpSatBundle({month:mo, day:d, hour:detailHour, alpha:alpha, ho:ho, roofCorr:roofCorr, targetT:targetT})
+    : null;
+  const useEpSat = !!(epSat && epSat.ok);
+  const oatNow = useEpSat && isFinite(epSat.oatAt) ? epSat.oatAt : taNow;
   let commonMsg = '';
-  if(!geo.ok){
+  if(!geo.ok && !useEpSat){
     commonMsg = '<span style="color:#DE5A3A; font-weight:600;">※'+geo.reason+' SAT・日射は計算しません。</span>';
-  }else if(!taReady){
+  }else if(!taReady && !useEpSat){
     commonMsg = '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
       ' <span style="color:#DE5A3A; font-weight:600;">※最高/最低気温・ピーク時刻が未入力のため外気温=0として仮表示しています。</span>';
   }else{
     commonMsg =
-      '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+taNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
-      (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。日射はゼロとして計算します。</span>':'');
+      '解析時刻の状態: 太陽高度 '+altDeg.toFixed(1)+'° / 方位角(南=0) '+azDeg.toFixed(1)+'° / 外気温 '+oatNow.toFixed(1)+'℃ / 直達日射 I_DN '+idn.toFixed(0)+' W/m²'+
+      (useEpSat ? ' / SATは SQL の入射日射 + ISO13786 ETD' : '')+
+      (sp.alt<=0 ? ' <span style="color:#DE5A3A; font-weight:600;">※太陽高度が0以下です。晴天モデルの日射はゼロです。</span>':'');
+  }
+  if(epSat && !epSat.ok && epSat.reason){
+    commonMsg += ' <span style="color:#8C8C8C;">('+epSat.reason+')</span>';
   }
   document.getElementById('commonSolarInfo').innerHTML = commonMsg;
   // ================= Step 1 =================
@@ -83,6 +102,25 @@ function runAll(){
       roofSeries.push(null);
     });
   }
+  if(useEpSat){
+    function epDayAt(arr, hour){
+      if(!arr) return null;
+      const h0=Math.floor(hour), h1=Math.ceil(hour);
+      const a=arr[h0], b=arr[h1===h0?h0:h1];
+      if(a==null && b==null) return null;
+      if(hour===h0 || b==null) return a;
+      if(a==null) return b;
+      return a+(b-a)*(hour-h0);
+    }
+    hours.forEach(function(hour,i){
+      orientations.forEach(function(o){
+        const v=epDayAt(epSat.daySeries && epSat.daySeries[o.name], hour);
+        if(v!=null) series[o.name][i]=v;
+      });
+      const rv=epDayAt(epSat.dayRoof, hour);
+      if(rv!=null) roofSeries[i]=rv;
+    });
+  }
   const labels = hours.map(h=>h+':00');
   const datasets = orientations.map(o=>({
     label:o.name, data:series[o.name], borderColor:o.color, backgroundColor:o.color,
@@ -94,7 +132,7 @@ function runAll(){
   satChart = new Chart(document.getElementById('satChart'), {
     type:'line', data:{labels, datasets},
     options:{responsive:true, maintainAspectRatio:false, animation:false,
-      scales:{ x:{ticks:{maxTicksLimit:13}}, y:{title:{display:true,text:'SAT (℃) ※参考'}} }}
+      scales:{ x:{ticks:{maxTicksLimit:13}}, y:{title:{display:true,text: useEpSat ? 'SAT (℃) SQL入射日射' : 'SAT (℃) ※参考'}} }}
   });
 
   // SAT 指定時刻
@@ -107,12 +145,13 @@ function runAll(){
       '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
       '<div class="stat"><div class="lbl">I_DN (直達)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
       '<div class="stat"><div class="lbl">Isky (天空)</div><div class="val">'+isky.toFixed(0)+' W/m²</div></div>'+
-      '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+(taReady?taNow.toFixed(1)+' ℃':'—')+'</div></div>';
+      '<div class="stat"><div class="lbl">外気温 Ta</div><div class="val">'+(useEpSat && isFinite(epSat.oatAt)?epSat.oatAt.toFixed(1)+' ℃':(taReady?taNow.toFixed(1)+' ℃':'—'))+'</div></div>'+
+      (useEpSat ? '<div class="stat"><div class="lbl">SAT手法</div><div class="val">ETD補正 '+epSat.nSurfaces+'面</div></div>' : '');
   }
 
   const uWall = numOrNull('uWall'), uRoof = numOrNull('uRoof');
   const satByOri = {};
-  let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃) → 発生パネル「外気温」</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
+  let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃)</th>'+(useEpSat?'<th>ETD (K)</th><th>φ (h) / η</th>':'')+'<th>CFD 外気温 (℃)</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
   orientations.forEach(o=>{
     let iw=0, sat=taNow;
     if(geo.ok && sp.alt>0){
@@ -125,17 +164,41 @@ function runAll(){
     }else if(!geo.ok){
       iw = 0; sat = NaN;
     }
-    satByOri[o.name]=sat;
+    let tCfd=sat, etd=null, iso=null, isol=null;
+    if(useEpSat){
+      if(epSat.satRawByOri && isFinite(epSat.satRawByOri[o.name])) sat=epSat.satRawByOri[o.name];
+      if(epSat.isolByOri && isFinite(epSat.isolByOri[o.name])) { isol=epSat.isolByOri[o.name]; iw=isol; }
+      if(epSat.etdByOri && isFinite(epSat.etdByOri[o.name])) etd=epSat.etdByOri[o.name];
+      iso=epSat.isoByOri && epSat.isoByOri[o.name];
+      if(isFinite(epSat.satByOri[o.name])) tCfd=epSat.satByOri[o.name];
+    }
+    satByOri[o.name]=tCfd;
     const satTxt = isFinite(sat) ? sat.toFixed(2) : '—';
-    table += '<tr><td>外壁 '+o.name+'</td><td>'+(geo.ok?iw.toFixed(1):'—')+'</td><td><b>'+satTxt+'</b></td><td>'+fmtU(uWall)+'</td>'+
-      '<td>'+(isFinite(sat)?'<button class="copy-btn" data-copy="'+sat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
+    const tTxt = isFinite(tCfd) ? tCfd.toFixed(2) : '—';
+    table += '<tr><td>外壁 '+o.name+'</td><td>'+(isFinite(iw)?iw.toFixed(1):'—')+'</td><td>'+satTxt+'</td>'+
+      (useEpSat?('<td>'+(etd!=null && isFinite(etd)?etd.toFixed(2):'—')+'</td><td>'+(iso?iso.phi.toFixed(1)+' / '+iso.eta.toFixed(2):'—')+'</td>'):'')+
+      '<td><b>'+tTxt+'</b></td><td>'+fmtU(uWall)+'</td>'+
+      '<td>'+(isFinite(tCfd)?'<button class="copy-btn" data-copy="'+tCfd.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
   });
   let iRoof=0, roofSat=taNow-roofCorr;
   if(geo.ok && sp.alt>0){ iRoof = idn*Math.max(sp.sinAlt,0)+isky; roofSat = taNow + alpha*iRoof/ho - roofCorr; }
   else if(!geo.ok){ roofSat = NaN; }
-  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+(geo.ok?iRoof.toFixed(1):'—')+'</td><td><b>'+(isFinite(roofSat)?roofSat.toFixed(2):'—')+'</b></td><td>'+fmtU(uRoof)+'</td>'+
-    '<td>'+(isFinite(roofSat)?'<button class="copy-btn" data-copy="'+roofSat.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
+  let roofCfd=roofSat, roofEtd=null, roofIso=null;
+  if(useEpSat){
+    if(isFinite(epSat.roofSatRaw)) roofSat=epSat.roofSatRaw;
+    if(isFinite(epSat.roofIsol)) iRoof=epSat.roofIsol;
+    if(isFinite(epSat.roofEtd)) roofEtd=epSat.roofEtd;
+    roofIso=epSat.roofIso;
+    if(isFinite(epSat.roofSat)) roofCfd=epSat.roofSat;
+  }
+  table += '<tr style="font-weight:600; background:#F4F4F4;"><td>屋根 (水平)</td><td>'+(isFinite(iRoof)?iRoof.toFixed(1):'—')+'</td><td>'+(isFinite(roofSat)?roofSat.toFixed(2):'—')+'</td>'+
+    (useEpSat?('<td>'+(roofEtd!=null && isFinite(roofEtd)?roofEtd.toFixed(2):'—')+'</td><td>'+(roofIso?roofIso.phi.toFixed(1)+' / '+roofIso.eta.toFixed(2):'—')+'</td>'):'')+
+    '<td><b>'+(isFinite(roofCfd)?roofCfd.toFixed(2):'—')+'</b></td><td>'+fmtU(uRoof)+'</td>'+
+    '<td>'+(isFinite(roofCfd)?'<button class="copy-btn" data-copy="'+roofCfd.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
   table += '</table>';
+  if(useEpSat){
+    table += '<p class="small" style="margin:8px 0 0;">CFDの発生パネル「外気温」は <b>室温 + ETD</b> です (q = U × ETD)。SAT列は相当外気温度そのもの、φ は ISO 13786 の時間遅れ、η は減衰率です。</p>';
+  }
   document.getElementById('satTableWrap').innerHTML = table;
   if(typeof renderEpWallHeat==='function'){
     const wallWrap = document.getElementById('uWall') && document.getElementById('uWall').closest('div');
@@ -143,15 +206,18 @@ function runAll(){
       applyEpWallUFromParse();
       if(typeof applyEpUaAndEnvelope==='function') applyEpUaAndEnvelope();
     }
-    renderEpWallHeat(satByOri, roofSat, taNow);
+    renderEpWallHeat(satByOri, roofCfd, oatNow);
   }
-  if(geo.ok){
+  if(geo.ok || useEpSat){
     ['北','東','南','西'].forEach(nm=>{
+      if(!isFinite(satByOri[nm])) return;
       tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
       tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uWall));
     });
-    tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofSat.toFixed(2));
-    tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', fmtU(uRoof));
+    if(isFinite(roofCfd)){
+      tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofCfd.toFixed(2));
+      tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', fmtU(uRoof));
+    }
   }
 
   // 1F床
@@ -163,9 +229,9 @@ function runAll(){
   // 基礎外周
   const uFound = numOrNull('uFound');
   document.getElementById('foundWrap').innerHTML =
-    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', taReady?taNow.toFixed(2):'—') +
+    cfdRow('発生パネル > 外気温 [℃] (SATではなく外気温そのまま)', (useEpSat||taReady)?oatNow.toFixed(2):'—') +
     cfdRow('熱貫流率 (熱通過率) [W/m²K]', fmtU(uFound));
-  if(taReady) tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
+  if(useEpSat||taReady) tr('1-6','基礎外周 (発生パネル)','外気温 [℃]', oatNow.toFixed(2));
   tr('1-6','基礎外周 (発生パネル)','熱通過率 [W/m²K]', fmtU(uFound));
 
   // 窓 疑似厚み
@@ -183,15 +249,19 @@ function runAll(){
     document.getElementById('winWarn').innerHTML = '';
     document.getElementById('winWrap').innerHTML =
       cfdRowNoCopy('種類', '外気温と固体表面までの熱伝達率') +
-      cfdRow('外気温 [℃]', taNow.toFixed(2)) +
+      cfdRow('外気温 [℃]', oatNow.toFixed(2)) +
       cfdRow('内表面熱伝達率 [W/m²K]', hiWin) +
       cfdRow('外表面熱伝達率 [W/m²K]', hoWin) +
       cfdRowNoCopy('厚みを考慮 (パネル実体は厚み0のまま)', 'はい') +
-      cfdRowNoCopy('材質', 'ガラス板 (Low-E複層)') +
+      cfdRowNoCopy('材質', (function(){
+        const el=document.getElementById('sslMatGlass');
+        if(el && String(el.value||'').trim()) return el.value.trim();
+        return (typeof TOOL_DEFAULTS!=='undefined' && TOOL_DEFAULTS.sslMatGlass) ? TOOL_DEFAULTS.sslMatGlass : '1ガラス板(Low-E複層)';
+      })()) +
       cfdRow('躯体のみの熱抵抗 [㎡K/W] (参考)', rBody.toFixed(4)) +
       cfdRow('疑似厚み [m] (仮想の厚み・逆算値)', dWin.toFixed(4)) +
       cfdRow('初期温度 [℃]', initT);
-    tr('1-7','窓 (発生パネル)','外気温 [℃]', taNow.toFixed(2));
+    tr('1-7','窓 (発生パネル)','外気温 [℃]', oatNow.toFixed(2));
     tr('1-7','窓 (発生パネル)','内表面熱伝達率 [W/m²K]', hiWin);
     tr('1-7','窓 (発生パネル)','外表面熱伝達率 [W/m²K]', hoWin);
     tr('1-7','窓 (発生パネル)','疑似厚み [m]', dWin.toFixed(4));
@@ -231,26 +301,46 @@ function runAll(){
   document.getElementById('step2SolarInfo').innerHTML =
     '<div class="stat"><div class="lbl">直達日射 I_DN (自動)</div><div class="val">'+idn.toFixed(0)+' W/m²</div></div>'+
     '<div class="stat"><div class="lbl">太陽高度角</div><div class="val">'+altDeg.toFixed(1)+'°</div></div>'+
-    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>';
+    '<div class="stat"><div class="lbl">太陽方位角 (南=0)</div><div class="val">'+azDeg.toFixed(1)+'°</div></div>'+
+    '<div class="stat"><div class="lbl">f_c / r_G</div><div class="val">'+solarFc.toFixed(2)+' / 方位×時刻</div></div>';
 
   const results=[];
+  const useEpWin = typeof epTransmittedW==='function' && typeof epSqlWx!=='undefined' && epSqlWx && epSqlWx.nTransmitted>0;
   document.querySelectorAll('.room-card').forEach(card=>{
     const name = card.querySelector('.roomName').value;
     let solarW = 0;
+    let winN = 0;
     card.querySelectorAll('.win-row').forEach(w=>{
+      winN++;
       const wAzDeg = parseFloat(w.querySelector('.wAz').value);
       const wAz = wAzDeg*Math.PI/180;
-      const wTilt = Math.PI/2; // 一般的な壁面窓として垂直固定
+      const wTilt = Math.PI/2;
       const eta = parseFloat(w.querySelector('.wEta').value)||0;
       const area = parseFloat(w.querySelector('.wArea').value)||0;
-      let q = 0;
-      const northFacing=Math.abs(Math.abs(wAzDeg)-180)<0.5;
-      if(sp.alt>0 && !northFacing){
-        const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
-        const ib = idn*Math.max(cosInc,0);
-        q = ib*eta*area;
+      const wName = (w.querySelector('.wName') && w.querySelector('.wName').value) || '';
+      const cardinal = (typeof rgCardinalFromToolAz==='function') ? rgCardinalFromToolAz(wAzDeg) : 'S';
+      const rG = (typeof getRG==='function') ? getRG(cardinal, detailHour) : 1;
+      const coeff = (typeof windowSolarCoeff==='function') ? windowSolarCoeff(solarFc, rG) : 1;
+      let qRaw = 0;
+      let src = 'idn';
+      const epQ = useEpWin ? epTransmittedW(wName, mo, d, detailHour, area) : null;
+      if(epQ!=null){
+        qRaw = epQ;
+        src = 'ep';
+      }else{
+        const northFacing=Math.abs(Math.abs(wAzDeg)-180)<0.5;
+        if(sp.alt>0 && !northFacing){
+          const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
+          const ib = idn*Math.max(cosInc,0);
+          qRaw = ib*eta*area;
+        }
       }
+      const q = qRaw * coeff;
       solarW += q;
+      const hint = w.querySelector('.wSolarHint');
+      if(hint){
+        hint.textContent = (src==='ep'?'EP透過 ':'I_DN×η0 ')+qRaw.toFixed(0)+' W × (f_c+(1-f_c)r_G='+coeff.toFixed(2)+', r_G='+rG.toFixed(2)+' '+cardinal+') → '+q.toFixed(0)+' W';
+      }
     });
     const occ = parseFloat(card.querySelector('.occCount').value)||0;
     const peopleSens = (parseFloat(card.querySelector('.peopleSensRate').value)||0)*occ;
@@ -279,9 +369,9 @@ function runAll(){
     document.getElementById(card.id+'_cfd').innerHTML =
       cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
       cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
-      cfdRow('初期温度 [℃] (外気温と同じ)', taNow.toFixed(2)) +
+      cfdRow('初期温度 [℃] (外気温と同じ)', oatNow.toFixed(2)) +
       cfdRow('初期湿度 [%]', initRH);
-    results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist});
+    results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist, winN});
   });
 
   const grand = results.reduce((a,r)=>{
@@ -290,7 +380,24 @@ function runAll(){
     return a;
   }, {solarW:0, peopleSens:0, equipSens:0, extraSens:0, totalSens:0, totalMoist:0});
 
+  const winRows = document.querySelectorAll('.win-row').length;
+  const idfWins = (typeof appMode!=='undefined' && appMode==='energyplus' && typeof epParse!=='undefined' && epParse)
+    ? (epParse.windowCount||(epParse.windows||[]).length||0) : 0;
+  let solarWarn = '';
+  if(results.length && grand.solarW===0){
+    if(!geo.ok){
+      solarWarn = '直達日射が0なのは、緯度・経度が無いからです。共通条件に敷地の座標を入れてください。';
+    }else if(!(sp.alt>0)){
+      solarWarn = '直達日射が0なのは、太陽高度が0以下（夜）だからです。共通条件の日付・時刻を見てください。いま '+detailHour+' 時 / 高度 '+altDeg.toFixed(1)+'° / I_DN '+idn.toFixed(0)+' W/m²。';
+    }else if(!winRows){
+      solarWarn = '直達日射が0なのは、部屋カードに窓行が無いからです。'
+        +(idfWins ? 'IDFには窓が '+idfWins+' 枚あります。IDFファイルを選び直してください。' : 'IDFを選ぶと南面などの窓が載ります。');
+    }else{
+      solarWarn = '直達日射が0なのは、窓が真北向きか、この時刻の太陽の反対側を向いているからです。I_DN は '+idn.toFixed(0)+' W/m² あります。';
+    }
+  }
   document.getElementById('grandTotalWrap').innerHTML =
+    (solarWarn ? '<div class="warn">'+solarWarn+'</div>' : '')+
     '<div class="summary-grid">'+
       '<div class="stat"><div class="lbl">直達日射 合計</div><div class="val">'+grand.solarW.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">人体顕熱 合計</div><div class="val">'+grand.peopleSens.toFixed(0)+' W</div></div>'+
@@ -299,11 +406,11 @@ function runAll(){
       '<div class="stat hl"><div class="lbl">全室 合計発湿</div><div class="val">'+grand.totalMoist.toFixed(0)+' g/h</div></div>'+
     '</div>';
 
-  let rt = '<table><tr><th>室名</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計発湿(g/h)</th></tr>';
+  let rt = '<table><tr><th>室名</th><th>窓</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計発湿(g/h)</th></tr>';
   results.forEach(r=>{
-    rt += '<tr><td>'+r.name+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
+    rt += '<tr><td>'+r.name+'</td><td>'+(r.winN||0)+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
   });
-  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
+  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+winRows+'</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
   document.getElementById('roomTableWrap').innerHTML = rt;
 
   if(roomChart) roomChart.destroy();
@@ -327,7 +434,7 @@ function runAll(){
   });
 
   // ================= Step 3: エアコン =================
-  document.getElementById('outTaDisp').value = taNow.toFixed(1);
+  document.getElementById('outTaDisp').value = oatNow.toFixed(1);
   document.getElementById('roomTDisp').value = targetT;
   const cat = acCatalog[+document.getElementById('tatamiSel').value];
   document.getElementById('acRatedInfo').textContent = '参考: '+cat.tatami+'畳クラス 定格 '+cat.rated+' kW / 最大 '+cat.max+' kW';
@@ -338,7 +445,7 @@ function runAll(){
   const acMax=num('acMax'), acCount=Math.max(1, Math.round(num('acCount')));
   const flowPer=num('flowPerUnit');
   const ua=num('uaVal'), envA=num('envArea');
-  const dT = taNow - targetT;
+  const dT = oatNow - targetT;
   const qEnv = ua*envA*dT;
   const ventMode = document.getElementById('ventMode').value;
   let qVent = 0;

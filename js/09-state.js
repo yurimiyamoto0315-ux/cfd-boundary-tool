@@ -29,15 +29,17 @@ function loadModeState(mode){
   return null;
 }
 function gatherState(){
-  const s = {mode: appMode, inputs:{}, checks:{}, rooms:[], atUnassigned: atUnassignedWindows.slice(),
-    atRoomCandidates:atAssignableRooms.slice(), atNorthExcludedCount,
+  const s = {mode: appMode, inputs:{}, checks:{}, rooms:[],
+    atUnassigned: appMode==='architrend' ? atUnassignedWindows.slice() : [],
+    atRoomCandidates: appMode==='architrend' ? atAssignableRooms.slice() : [],
+    atNorthExcludedCount: appMode==='architrend' ? atNorthExcludedCount : 0,
     epParse: appMode==='energyplus' ? epParse : null,
     epIdfName: appMode==='energyplus' ? epIdfName : '',
     epSqlName: appMode==='energyplus' ? epSqlName : '',
     epSqlPeak: appMode==='energyplus' ? epSqlPeak : null};
   document.querySelectorAll('input[id], select[id]').forEach(el=>{
     if(el.type==='file') return;
-    if(el.id==='atPdfInput' || el.id==='epIdfInput' || el.id==='epSqlInput') return;
+    if(el.id==='atPdfInput' || el.id==='at3dsInput' || el.id==='epIdfInput' || el.id==='epSqlInput' || el.id==='epEpwInput') return;
     if(el.type==='checkbox') s.checks[el.id]=el.checked;
     else s.inputs[el.id]=el.value;
   });
@@ -61,8 +63,16 @@ function gatherState(){
   });
   return s;
 }
+function migrateSslMatDefaults(inputs){
+  if(!inputs) return;
+  const wood = (typeof TOOL_DEFAULTS!=='undefined' && TOOL_DEFAULTS.sslMatWood) ? TOOL_DEFAULTS.sslMatWood : '2杉(1)';
+  const glass = (typeof TOOL_DEFAULTS!=='undefined' && TOOL_DEFAULTS.sslMatGlass) ? TOOL_DEFAULTS.sslMatGlass : '1ガラス板(Low-E複層)';
+  if(!inputs.sslMatWood || inputs.sslMatWood==='杉') inputs.sslMatWood = wood;
+  if(!inputs.sslMatGlass || inputs.sslMatGlass==='ガラス板') inputs.sslMatGlass = glass;
+}
 function applyState(s){
   if(!s) return;
+  migrateSslMatDefaults(s.inputs);
   for(const id in (s.inputs||{})){
     if(id==='winGlass') continue; // winFrame復元後に選択肢を再構築してから反映する
     const el = document.getElementById(id);
@@ -79,7 +89,7 @@ function applyState(s){
   }
   document.getElementById('roomsWrap').innerHTML='';
   roomCount=0; winCounter=0;
-  (s.rooms||[]).forEach(r=>addRoom(r));
+  (s.rooms||[]).forEach(r=>addRoom(Object.assign({}, r, {skipRerun:true})));
 }
 function exportJSON(){
   const blob = new Blob([JSON.stringify(gatherState(), null, 2)], {type:'application/json'});

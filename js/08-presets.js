@@ -15,11 +15,17 @@ function populateWinGlass(){
   wg.innerHTML = jsmaWinTable[frame].map((r,i)=>'<option value="'+i+'">'+r.label+'</option>').join('');
 }
 function syncUWinFromTable(){
-  if(appMode==='architrend' || appMode==='energyplus') return; // 連携モードでは表からの U 上書き禁止
+  const el = document.getElementById('uWin');
+  const wrap = el && el.closest('div');
+  if(wrap && (wrap.classList.contains('ep-filled') || wrap.classList.contains('at-filled'))){
+    return;
+  }
   const frame = document.getElementById('winFrame').value;
   const row = jsmaWinTable[frame][+document.getElementById('winGlass').value];
   const attach = +document.getElementById('winAttach').value;
-  document.getElementById('uWin').value = row.vals[attach];
+  if(!row) return;
+  el.value = row.vals[attach];
+  wrap && wrap.classList.remove('need-manual');
   document.getElementById('winTableInfo').textContent = '選択中の熱貫流率: U='+row.vals[attach]+' W/(m²K) (出典: JSMA 2025/7改訂)';
 }
 document.addEventListener('change', function(e){
