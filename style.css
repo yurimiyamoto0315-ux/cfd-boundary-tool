@@ -477,3 +477,99 @@
     html{scroll-behavior:smooth;}
     nav.toc{transition:transform .2s ease;}
   }
+/* Spatial room review: same editorial system as the rest of the tool (square, ink/rule, heat accent). */
+.at-room-viewer { margin-top:24px; border:1px solid var(--rule2); background:var(--paper); }
+.at-room-viewer[hidden] { display:none; }
+.at-rv-heading { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; padding:20px 20px 0; }
+.at-rv-metrics { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.at-rv-eyebrow { color:var(--ink3); font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; }
+.at-rv-heading h3 { margin:4px 0 0; }
+.at-rv-progress, .at-rv-volume { display:inline-flex; align-items:baseline; gap:5px; border:1px solid var(--rule2);
+  padding:5px 9px; color:var(--ink2); font-size:11px; letter-spacing:.02em; background:#FAFAFA; white-space:nowrap; }
+.at-room-viewer > p.small { margin:8px 20px 16px; color:var(--ink2); }
+.at-rv-toolbar { display:flex; flex-wrap:wrap; gap:8px; padding:4px 20px 16px; align-items:center; }
+.at-rv-toolbar button[aria-pressed="true"] { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.at-rv-toolbar button:disabled { opacity:.4; cursor:default; }
+.at-rv-divider { width:1px; height:22px; background:var(--rule2); margin:0 4px; }
+.at-rv-orientation { display:grid; grid-template-columns:46px minmax(190px,1fr) minmax(150px,320px) 92px auto; gap:12px; align-items:center;
+  margin:0 20px 16px; padding:14px 16px; border:1px solid var(--rule2); border-left:3px solid var(--ink); background:#FAFAFA; }
+.at-rv-orientation p { margin:3px 0 0; color:var(--ink2); }
+.at-rv-orientation input[type="range"] { accent-color:var(--heat); width:100%; }
+.at-rv-angle { display:flex; align-items:center; gap:5px; }
+.at-rv-angle input { width:70px; text-align:right; }
+.at-rv-compass-mini { display:grid; place-items:center; width:42px; height:42px; border:1px solid var(--rule2); border-radius:50%; color:var(--heat); background:var(--paper); font-size:12px; font-weight:700; }
+.at-rv-compass-mini span { display:grid; place-items:center; width:100%; height:100%; box-sizing:border-box; transform-origin:50% 50%; font-size:22px; line-height:1; }
+.at-rv-workspace { display:grid; grid-template-columns:minmax(0,1fr) 290px; border-top:1px solid var(--rule); }
+.at-rv-stage { min-width:0; background-color:#FAFAFA; background-image:radial-gradient(var(--rule2) .65px,transparent .65px); background-size:18px 18px; padding:12px; }
+#atRoomScene { display:block; width:100%; min-height:330px; height:100%; max-height:610px; touch-action:none; user-select:none; }
+#atRoomScene [data-scene-room] { cursor:pointer; }
+.at-rv-label { font:600 13px 'Yu Gothic',Meiryo,sans-serif; fill:var(--ink); stroke:#ffffff; stroke-width:3.5px; paint-order:stroke; stroke-linejoin:round; }
+.at-rv-label-sub { font-size:10px; font-weight:400; }
+.at-rv-help { color:var(--ink2); font-size:11px; text-align:center; }
+.at-rv-model-note { color:var(--ink3); font-size:10px; margin:7px 0; text-align:center; }
+.at-rv-side { border-left:1px solid var(--rule); padding:18px 20px; background:var(--paper); min-width:0; }
+.at-rv-selection { font-weight:700; color:var(--ink); font-size:15px; }
+.at-rv-selection span { font-size:11px; font-weight:400; color:var(--ink2); float:right; }
+.at-rv-room-geometry { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0 4px; }
+.at-rv-room-geometry span { padding:8px; border:1px solid var(--rule); color:var(--ink2); font-size:10px; background:#FAFAFA; }
+.at-rv-room-geometry b { display:block; color:var(--ink); font-size:14px; font-weight:600; margin-top:2px; }
+.at-rv-side .at-rv-check { display:flex; align-items:center; gap:8px; }
+.at-rv-check input { width:16px; height:16px; }
+.at-rv-confirm { width:100%; padding:11px 8px; border:1px solid var(--ink); background:var(--ink); color:var(--paper); font-weight:600; cursor:pointer; }
+.at-rv-confirm:hover { background:var(--paper); color:var(--ink); }
+.at-rv-list { max-height:240px; overflow:auto; margin-top:18px; border-top:1px solid var(--rule); padding-top:10px; }
+.at-rv-room { display:flex; align-items:center; gap:9px; width:100%; text-align:left; background:none;
+  border:1px solid transparent; padding:9px 8px; cursor:pointer; color:var(--ink); text-transform:none; letter-spacing:0; font-weight:400; font-size:13px; }
+.at-rv-room:hover { border-color:var(--rule2); }
+.at-rv-room[aria-pressed="true"] { background:#F4F4F4; border-color:var(--ink); }
+.at-rv-room i { width:3px; height:28px; flex-shrink:0; }
+.at-rv-room b { font-size:12px; font-weight:600; display:block; overflow-wrap:anywhere; }
+.at-rv-room small { font-size:10px; display:block; color:var(--ink3); margin-top:3px; }
+.at-rv-footer { padding:12px 20px; border-top:1px solid var(--rule); color:var(--ink2); font-size:11px; line-height:1.8; background:#F4F4F4; }
+.at-rv-compass line { stroke:var(--heat); stroke-width:3; }
+.at-rv-compass text { fill:var(--heat); font:bold 15px Georgia,serif; stroke:white; stroke-width:3px; paint-order:stroke; }
+.at-rv-stair { margin-top:14px; padding-top:12px; border-top:1px solid var(--rule); }
+.at-rv-stair-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.at-rv-stair-actions button { flex:1; min-width:84px; padding:8px 6px; font-size:11px; }
+.at-rv-stair-note { color:var(--heat) !important; }
+.at-rv-stair-path { pointer-events:none; }
+.at-rv-stair-path-hit { pointer-events:stroke; cursor:crosshair; }
+.at-rv-stair-tread, .at-rv-stair-riser { pointer-events:none; }
+.at-rv-stair-vertex { cursor:grab; }
+.at-rv-stair-vertex:hover { fill:var(--heat); }
+.fd-domain-box{border-color:var(--ink);}
+.fd-domain-lead{margin:0 0 12px; font-size:13px; color:var(--ink2); line-height:1.55;}
+.fd-domain-lead b{color:var(--ink);}
+.fd-domain-unit{display:flex; gap:6px; margin:0 0 12px;}
+.fd-domain-unit button{
+  padding:5px 12px; font-size:11px; letter-spacing:.04em; text-transform:none;
+  border:1px solid var(--rule2); background:var(--paper); color:var(--ink2);
+}
+.fd-domain-unit button[aria-pressed="true"]{
+  border-color:var(--ink); background:var(--ink); color:var(--paper);
+}
+.fd-domain-axes{
+  display:grid; grid-template-columns:28px 1fr 1fr; gap:8px; align-items:stretch; margin-bottom:12px;
+}
+.fd-domain-col{font-size:10px; color:var(--ink3); letter-spacing:.08em;}
+.fd-domain-lab{font-size:13px; font-weight:700; color:var(--ink); display:flex; align-items:center;}
+.fd-domain-cell{
+  border:1px solid var(--ink); padding:8px 10px; background:#FAFAFA;
+}
+.fd-domain-cell span{display:block; font-size:10px; color:var(--ink2); letter-spacing:.04em;}
+.fd-domain-cell b{display:block; font-size:22px; font-weight:600; margin-top:2px; line-height:1.2; color:var(--ink);}
+.fd-domain-meta{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:4px;}
+.fd-domain-meta .fd-domain-cell b{font-size:15px;}
+.fd-domain-note{margin:10px 0 0; font-size:12px; color:var(--ink2); line-height:1.55;}
+.fd-domain-copy{margin-top:12px;}
+.fd-domain-copy button{
+  padding:7px 12px; font-size:12px; letter-spacing:.04em; text-transform:none;
+  border:1px solid var(--ink); background:var(--paper); color:var(--ink);
+}
+.fd-domain-copy button:hover{background:var(--ink); color:var(--paper);}
+.at-room-viewer button:focus-visible,.at-room-viewer input:focus-visible,.at-room-viewer select:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+@media(max-width:720px){
+  .fd-domain-meta{grid-template-columns:1fr;}
+}
+@media(max-width:850px) { .at-rv-workspace { grid-template-columns:1fr; } .at-rv-side { border-left:0; border-top:1px solid var(--rule); } #atRoomScene { height:400px; } .at-rv-list { max-height:210px; } .at-rv-orientation { grid-template-columns:42px 1fr 90px; } .at-rv-orientation input[type="range"] { grid-column:1/-1; grid-row:2; } .at-rv-orientation button { grid-column:1/-1; } }
+.room-window-link{display:inline-flex;margin-left:.45rem;padding:.12rem .5rem;border:1px solid var(--ink2);color:var(--ink2);font-size:.7rem;font-weight:700;letter-spacing:.04em;vertical-align:middle}

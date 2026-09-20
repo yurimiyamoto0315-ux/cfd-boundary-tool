@@ -12,11 +12,11 @@ function addRoom(defaults){
   if(defaults&&defaults.epZone) div.dataset.epZone=defaults.epZone;
   div.innerHTML =
     '<div class="room-header">'+
-      '<input type="text" class="roomName" value="'+(defaults&&defaults.name||('部屋'+roomCount))+'">'+
+      '<input type="text" class="roomName" value="'+escapeHtml(defaults&&defaults.name||('部屋'+roomCount))+'">'+
       (isNonHabitable?'<span class="room-kind">非居室・窓日射用</span>':'')+
       '<button class="small-btn" onclick="document.getElementById(\''+id+'\').remove(); runAll();">部屋を削除</button>'+
     '</div>'+
-    '<h3 style="margin-top:0;">窓 (直達日射)</h3>'+
+    '<h3 style="margin-top:0;">窓 (直達日射) <span class="room-window-link"></span></h3>'+
     '<div class="winList"></div>'+
     '<button class="small-btn" onclick="addWindow(\''+id+'\')">+ 窓を追加</button>'+
 
@@ -83,6 +83,7 @@ function addWindow(roomId, defaults){
   const div = document.createElement('div');
   div.className='win-row';
   div.id = wid;
+  if(defaults && defaults.atMeshWindowIndex!=null) div.dataset.atMeshWindowIndex=String(defaults.atMeshWindowIndex);
   let glassOpts = etaTable.map((g,i)=>'<option value="'+i+'">'+g.label+'</option>').join('');
   let attachOpts = attachTable.map((a,i)=>'<option value="'+i+'">'+a+'</option>').join('');
   div.innerHTML =
@@ -99,7 +100,7 @@ function addWindow(roomId, defaults){
   document.getElementById(roomId).querySelector('.winList').appendChild(div);
   if(defaults){
     for(const cls in defaults){
-      if(cls==='skipRerun') continue;
+      if(cls==='skipRerun' || cls==='atMeshWindowIndex') continue;
       const el = div.querySelector('.'+cls);
       if(el) el.value = defaults[cls];
     }

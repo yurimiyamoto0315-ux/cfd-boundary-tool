@@ -188,7 +188,8 @@ function classifyIdfMeshSurface(s, orient, zone){
   }
   if(type==='wall' && outdoor) return {sslKey:'wall_'+orient, nameJa:'外壁'+orient};
   if((type==='roof' || type==='ceiling') && outdoor) return {sslKey:'roof', nameJa:'屋根'};
-  if(type==='floor' && (ground || outdoor)) return {sslKey:'floor1', nameJa:'1F床'};
+  if(type==='floor' && ground) return {sslKey:'floor1', nameJa:'1F床'};
+  if(type==='floor' && outdoor) return {sslKey:'floor_out', nameJa:'外気床'};
   if(type==='wall' && ground) return {sslKey:'found', nameJa:'基礎'};
   if(type==='ceiling') return {sslKey:'innerwall', nameJa:'天井'};
   if(type==='floor') return {sslKey:'innerwall', nameJa:'内床'};

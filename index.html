@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260920k">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -113,14 +113,15 @@
   </div>
   <div class="row2" style="max-width:760px; align-items:end; margin-top:10px;">
     <div>
-      <label>テクスチャ無し 3DS <span class="tag-at">色分けモデル用</span></label>
+      <label>色分け用 3DS <span class="tag-at">内壁つき可</span></label>
       <input type="file" id="at3dsInput" accept=".3ds,.3DS">
       <p class="small" id="at3dsFileEcho" style="margin:6px 0 0;"></p>
     </div>
   </div>
-  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFがある場合のみ居室を作成し、廊下・水回り・収納等は除外します。3DSは内壁の無い外皮です。方位色分けし庇を除き、屋根の上を埋めます。メッシュはブラウザに保存しないので、開き直したら選び直してください。</p>
+  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFの居室区画面積表、または3DSの床・内壁から作ります。3DSはマテリアルの透明度で窓を分け、内壁・天井を残し、軒の出は壁外形へ寄せます。メッシュはブラウザに保存しないので、開き直したら選び直してください。</p>
   <div id="atSummary" style="margin-top:12px;"></div>
   <div id="atReview"></div>
+  <section id="atRoomViewer" class="at-room-viewer" aria-label="3DS 部屋の確認と修正" hidden></section>
   <ul class="at-warn-list" id="atWarnList" style="display:none;"></ul>
 </div>
 
@@ -439,15 +440,15 @@
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · Step 1-5 / 1-6 床と基礎</div>
-  <p class="small" style="margin-top:0;">1F床は熱通過率だけを入れます。基礎外周は日射が当たらない前提なので、SATではなく外気温をそのまま使います。</p>
+  <p class="small" style="margin-top:0;">1F床は床下の空気と室内のあいだなので、形状モデルの熱通過率です。2Fの張り出し床は下面が外気なので、外壁と同じ発生パネルにします。Uは共通です。基礎外周は日射が当たらない前提なので、SATではなく外気温をそのまま使います。</p>
 </aside>
 <div class="stage-work">
 <div class="box">
-  <h3 style="margin-top:0;">1-5 1F床</h3>
+  <h3 style="margin-top:0;">1-5 1F床 / 2F持ち出し床</h3>
   <div class="row2" style="max-width:500px;">
     <div><label>熱通過率 U (W/m²K)</label><input type="number" id="uFloor1" value="0.28" step="0.01"></div>
   </div>
-  <div class="cfd-value"><span class="k">形状モデル > 属性: 熱通過率 / 材質: 2杉(1)</span><span class="v" id="uFloor1Disp">0.28</span><button class="copy-btn" id="uFloor1Copy" data-copy="0.28">コピー</button></div>
+  <div id="floor1Wrap"></div>
 </div>
 
 <div class="box">
@@ -668,7 +669,7 @@
   <div class="info">
     <b>③ 窓面への入射角 θ</b><br>
     窓に垂直な向き (法線) と太陽光線のなす角 θ を、高度角 h・太陽方位角 A・窓の向き wAz から求めます (窓は鉛直面として計算)。<br>
-    cosθ = cos h × cos (A − wAz) → 窓が受ける日射 = I_DN × max(cosθ, 0)。裏を向いていて cosθ が負になる場合や、真北向きの窓 (このツールの簡略化ルール) は0として扱います。
+    cosθ = cos h × cos (A − wAz) → 窓が受ける日射 = I_DN × max(cosθ, 0)。裏を向いていて cosθ が負になる場合は0として扱います。3DSモードではビューワーで設定した北方向から wAz を更新します。
   </div>
   <div class="info">
     <b>④ 透過率 η → 室内への熱 (W)</b><br>
@@ -707,15 +708,15 @@
 </aside>
 <div class="stage-work">
 <div class="box">
-  <p class="small" style="margin-top:0;">部屋ごとにボリューム (発生エリア) を作成し、直達日射+人体+機器の発熱・発湿の合計を入力します。太陽条件は共通条件から自動計算されます。この合計はStep 3 (エアコン) の必要処理熱量の計算にそのまま使われます。</p>
-  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。各窓のη0はSHGC、Uは構成から入れます。SQLに透過日射があればそれを r_G 補正して使い、無ければ η0×日射×面積に r_G を掛けます。SQLからピーク日付・時刻も入れます。</div>
-  <div class="note">対象とする部屋: 居室、および北面以外に窓がある非居室です。真北向きの窓はこのツールの簡略化ルールとして直達日射0 Wで除外します (北東・北西は計算対象)。</div>
+  <p class="small" style="margin-top:0;">部屋ごとに発生エリアを作ります。窓がある部屋は直達日射を必ず内部発熱に入れ、居室だけ人体・機器・発湿を足します。太陽条件は共通条件から自動計算され、Step 3 の必要処理熱量に使われます。</p>
+  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。潜熱は発湿×2450 kJ/kg÷3600 です。各窓のη0はSHGC、Uは構成から入れます。SQLに透過日射があればそれを r_G 補正して使い、無ければ η0×日射×面積に r_G を掛けます。SQLからピーク日付・時刻も入れます。</div>
+  <div class="note">対象: ①窓のある部屋は直達日射を内部発熱に入れる ②居室はそこに人体・機器発熱を足す。北面を含むすべての窓について、設定方位と太陽位置の入射角から直達日射を計算します。</div>
   <div class="summary-grid" id="step2SolarInfo"></div>
 </div>
 
 <div id="atUnassignedBox" class="box" style="display:none;">
   <h3 style="margin-top:0;">未割当の窓 (アーキトレンド自動取得)<span class="tag-req">要手動</span></h3>
-  <p class="small" style="margin-top:0;">CSV/PDFから窓ID・面積・方位・ηを自動取得済みです。居室に加えて廊下・水回り・収納等も割当先に選べます。非居室は割当時に自動作成され、人体・機器発熱0、窓の直達日射のみを部屋の発熱量へ加算します。真北向きの窓は直達日射0として割当対象から除外します。<span id="atNorthExcludedInfo"></span></p>
+  <p class="small" style="margin-top:0;">3DSの窓は幾何の部屋へ自動で入ります。窓のある非居室は直達日射だけのカードになります。ここに残るのは、3DS位置と結びつかないPDF窓などです。部屋を選んで割り当てできます。<span id="atNorthExcludedInfo"></span></p>
   <div id="atUnassignedList"></div>
 </div>
 
@@ -726,9 +727,10 @@
 <div class="box" id="grandTotalWrap"></div>
 <h3>部屋ごとの内訳</h3>
 <div class="box">
-  <div style="position:relative; width:100%; height:280px;">
+  <div style="position:relative; width:100%; height:320px;">
     <canvas id="roomChart"></canvas>
   </div>
+  <p class="small" style="margin:8px 0 0;">潜熱は発湿 (g/h) × 水の蒸発潜熱 2450 kJ/kg ÷ 3600 です。CFDへはこれまでどおり発熱量 (顕熱 W) と発湿量 (g/h) を出します。</p>
 </div>
 <div class="box" id="roomTableWrap"></div>
 </div>
@@ -857,7 +859,7 @@
       <option value="first">第一種換気 (全熱交換)</option>
     </select></div>
     <div class="field-user"><label>換気回数 (回/h)<span class="tag-req">要設定</span></label><input type="number" id="ach" value="0.5" step="0.1"></div>
-    <div class="field-user"><label>居室体積 (㎥)<span class="tag-req">要設定</span></label><input type="number" id="roomVol" value="267.8" step="0.1"></div>
+    <div class="field-user"><label>居室体積 (㎥)<span class="tag-req" id="roomVolTag">要設定</span></label><input type="number" id="roomVol" value="267.8" step="0.1"><span class="small" id="roomVolAutoInfo"></span></div>
     <div class="field-user"><label>全熱交換率 (%)<span class="tag-req">要設定</span></label><input type="number" id="hxRate" value="65" step="1"></div>
   </div>
   <div class="summary-grid" id="loadStats" style="margin-top:8px;"></div>
@@ -893,18 +895,22 @@
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · 色分けモデル</div>
-  <p class="small" style="margin-top:0;" id="idfMeshGuide">EnergyPlus の IDF、または Architrend のテクスチャ無し 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
+  <p class="small" style="margin-top:0;" id="idfMeshGuide">EnergyPlus の IDF、または Architrend の 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
   <div class="ssl-flow">
-    <div class="ssl-step"><span class="n">1</span><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはテクスチャ無し3DS（このページ上部）</span></div>
+    <div class="ssl-step"><span class="n">1</span><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはページ上部の3DS（内壁つき可）</span></div>
     <div class="ssl-step"><span class="n">2</span><b>3DS を書き出す</b><span>部材名付き・色分け。埋メは *_cfd_fill.3ds、内部発熱は *_cfd_gain.3ds で別ファイル</span></div>
-    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。埋メは障害物ソリッド</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。合体概形の左下が原点。右の「解析領域」の数値をそのまま入れる</span></div>
     <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
   </div>
-  <p class="small">エアコン吹出・ドア隙間は元モデルに無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。Architrend は内壁も元データにありません。</p>
+  <p class="small">エアコン吹出・ドア隙間は元モデルに無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。Architrend で内壁・天井が出ていれば色分けモデルに残します。階間床が無いファイルだけ、1F外形から室内2F床を補います。</p>
 </aside>
 <div class="stage-work">
 <div class="ssl-banner" id="idfMeshBanner">
   EnergyPlus の IDF、または Architrend の 3DS を読むと、色分け済みの CFD モデル種を出せます。厚みは付けません。
+</div>
+<div class="box fd-domain-box">
+  <h3 style="margin-top:0;">FlowDesigner の解析領域</h3>
+  <div id="idfMeshDomain" data-unit="m"></div>
 </div>
 <div class="box">
   <h3 style="margin-top:0;">部材の内訳</h3>
@@ -913,7 +919,7 @@
     <button type="button" id="idfMeshExportBtn" class="at-apply-btn" disabled>3DS・埋メ・発熱3DS・名前CSVを書き出す</button>
     <span class="small" id="idfMeshExportInfo" style="margin-left:10px;"></span>
   </div>
-  <p class="small" style="margin:10px 0 0;">家パネルは *_cfd.3ds。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds。切妻などの屋根の上・2F持ち出しの下・基礎下は *_cfd_fill.3ds の三角柱（障害物）。名前が切れたときは名前CSVが正です。扉色は #ff6018 です。</p>
+  <p class="small" style="margin:10px 0 0;">家パネルは *_cfd.3ds。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds。切妻などの屋根の上と2F持ち出しの下は *_cfd_fill.3ds の三角柱（障害物）。基礎の内側（床下）は埋めません。3ファイルとも合体概形の左下（最小XYZ）が原点です。名前が切れたときは名前CSVが正です。扉色は #ff6018 です。</p>
 </div>
 </div>
 </div>
@@ -924,6 +930,7 @@
 <aside class="stage-guide">
   <div class="guide-now">いま · SSL 一括反映</div>
   <p class="small" style="margin-top:0;">Step 1〜3で計算した値を、手でコピーせず FlowDesigner へ流し込みます。SimpleSimLink (AKL提供) のCSV読み込みスクリプトが受け取る <b>objParam.csv</b> をここで作ります。</p>
+  <p class="small">初めてのPCでは、先にプロジェクトフォルダの <b>FDスクリプトをインストール.cmd</b> を実行します。ドキュメント\FlowDesigner\Scripts へ入り、FDを起動し直すと【SSL】が一覧に出ます。ほかの人へは <b>配布用ZIPを作る.cmd</b> で渡せます。</p>
   <p class="small">アーキトレンドは不要です。手作りの箱モデルでも、オブジェクトを属性別に色分けしてあれば同じ手順です。</p>
   <p class="small">初期温度・湿度・SATULIM・快適性は次の「4 解析設定」の値を使います。書き出す前に確認してください。手転記が必要なときは末尾の転記一覧を使います。</p>
   <div class="ssl-flow">
@@ -1078,21 +1085,24 @@
 
 </div><!-- /.wrap -->
 
-<script src="js/01-constants.js?v=20260914y"></script>
-<script src="js/02-solar.js?v=20260914y"></script>
-<script src="js/03-utils.js?v=20260914y"></script>
-<script src="js/04-rooms.js?v=20260914y"></script>
-<script src="js/05-ac.js?v=20260914y"></script>
-<script src="js/15-sat-etd.js?v=20260914y"></script>
-<script src="js/06-run-all.js?v=20260914y"></script>
-<script src="js/07-external-api.js?v=20260914y"></script>
-<script src="js/08-presets.js?v=20260914y"></script>
-<script src="js/09-state.js?v=20260914y"></script>
-<script src="js/10-architrend.js?v=20260914y"></script>
-<script src="js/12-energyplus.js?v=20260914y"></script>
-<script src="js/13-ssl-export.js?v=20260914y"></script>
-<script src="js/14-idf-mesh.js?v=20260914y"></script>
-<script src="js/16-at-3ds.js?v=20260914y"></script>
-<script src="js/11-init.js?v=20260914y"></script>
+<script src="js/01-constants.js?v=20260920n"></script>
+<script src="js/02-solar.js?v=20260920f"></script>
+<script src="js/03-utils.js?v=20260920f"></script>
+<script src="js/04-rooms.js?v=20260920g"></script>
+<script src="js/05-ac.js?v=20260920f"></script>
+<script src="js/15-sat-etd.js?v=20260920f"></script>
+<script src="js/06-run-all.js?v=20260920k"></script>
+<script src="js/07-external-api.js?v=20260920f"></script>
+<script src="js/08-presets.js?v=20260920f"></script>
+<script src="js/09-state.js?v=20260920f"></script>
+<script src="js/10-architrend.js?v=20260920i"></script>
+<script src="js/12-energyplus.js?v=20260920k"></script>
+<script src="js/13-ssl-export.js?v=20260920n"></script>
+<script src="js/14-idf-mesh.js?v=20260920p"></script>
+<script src="js/16-at-3ds.js?v=20260920k"></script>
+<script src="js/17-at-rooms.js?v=20260920k"></script>
+<script src="js/19-at-stairs.js?v=20260920c"></script>
+<script src="js/18-at-room-viewer.js?v=20260920k"></script>
+<script src="js/11-init.js?v=20260920f"></script>
 </body>
 </html>

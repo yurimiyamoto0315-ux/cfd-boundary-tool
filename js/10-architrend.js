@@ -59,6 +59,7 @@ function setModeUI(mode){
     el.textContent = (mode==='architrend' || mode==='energyplus') ? '要手動' : '要設定';
   });
   if(mode!=='architrend'){
+    if(typeof atClearRoomVolumeAuto==='function') atClearRoomVolumeAuto();
     atUnassignedWindows = [];
     atAssignableRooms = [];
     atNorthExcludedCount = 0;
@@ -70,6 +71,7 @@ function setModeUI(mode){
 }
 
 function blankForArchitrend(){
+  if(typeof atClearRoomVolumeAuto==='function') atClearRoomVolumeAuto();
   AT_BLANK_IDS.forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.value = '';
@@ -335,6 +337,11 @@ function isHabitableRoomName(name){
   const n=String(name||'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
   return /^(LDK|L・D・K|居間|リビング|ダイニング|キッチン|洋室\d*|和室\d*|寝室|主寝室|子供|子ども|書斎)/i.test(n);
 }
+function isArchitrendLivingRoom(r){
+  if(!r) return false;
+  if(r.type==='A' || r.type==='B' || r.pdfType==='A' || r.pdfType==='B') return true;
+  return isHabitableRoomName(r.name);
+}
 
 function parsePositionedWindows(layoutPages){
   const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('開口部[窓](冷房期)')));
@@ -413,17 +420,66 @@ function parsePositionedRooms(layoutPages){
   const page=(layoutPages||[]).find(p=>p.lines.some(line=>line.compact.includes('居室区画面積表')));
   if(!page) return null;
   const width=page.width;
-  const roomNamePattern=/^(ＬＤＫ|LDK|玄関|ホール|階段|子供コーナー|子どもコーナー|脱衣室|ＵＢ|UB|洗面室|トイレ|収納|ローカ|廊下|洋室[０-９\d]*|和室[０-９\d]*|主寝室|寝室|ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ|ウォークインクローゼット|書庫|書斎)$/;
+  const roomNamePattern=/^(ＬＤＫ|LDK|玄関|ホール|階段|子供コーナー|子どもコーナー|脱衣室|ＵＢ|UB|洗面室|トイレ|収納|ローカ|廊下|洋室[０-９\d]*|和室[０-９\d]*|主寝室|寝室|ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ|ウォークインクローゼット|ＷＩＣ|WIC|書庫|書斎)$/;
+  const items=(page.items||[]).filter(function(it){ return String(it.text||'').trim(); });
+  const nameItems=items.filter(function(it){
+    const t=String(it.text).trim();
+    if(!roomNamePattern.test(t) || it.x<=width*0.07 || it.x>=width*0.16) return false;
+    return items.some(function(cell){
+      const ct=String(cell.text).trim();
+      return /^[ABC]$/.test(ct) && Math.abs(cell.y-it.y)<2 && cell.x>width*0.205 && cell.x<width*0.25;
+    });
+  });
+  nameItems.sort((a,b)=>b.y-a.y);
+  // PDF Y increases upwards. Floor labels sit at the center of merged table cells.
+  const gaps=nameItems.slice(1).map((it,i)=>nameItems[i].y-it.y).filter(d=>d>1).sort((a,b)=>a-b);
+  const pitch=gaps.length ? gaps[Math.floor(gaps.length/2)] : 7;
+  const floorMarks=items.filter(it=>it.x>width*0.07 && it.x<width*0.09 && /^[1-9][0-9]*(?:階)?$/.test(String(it.text).trim()))
+    .sort((a,b)=>b.y-a.y);
+  let floorTop=nameItems.length ? nameItems[0].y+pitch/2 : 0;
+  const floorBands=floorMarks.map(it=>{
+    const bottom=2*it.y-floorTop;
+    const band={floor:String(parseInt(it.text,10)),top:floorTop,bottom:bottom};
+    floorTop=bottom;
+    return band;
+  });
   const rooms=[];
-  page.lines.forEach(line=>{
-    const nameItem=line.items.find(it=>roomNamePattern.test(String(it.text).trim()) && it.x<width*0.16);
-    if(!nameItem) return;
-    const area=pdfNumNear(line,0.199,width,0.025);
-    const typeItem=line.items.find(it=>/^[ABC]$/.test(String(it.text).trim()) && it.x>width*0.20 && it.x<width*0.24);
-    if(!(area>0) || !typeItem) return;
+  nameItems.forEach(function(nameItem, ni){
+    const ny=nameItem.y;
+    const near=items.filter(function(it){ return Math.abs(it.y-ny)<2; });
+    let area=null, type='';
+    near.forEach(function(it){
+      const t=String(it.text).trim();
+      if(/^[ABC]$/.test(t) && it.x>width*0.205 && it.x<width*0.25) type=t;
+      const v=parseFloat(t.replace(/,/g,''));
+      if(!(v>0)) return;
+      if(it.x>width*0.185 && it.x<width*0.215) area=v;
+    });
+    if(!(area>0) || !type) return;
     const name=String(nameItem.text).trim().replace('ＬＤＫ','LDK').replace('ＵＢ','UB')
-      .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
-    rooms.push({name,area,type:String(typeItem.text).trim(),sourcePage:page.number});
+      .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+      .replace('ウォークインクローゼット','WIC').replace('ｳｫｰｸｲﾝｸﾛｰｾﾞｯﾄ','WIC').replace('ＷＩＣ','WIC');
+    const rowTop=ni ? (nameItems[ni-1].y+ny)/2 : ny+pitch/2;
+    const rowBottom=ni+1<nameItems.length ? (nameItems[ni+1].y+ny)/2 : ny-pitch/2;
+    const formulaText=items.filter(function(it){ return it.y<rowTop && it.y>rowBottom && it.x>width*0.12 && it.x<width*0.185; })
+      .map(function(it){ return String(it.text); }).join(' ');
+    const formulas=[];
+    const re=/([0-9]+(?:\.[0-9]+)?)\s*[×xX＊*]\s*([0-9]+(?:\.[0-9]+)?)/g;
+    let fm;
+    const normalized=formulaText.replace(/[×xX＊*]/g,'×');
+    while((fm=re.exec(normalized))!==null){
+      formulas.push({dx:parseFloat(fm[1]), dy:parseFloat(fm[2])});
+    }
+    let dx=null, dy=null, compound=formulas.length>1;
+    if(formulas.length===1){
+      dx=formulas[0].dx; dy=formulas[0].dy;
+      if(Math.abs(dx*dy-area)>0.12) compound=true;
+    }
+    if(compound){ dx=null; dy=null; }
+    rooms.push({
+      name:name, area:area, type:type, sourcePage:page.number,
+      dx:dx, dy:dy, floor:(floorBands.find(b=>ny<=b.top+0.5 && ny>=b.bottom-0.5)||{}).floor||'', compound:compound
+    });
   });
 
   const summary={};
@@ -741,8 +797,8 @@ function parseArchiTrendText(fullText, layoutPages){
   const roomLayout=parsePositionedRooms(layoutPages);
   if(roomLayout && roomLayout.rooms.length){
     result.rooms=roomLayout.rooms;
-    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
-    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
+    result.habitableRooms=result.rooms.filter(isArchitrendLivingRoom);
+    result.excludedRooms=result.rooms.filter(function(r){ return !isArchitrendLivingRoom(r); });
     const sums={A:0,B:0,C:0};
     result.rooms.forEach(r=>{ if(r.type in sums) sums[r.type]+=r.area; });
     result.validation.rooms={
@@ -754,8 +810,8 @@ function parseArchiTrendText(fullText, layoutPages){
       if(/居室リスト|居室タイプ/.test(warnings[i])) warnings.splice(i,1);
     }
   }else{
-    result.habitableRooms=result.rooms.filter(r=>isHabitableRoomName(r.name));
-    result.excludedRooms=result.rooms.filter(r=>!isHabitableRoomName(r.name));
+    result.habitableRooms=result.rooms.filter(isArchitrendLivingRoom);
+    result.excludedRooms=result.rooms.filter(function(r){ return !isArchitrendLivingRoom(r); });
   }
   if(!result.projectLocation) warnings.unshift('建設地の記載がないため、住所または緯度・経度を入力してください');
   if(result.projectName && result.workName && normalizePdfText(result.projectName)!==normalizePdfText(result.workName)){
@@ -837,6 +893,28 @@ function renderArchitrendReview(parsed, applied){
   ).join('');
   const orientationText=Object.entries(orientationCounts).map(([k,v])=>k+v).join(' / ')||'なし';
   const statusClass=applied?'at-validation-ok':'';
+  let meshRoomsHtml='';
+  if(typeof atMesh!=='undefined' && atMesh && (atMesh.rooms||[]).length){
+    if(typeof atMergeRoomsByPdf==='function'){
+      atMesh.rooms=atMergeRoomsByPdf(atMesh.rooms, result.rooms||[], atMesh.meshFaces);
+    }
+    if(typeof atMatchMeshRoomsToPdf==='function'){
+      atMatchMeshRoomsToPdf(atMesh.rooms, result.rooms||[]);
+    }
+    if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
+    if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
+    const shown=(atMesh.rooms||[]).filter(function(r){ return r.keep || r.habitable; });
+    meshRoomsHtml=
+      '<details open><summary>3DS発熱室（居室＋窓のある室） <span class="count">'+shown.length+'室</span></summary>'+
+        '<div class="at-review-body at-window-table"><table><tr><th>階</th><th>面積</th><th>寸法</th><th>部屋名</th></tr>'+
+          shown.map(function(r){
+            return '<tr><td>'+escapeHtml(String(r.floor))+'F</td><td>'+r.area.toFixed(2)+'</td><td>'+
+              r.dx.toFixed(2)+'×'+r.dy.toFixed(2)+'</td><td>'+
+              '<input type="text" data-at-rename-key="'+escapeHtml(r.key)+'" value="'+escapeHtml(r.name||'')+'" onchange="atRenameMeshRoom(\''+
+              escapeHtml(r.key)+'\', this.value)"></td></tr>';
+          }).join('')+
+        '</table><div class="small" style="margin-top:6px;">居室(A/B)は人体・機器を足します。窓がある非居室(C)は直達日射だけ入れます。窓の無い非居室はカードにしません。</div></div></details>';
+  }
   review.innerHTML=
     '<div class="at-review">'+
       '<div class="at-review-head">'+
@@ -865,6 +943,7 @@ function renderArchitrendReview(parsed, applied){
         '</div><div class="small" style="margin-top:8px;">窓割当時に作成する非居室候補: '+
           result.excludedRooms.map(r=>'<span class="at-room-chip excluded">'+escapeHtml(r.name)+'</span>').join(' ')+
         '</div><div class="small" style="margin-top:6px;">出典: '+escapeHtml(sourceOf('rooms','—'))+'</div></div></details>'+
+      meshRoomsHtml+
       '<details><summary>窓 <span class="count">'+escapeHtml(orientationText)+' / 合計'+windowArea.toFixed(2)+'㎡</span></summary>'+
         '<div class="at-review-body at-window-table"><table><tr><th>ID</th><th>階</th><th>方位</th><th>幅</th><th>高</th><th>面積</th><th>η</th><th>出典</th></tr>'+
           windowRows+'</table></div></details>'+
@@ -876,11 +955,239 @@ function renderArchitrendReview(parsed, applied){
           '<span class="small">反映後も各値は編集できます。</span>')+
       '</div>'+
     '</div>';
+  if(typeof atUpdateRoomVolume==='function') atUpdateRoomVolume();
+  if(typeof atRenderRoomViewer==='function') atRenderRoomViewer();
 }
 
 function confirmApplyArchitrend(){
   if(!atLastParse) return;
   applyArchitrendParse(atLastParse);
+}
+
+function atRenameMeshRoom(key, name){
+  name=String(name||'').trim();
+  let meshRoom=null;
+  if(typeof atMesh!=='undefined' && atMesh && atMesh.rooms){
+    atMesh.rooms.forEach(function(r){
+      if(r.key!==key) return;
+      r.name=name;
+      r.manualAssignment=true;
+      r.reviewed=!!name;
+      meshRoom=r;
+    });
+  }
+  const card=document.querySelector('.room-card[data-at-room-key="'+key+'"]');
+  if(card){
+    const el=card.querySelector('.roomName');
+    if(el) el.value=name;
+    if(typeof atSyncRoomCardKind==='function') atSyncRoomCardKind(card, meshRoom||{habitable:isHabitableRoomName(name)});
+  }
+  if(typeof atMesh!=='undefined' && atMesh){
+    if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
+    if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
+    if(typeof atBuildGainVolumes==='function') atMesh.gainVolumes=atBuildGainVolumes(atMesh);
+  }
+  if(typeof atRenderRoomViewer==='function') atRenderRoomViewer();
+  if(typeof saveStateDebounced==='function') saveStateDebounced();
+}
+function atMatchMeshRoomsToPdf(meshRooms, pdfRooms){
+  const used=new Set();
+  if(typeof atSetRoomCatalog==='function') atSetRoomCatalog(pdfRooms);
+  (meshRooms||[]).forEach(function(r){
+    if(r.manualAssignment && Number.isInteger(r.pdfIndex) && r.pdfIndex>=0) used.add(r.pdfIndex);
+  });
+  function dimOk(r, p){
+    if(!(p.dx>0 && p.dy>0 && r.dx>0 && r.dy>0) || p.compound) return true;
+    const a=Math.abs(p.dx-r.dx)+Math.abs(p.dy-r.dy);
+    const b=Math.abs(p.dx-r.dy)+Math.abs(p.dy-r.dx);
+    return Math.min(a,b)<=0.08;
+  }
+  function tryMatch(r, areaTol){
+    let best=null, bestScore=1e9;
+    (pdfRooms||[]).forEach(function(p, i){
+      if(used.has(i)) return;
+      if(p.floor && r.floor && String(p.floor)!==String(r.floor) && p.floor!=='R') return;
+      const dA=Math.abs((p.area||0)-(r.area||0));
+      if(dA>areaTol) return;
+      if(!dimOk(r, p)) return;
+      const score=dA*8+(p.dx>0?0:0.2);
+      if(score<bestScore){ bestScore=score; best={p:p, i:i}; }
+    });
+    return best;
+  }
+  (meshRooms||[]).forEach(function(r){
+    if(r.manualAssignment) return;
+    const best=tryMatch(r, 0.08) || tryMatch(r, 1.02);
+    if(best){
+      used.add(best.i);
+      r.name=best.p.name;
+      r.pdfArea=best.p.area;
+      r.pdfType=best.p.type||'';
+      r.keep=isArchitrendLivingRoom(best.p);
+      r.habitable=isArchitrendLivingRoom(best.p);
+      r.pdfIndex=best.i;
+    }else{
+      r.name='';
+      r.pdfIndex=null;
+      r.pdfArea=null;
+      r.habitable=false;
+      r.keep=false;
+      r.pdfType='';
+    }
+  });
+  return meshRooms||[];
+}
+function atSyncRoomCardKind(card, r){
+  if(!card) return;
+  const hab=!!(r && r.habitable);
+  card.dataset.nonHabitable=hab?'false':'true';
+  card.classList.toggle('non-habitable', !hab);
+  const header=card.querySelector('.room-header');
+  let kind=card.querySelector('.room-kind');
+  if(!hab){
+    if(!kind && header){
+      kind=document.createElement('span');
+      kind.className='room-kind';
+      header.insertBefore(kind, header.querySelector('button'));
+    }
+    if(kind) kind.textContent='非居室・窓日射用';
+  }else if(kind){
+    kind.remove();
+  }
+  const defaults=(typeof TOOL_DEFAULTS!=='undefined') ? TOOL_DEFAULTS : {};
+  function setCls(cls, value){
+    const el=card.querySelector('.'+cls);
+    if(el) el.value=String(value);
+  }
+  if(!hab){
+    setCls('occCount', 0);
+    setCls('peopleSensRate', 0);
+    setCls('peopleMoistRate', 0);
+    setCls('equipSensRate', 0);
+    setCls('equipMoistRate', 0);
+  }else{
+    const ps=card.querySelector('.peopleSensRate');
+    if(ps && !(parseFloat(ps.value)>0)) ps.value=String(defaults.peopleSensRate||60);
+    const pm=card.querySelector('.peopleMoistRate');
+    if(pm && !(parseFloat(pm.value)>0)) pm.value=String(defaults.peopleMoistRate||76);
+    const es=card.querySelector('.equipSensRate');
+    if(es && !(parseFloat(es.value)>0)) es.value=String(defaults.equipSensRate||5);
+  }
+}
+function atAddRoomCardFromMesh(r){
+  const isNonHabitable=!r.habitable;
+  const fields={
+    roomArea:String(Math.round((r.area||0)*100)/100),
+    occCount:isNonHabitable?'0':''
+  };
+  if(isNonHabitable){
+    fields.peopleSensRate='0';
+    fields.peopleMoistRate='0';
+    fields.equipSensRate='0';
+    fields.equipMoistRate='0';
+  }
+  const roomId=addRoom({
+    name:r.name||'部屋', atRoomKey:r.key, isNonHabitable:isNonHabitable, fields:fields, windows:[], skipRerun:true
+  });
+  const card=document.getElementById(roomId);
+  if(card){
+    const areaEl=card.querySelector('.roomArea');
+    if(areaEl){
+      const wrap=areaEl.closest('div');
+      if(wrap) wrap.classList.add('at-filled');
+    }
+  }
+  return roomId;
+}
+function atPdfWindowForMesh(meshWin, pdfWindows, used){
+  const mapped={南:'南西', 東:'南東', 北:'北東', 西:'北西'};
+  const wantOrient=mapped[meshWin.orient]||meshWin.orient;
+  let best=null, bestScore=1e9;
+  (pdfWindows||[]).forEach(function(w, i){
+    if(used.has(i)) return;
+    if(meshWin.floor && w.floor && String(w.floor)!==String(meshWin.floor) && !(meshWin.floor==='R' && w.floor==='R')) return;
+    const dA=Math.abs((w.area||0)-(meshWin.area||0));
+    if(dA>0.06) return;
+    let dO=0.2;
+    if(w.orient && (w.orient===meshWin.orient || w.orient===wantOrient)) dO=0;
+    const score=dA+dO;
+    if(score<bestScore){ bestScore=score; best={w:w, i:i}; }
+  });
+  if(!best){
+    (pdfWindows||[]).forEach(function(w, i){
+      if(used.has(i)) return;
+      const dA=Math.abs((w.area||0)-(meshWin.area||0));
+      if(dA>0.06) return;
+      if(dA<bestScore){ bestScore=dA; best={w:w, i:i}; }
+    });
+  }
+  return best;
+}
+function applyArchitrendMeshRooms(result){
+  if(typeof atMesh==='undefined' || !atMesh || !(atMesh.rooms||[]).length) return false;
+  if(typeof atMergeRoomsByPdf==='function'){
+    atMesh.rooms=atMergeRoomsByPdf(atMesh.rooms, (result && result.rooms)||[], atMesh.meshFaces);
+  }
+  atMatchMeshRoomsToPdf(atMesh.rooms, (result && result.rooms)||[]);
+  if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
+  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
+  const gainRooms=(atMesh.rooms||[]).filter(function(r){ return r.keep || r.habitable; });
+  atAssignableRooms=gainRooms.map(function(r){
+    return Object.assign({}, r, {habitable:!!r.habitable});
+  });
+  document.querySelectorAll('.room-card').forEach(function(el){ el.remove(); });
+  if(typeof roomCount!=='undefined') roomCount=0;
+  if(typeof winCounter!=='undefined') winCounter=0;
+  const idByKey={};
+  gainRooms.forEach(function(r){
+    idByKey[r.key]=atAddRoomCardFromMesh(r);
+  });
+  const meshWins=(typeof atAssignWindowsToRooms==='function')
+    ? atAssignWindowsToRooms(atMesh.meshFaces, atMesh.rooms, atMesh.stats)
+    : [];
+  const pdfWins=(result && result.windows)||[];
+  const usedPdf=new Set();
+  atNorthExcludedCount=0;
+  atUnassignedWindows=[];
+  meshWins.forEach(function(mw, meshWinIndex){
+    const hit=atPdfWindowForMesh(mw, pdfWins, usedPdf);
+    const pdf=hit ? hit.w : null;
+    if(hit) usedPdf.add(hit.i);
+    const az=isFinite(mw.az) ? mw.az : (pdf && pdf.az!=null ? pdf.az : (typeof AT_AZ!=='undefined' ? AT_AZ[mw.orient] : 0));
+    const roomKey=mw.roomKey && idByKey[mw.roomKey] ? mw.roomKey : '';
+    const roomId=roomKey ? idByKey[roomKey] : '';
+    const w={
+      wName: pdf && pdf.id ? pdf.id : ('窓'+(mw.orient||'')+(mw.floor||'')),
+      wAz: az==null ? '' : String(az),
+      wEta: pdf && pdf.eta!=null ? String(pdf.eta) : '',
+      wArea: pdf && pdf.area!=null ? String(pdf.area) : String(Math.round((mw.area||0)*100)/100),
+      glassSel:'0', attachSel:'0',
+      atMeshWindowIndex:String(meshWinIndex),
+      roofLike: mw.floor==='R'
+    };
+    if(roomId && w.wArea!==''){
+      addWindow(roomId, Object.assign({skipRerun:true}, w, {
+        wU:(document.getElementById('uWin') && document.getElementById('uWin').value)||''
+      }));
+    }else{
+      atUnassignedWindows.push(w);
+    }
+  });
+  pdfWins.forEach(function(w, i){
+    if(usedPdf.has(i)) return;
+    atUnassignedWindows.push({
+      wName:w.id, wAz:w.az==null?'':String(w.az), wEta:w.eta==null?'':String(w.eta),
+      wArea:w.area==null?'':String(w.area), glassSel:'0', attachSel:'0', roofLike:!!w.roofLike
+    });
+  });
+  renderUnassignedWindows();
+  if(typeof atSyncMeshWindowsToRooms==='function') atSyncMeshWindowsToRooms();
+  if(typeof atBuildGainVolumes==='function'){
+    atMesh.gainVolumes=atBuildGainVolumes(atMesh);
+  }
+  if(typeof atUpdateRoomVolume==='function') atUpdateRoomVolume();
+  if(typeof atRenderRoomViewer==='function') atRenderRoomViewer();
+  return true;
 }
 
 function applyArchitrendParse(parsed){
@@ -909,45 +1216,47 @@ function applyArchitrendParse(parsed){
   atAssignableRooms=(result.rooms||[]).map((r,i)=>Object.assign({},r,{
     key:'at-room-'+i, habitable:isHabitableRoomName(r.name)
   }));
-  const rooms = result.habitableRooms || result.rooms.filter(r=>isHabitableRoomName(r.name));
-  const usedCandidateKeys=new Set();
-  rooms.forEach(r=>{
-    const candidate=atAssignableRooms.find(c=>!usedCandidateKeys.has(c.key) &&
-      c.name===r.name && Math.abs((c.area||0)-(r.area||0))<0.01);
-    if(candidate) usedCandidateKeys.add(candidate.key);
-    addRoom({
-      name: r.name,
-      atRoomKey:candidate?candidate.key:'',
-      fields:{
-        roomArea: String(r.area),
-        occCount: ''
-      },
-      windows: []
-    });
-    // 面積は AT 由来
-    const cards = document.querySelectorAll('.room-card');
-    const card = cards[cards.length-1];
-    if(card){
-      const areaEl = card.querySelector('.roomArea');
-      if(areaEl){
-        const wrap = areaEl.closest('div');
-        if(wrap) wrap.classList.add('at-filled');
+  if(typeof applyArchitrendMeshRooms==='function' && typeof atMesh!=='undefined' && atMesh && (atMesh.rooms||[]).length){
+    applyArchitrendMeshRooms(result);
+  }else{
+    const rooms = result.habitableRooms || result.rooms.filter(r=>isHabitableRoomName(r.name));
+    const usedCandidateKeys=new Set();
+    rooms.forEach(r=>{
+      const candidate=atAssignableRooms.find(c=>!usedCandidateKeys.has(c.key) &&
+        c.name===r.name && Math.abs((c.area||0)-(r.area||0))<0.01);
+      if(candidate) usedCandidateKeys.add(candidate.key);
+      addRoom({
+        name: r.name,
+        atRoomKey:candidate?candidate.key:'',
+        isNonHabitable:!isHabitableRoomName(r.name),
+        fields:{
+          roomArea: String(r.area),
+          occCount: isHabitableRoomName(r.name)?'':'0'
+        },
+        windows: []
+      });
+      const cards = document.querySelectorAll('.room-card');
+      const card = cards[cards.length-1];
+      if(card){
+        const areaEl = card.querySelector('.roomArea');
+        if(areaEl){
+          const wrap = areaEl.closest('div');
+          if(wrap) wrap.classList.add('at-filled');
+        }
       }
-    }
-  });
-
-  const assignableWindows=result.windows.filter(w=>!isNorthFacingAz(w.az));
-  atNorthExcludedCount=result.windows.length-assignableWindows.length;
-  atUnassignedWindows = assignableWindows.map(w=>({
-    wName: w.id,
-    wAz: w.az==null ? '' : String(w.az),
-    wEta: w.eta==null ? '' : String(w.eta),
-    wArea: w.area==null ? '' : String(w.area),
-    glassSel: '0',
-    attachSel: '0',
-    roofLike: !!w.roofLike
-  }));
-  renderUnassignedWindows();
+    });
+    atNorthExcludedCount=0;
+    atUnassignedWindows = result.windows.map(w=>({
+      wName: w.id,
+      wAz: w.az==null ? '' : String(w.az),
+      wEta: w.eta==null ? '' : String(w.eta),
+      wArea: w.area==null ? '' : String(w.area),
+      glassSel: '0',
+      attachSel: '0',
+      roofLike: !!w.roofLike
+    }));
+    renderUnassignedWindows();
+  }
 
   renderArchitrendReview(parsed,true);
   applySharedToolDefaults();
@@ -959,8 +1268,7 @@ function renderUnassignedWindows(){
   const box = document.getElementById('atUnassignedBox');
   const list = document.getElementById('atUnassignedList');
   const northInfo=document.getElementById('atNorthExcludedInfo');
-  if(northInfo) northInfo.textContent=atNorthExcludedCount>0
-    ? ' 今回は北面窓 '+atNorthExcludedCount+'枚を除外済みです。':'';
+  if(northInfo) northInfo.textContent=' 3DS読込時はビューワーの北方向から方位角を更新します。';
   if(typeof appMode!=='undefined' && appMode!=='architrend'){
     if(box) box.style.display = 'none';
     if(list) list.innerHTML = '';
@@ -1045,7 +1353,8 @@ function assignUnassignedWindow(idx){
     wArea: w.wArea,
     wU: (document.getElementById('uWin') && document.getElementById('uWin').value) || '',
     glassSel: w.glassSel||'0',
-    attachSel: w.attachSel||'0'
+    attachSel: w.attachSel||'0',
+    atMeshWindowIndex:w.atMeshWindowIndex
   });
   atUnassignedWindows.splice(idx, 1);
   renderUnassignedWindows();
@@ -1071,7 +1380,8 @@ function refreshNeedManual(){
     if(!empty) wrap.classList.add('at-filled');
     else wrap.classList.remove('at-filled');
     // PDF由来でない共通条件などは埋まっても AT にしない
-    if(['calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT','roomVol','ach','hxRate','acMax','acCount'].includes(id)){
+    if(['calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT','roomVol','ach','hxRate','acMax','acCount'].includes(id) &&
+       !(id==='roomVol' && el.dataset.at3dsAuto==='true')){
       wrap.classList.remove('at-filled');
     }
     if(empty) remain++;
@@ -1192,7 +1502,7 @@ function startArchitrendMode(saved){
   setModeUI('architrend');
   initSelectors();
   if(saved && saved.mode==='architrend' &&
-     ((saved.rooms||[]).length || (saved.atUnassigned||[]).length)){
+     ((saved.rooms||[]).length || (saved.atUnassigned||[]).length || saved.atRoomReview)){
     applyState(saved);
     atUnassignedWindows = saved.atUnassigned || [];
     atAssignableRooms = saved.atRoomCandidates || [];

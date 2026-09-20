@@ -112,9 +112,13 @@ function sslWallParams(nm){
 }
 const SSL_CATEGORIES = [
   {key:'wall_北', label:'外壁 北 (発生パネル)', params: sslWallParams('北')},
+  {key:'wall_北東', label:'外壁 北東 (発生パネル)', params: sslWallParams('北東')},
   {key:'wall_東', label:'外壁 東 (発生パネル)', params: sslWallParams('東')},
+  {key:'wall_南東', label:'外壁 南東 (発生パネル)', params: sslWallParams('南東')},
   {key:'wall_南', label:'外壁 南 (発生パネル)', params: sslWallParams('南')},
+  {key:'wall_南西', label:'外壁 南西 (発生パネル)', params: sslWallParams('南西')},
   {key:'wall_西', label:'外壁 西 (発生パネル)', params: sslWallParams('西')},
+  {key:'wall_北西', label:'外壁 北西 (発生パネル)', params: sslWallParams('北西')},
   {key:'roof', label:'屋根 (発生パネル)', params:[
     {id:54, label:'種類', fixed:'外気温と熱通過率'},
     {id:57, label:'外気温(SAT)', tr:['1-4','屋根 (発生パネル)','外気温 [℃] = SAT']},
@@ -132,6 +136,11 @@ const SSL_CATEGORIES = [
   {key:'floor1', label:'1F床 (形状モデル・熱通過率)', params:[
     {id:23, label:'属性', fixed:'熱通過率'},
     {id:24, label:'熱通過率', tr:['1-5','1F床 (形状モデル)','熱通過率 [W/m²K]']}
+  ]},
+  {key:'floor_out', label:'2F持ち出し床 (発生パネル)', params:[
+    {id:54, label:'種類', fixed:'外気温と熱通過率'},
+    {id:57, label:'外気温', tr:['1-5','2F持ち出し床 (発生パネル)','外気温 [℃]']},
+    {id:58, label:'熱通過率', tr:['1-5','2F持ち出し床 (発生パネル)','熱通過率 [W/m²K]']}
   ]},
   {key:'found', label:'基礎外周 (発生パネル)', params:[
     {id:54, label:'種類', fixed:'外気温と熱通過率'},
@@ -173,6 +182,9 @@ const SSL_CATEGORIES = [
     {id:1, label:'属性', fixed:'考慮しない（障害物）'}
   ]},
   {key:'fill_solid', label:'外形埋メ (形状モデル・障害物)', params:[
+    {id:1, label:'属性', fixed:'考慮しない（障害物）'}
+  ]},
+  {key:'stair_solid', label:'階段 (形状モデル・障害物)', params:[
     {id:1, label:'属性', fixed:'考慮しない（障害物）'}
   ]}
 ];
@@ -377,17 +389,25 @@ function sslColorCatalog(){
   sslWindowUGroups().forEach(function(g){
     add('window', g.color, 'window');
   });
-  if(typeof epParse!=='undefined' && epParse && (epParse.gainVolumes||[]).length){
-    const cards=(typeof document!=='undefined' && document.querySelectorAll) ? document.querySelectorAll('.room-card[data-ep-zone]') : [];
-    epParse.gainVolumes.forEach(function(g){
+  const gainVols=(typeof idfMeshEnsureGainVolumes==='function')
+    ? idfMeshEnsureGainVolumes()
+    : ((typeof epParse!=='undefined' && epParse && epParse.gainVolumes)||[]);
+  if(gainVols && gainVols.length){
+    const cards=(typeof document!=='undefined' && document.querySelectorAll)
+      ? document.querySelectorAll('.room-card') : [];
+    gainVols.forEach(function(g){
       if(!g || !g.color) return;
       let name=g.zone||'';
       for(let i=0;i<cards.length;i++){
-        const ep=cards[i].dataset && cards[i].dataset.epZone;
-        const same=ep===g.zone || sslNormName(ep)===sslNormName(g.zone);
+        const ds=cards[i].dataset||{};
+        const same=ds.epZone===g.zone || ds.atRoomKey===g.zone || ds.atRoomKey===g.roomKey ||
+          (typeof sslNormName==='function' && (sslNormName(ds.epZone)===sslNormName(g.zone)));
         if(same){
           const el=cards[i].querySelector && cards[i].querySelector('.roomName');
           if(el && String(el.value).trim()) name=String(el.value).trim();
+        }else{
+          const el=cards[i].querySelector && cards[i].querySelector('.roomName');
+          if(el && String(el.value).trim()===String(g.zone||'').trim()) name=String(el.value).trim();
         }
       }
       if(name) add('room:'+name, {r:g.color.r, g:g.color.g, b:g.color.b}, 'gain');

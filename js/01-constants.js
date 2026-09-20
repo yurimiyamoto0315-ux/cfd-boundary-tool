@@ -120,6 +120,10 @@ const etaTable = [
 ];
 const attachTable = ["付属部材なし","和障子","内付けの日射遮蔽部材(和障子を除く)","外付けの日射遮蔽部材"];
 const RHOCP = 1.2*1000/3600; // W per (m3/h * K)
+const LATENT_KJ_PER_KG = 2450; // 水の蒸発潜熱。発湿 g/h → 潜熱 W は ÷3600
+function moistGPerHToLatentW(gPerH){
+  return (gPerH||0) * LATENT_KJ_PER_KG / 3600;
+}
 // 全モード共通の講義用初期値。換気回数は法令相当の 0.5 回/h。
 // EnergyPlus モードの在室人数は IDF の People（最大人数）から入れる。
 const TOOL_DEFAULTS = {
@@ -158,13 +162,15 @@ const SSL_FIXED_COLORS = [
   {hex:'#8c5a32', key:'doorbody'},
   {hex:'#62a446', key:'doorgap_top'},
   {hex:'#008080', key:'doorgap_uc'},
-  {hex:'#3d3d3d', key:'fill_solid'}
+  {hex:'#3d3d3d', key:'fill_solid'},
+  {hex:'#967648', key:'stair_solid'}
 ];
 const SSL_COLOR_TOLERANCE = 12;
 // 重なり時の優先度（大きい方が残る）。SSL公式IDは無いので 90001 を書き、読み込みVBSが obj set priority する。
 const SSL_PRIORITY = {
-  wall_北:10, wall_東:10, wall_南:10, wall_西:10,
-  roof:10, floor1:10, found:10, innerwall:10, attic:10, fill_solid:10,
+  wall_北:10, wall_北東:10, wall_東:10, wall_南東:10,
+  wall_南:10, wall_南西:10, wall_西:10, wall_北西:10,
+  roof:10, floor1:10, floor_out:10, found:10, innerwall:10, attic:10, fill_solid:10, stair_solid:10,
   window:30, doorbody:30,
   doorgap_top:50, doorgap_uc:50, ac_body:50,
   ac_supply:90, ac_return:90

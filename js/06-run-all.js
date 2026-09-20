@@ -209,7 +209,7 @@ function runAll(){
     renderEpWallHeat(satByOri, roofCfd, oatNow);
   }
   if(geo.ok || useEpSat){
-    ['北','東','南','西'].forEach(nm=>{
+    ['北','北東','東','南東','南','南西','西','北西'].forEach(nm=>{
       if(!isFinite(satByOri[nm])) return;
       tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
       tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uWall));
@@ -220,11 +220,19 @@ function runAll(){
     }
   }
 
-  // 1F床
+  // 1F床は床下空気と室内のあいだなので形状モデルの熱通過率。
+  // 2F持ち出し床は下面が外気なので、壁と同じ発生パネル。
   const uFloor1 = numOrNull('uFloor1');
-  document.getElementById('uFloor1Disp').textContent = fmtU(uFloor1);
-  document.getElementById('uFloor1Copy').dataset.copy = uFloor1==null ? '' : uFloor1;
+  const floor1Wrap = document.getElementById('floor1Wrap');
+  if(floor1Wrap){
+    floor1Wrap.innerHTML =
+      cfdRow('1F床 形状モデル > 熱通過率 [W/m²K]', fmtU(uFloor1)) +
+      cfdRow('2F持ち出し 発生パネル > 外気温 [℃]', (useEpSat||taReady)?oatNow.toFixed(2):'—') +
+      cfdRow('2F持ち出し 発生パネル > 熱通過率 [W/m²K]', fmtU(uFloor1));
+  }
   tr('1-5','1F床 (形状モデル)','熱通過率 [W/m²K]', fmtU(uFloor1));
+  if(useEpSat||taReady) tr('1-5','2F持ち出し床 (発生パネル)','外気温 [℃]', oatNow.toFixed(2));
+  tr('1-5','2F持ち出し床 (発生パネル)','熱通過率 [W/m²K]', fmtU(uFloor1));
 
   // 基礎外周
   const uFound = numOrNull('uFound');
@@ -328,8 +336,7 @@ function runAll(){
         qRaw = epQ;
         src = 'ep';
       }else{
-        const northFacing=Math.abs(Math.abs(wAzDeg)-180)<0.5;
-        if(sp.alt>0 && !northFacing){
+        if(sp.alt>0){
           const cosInc = Math.cos(sp.alt)*Math.sin(wTilt)*Math.cos(sp.az-wAz) + Math.sin(sp.alt)*Math.cos(wTilt);
           const ib = idn*Math.max(cosInc,0);
           qRaw = ib*eta*area;
@@ -352,33 +359,41 @@ function runAll(){
     const extraMoist = parseFloat(card.querySelector('.extraMoist').value)||0;
     const totalSens = solarW + peopleSens + equipSens + extraSens;
     const totalMoist = peopleMoist + equipMoist + extraMoist;
+    const peopleLat = moistGPerHToLatentW(peopleMoist);
+    const equipLat = moistGPerHToLatentW(equipMoist);
+    const extraLat = moistGPerHToLatentW(extraMoist);
+    const totalLat = peopleLat + equipLat + extraLat;
 
     card.querySelector('.peopleSensResult').textContent = peopleSens.toFixed(1)+' W';
     card.querySelector('.occCountEcho').textContent = occ+' 人';
-    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h';
+    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h（潜熱 '+peopleLat.toFixed(1)+' W）';
     card.querySelector('.equipSensResult').textContent = equipSens.toFixed(1)+' W';
     card.querySelector('.areaEcho').textContent = roomArea.toFixed(1)+' ㎡';
-    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h';
+    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h（潜熱 '+equipLat.toFixed(1)+' W）';
     document.getElementById(card.id+'_summary').innerHTML =
       '<div class="stat"><div class="lbl">直達日射</div><div class="val">'+solarW.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">人体顕熱</div><div class="val">'+peopleSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">人体潜熱</div><div class="val">'+peopleLat.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">機器顕熱</div><div class="val">'+equipSens.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">追加</div><div class="val">'+extraSens.toFixed(0)+' W</div></div>'+
       '<div class="stat hl"><div class="lbl">合計顕熱</div><div class="val">'+totalSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">合計潜熱</div><div class="val">'+totalLat.toFixed(0)+' W</div></div>'+
       '<div class="stat hl"><div class="lbl">合計発湿</div><div class="val">'+totalMoist.toFixed(0)+' g/h</div></div>';
     document.getElementById(card.id+'_cfd').innerHTML =
       cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
       cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
       cfdRow('初期温度 [℃] (外気温と同じ)', oatNow.toFixed(2)) +
       cfdRow('初期湿度 [%]', initRH);
-    results.push({name, solarW, peopleSens, equipSens, extraSens, totalSens, totalMoist, winN});
+    results.push({name, solarW, peopleSens, peopleLat, equipSens, equipLat, extraSens, extraLat, totalSens, totalLat, totalMoist, winN});
   });
 
   const grand = results.reduce((a,r)=>{
-    a.solarW+=r.solarW; a.peopleSens+=r.peopleSens; a.equipSens+=r.equipSens;
-    a.extraSens+=r.extraSens; a.totalSens+=r.totalSens; a.totalMoist+=r.totalMoist;
+    a.solarW+=r.solarW; a.peopleSens+=r.peopleSens; a.peopleLat+=r.peopleLat;
+    a.equipSens+=r.equipSens; a.equipLat+=r.equipLat;
+    a.extraSens+=r.extraSens; a.extraLat+=r.extraLat;
+    a.totalSens+=r.totalSens; a.totalLat+=r.totalLat; a.totalMoist+=r.totalMoist;
     return a;
-  }, {solarW:0, peopleSens:0, equipSens:0, extraSens:0, totalSens:0, totalMoist:0});
+  }, {solarW:0, peopleSens:0, peopleLat:0, equipSens:0, equipLat:0, extraSens:0, extraLat:0, totalSens:0, totalLat:0, totalMoist:0});
 
   const winRows = document.querySelectorAll('.win-row').length;
   const idfWins = (typeof appMode!=='undefined' && appMode==='energyplus' && typeof epParse!=='undefined' && epParse)
@@ -393,7 +408,7 @@ function runAll(){
       solarWarn = '直達日射が0なのは、部屋カードに窓行が無いからです。'
         +(idfWins ? 'IDFには窓が '+idfWins+' 枚あります。IDFファイルを選び直してください。' : 'IDFを選ぶと南面などの窓が載ります。');
     }else{
-      solarWarn = '直達日射が0なのは、窓が真北向きか、この時刻の太陽の反対側を向いているからです。I_DN は '+idn.toFixed(0)+' W/m² あります。';
+      solarWarn = '直達日射が0なのは、この時刻の太陽に対して窓が反対側を向いているからです。I_DN は '+idn.toFixed(0)+' W/m² あります。';
     }
   }
   document.getElementById('grandTotalWrap').innerHTML =
@@ -401,32 +416,44 @@ function runAll(){
     '<div class="summary-grid">'+
       '<div class="stat"><div class="lbl">直達日射 合計</div><div class="val">'+grand.solarW.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">人体顕熱 合計</div><div class="val">'+grand.peopleSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat"><div class="lbl">人体潜熱 合計</div><div class="val">'+grand.peopleLat.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">機器顕熱 合計</div><div class="val">'+grand.equipSens.toFixed(0)+' W</div></div>'+
       '<div class="stat hl"><div class="lbl">全室 合計顕熱</div><div class="val">'+grand.totalSens.toFixed(0)+' W</div></div>'+
+      '<div class="stat hl"><div class="lbl">全室 合計潜熱</div><div class="val">'+grand.totalLat.toFixed(0)+' W</div></div>'+
       '<div class="stat hl"><div class="lbl">全室 合計発湿</div><div class="val">'+grand.totalMoist.toFixed(0)+' g/h</div></div>'+
     '</div>';
 
-  let rt = '<table><tr><th>室名</th><th>窓</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計発湿(g/h)</th></tr>';
+  let rt = '<table><tr><th>室名</th><th>窓</th><th>直達日射(W)</th><th>人体顕熱(W)</th><th>人体潜熱(W)</th><th>機器顕熱(W)</th><th>追加(W)</th><th>合計顕熱(W)</th><th>合計潜熱(W)</th><th>合計発湿(g/h)</th></tr>';
   results.forEach(r=>{
-    rt += '<tr><td>'+r.name+'</td><td>'+(r.winN||0)+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
+    rt += '<tr><td>'+r.name+'</td><td>'+(r.winN||0)+'</td><td>'+r.solarW.toFixed(1)+'</td><td>'+r.peopleSens.toFixed(1)+'</td><td>'+r.peopleLat.toFixed(1)+'</td><td>'+r.equipSens.toFixed(1)+'</td><td>'+r.extraSens.toFixed(1)+'</td><td>'+r.totalSens.toFixed(1)+'</td><td>'+r.totalLat.toFixed(1)+'</td><td>'+r.totalMoist.toFixed(1)+'</td></tr>';
   });
-  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+winRows+'</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
+  rt += '<tr style="font-weight:600; background:#F4F4F4;"><td>全室合計</td><td>'+winRows+'</td><td>'+grand.solarW.toFixed(1)+'</td><td>'+grand.peopleSens.toFixed(1)+'</td><td>'+grand.peopleLat.toFixed(1)+'</td><td>'+grand.equipSens.toFixed(1)+'</td><td>'+grand.extraSens.toFixed(1)+'</td><td>'+grand.totalSens.toFixed(1)+'</td><td>'+grand.totalLat.toFixed(1)+'</td><td>'+grand.totalMoist.toFixed(1)+'</td></tr></table>';
   document.getElementById('roomTableWrap').innerHTML = rt;
 
   if(roomChart) roomChart.destroy();
+  const roomChartSets = [
+    {label:'直達日射', data:results.map(r=>r.solarW), backgroundColor:'#F2A45C'},
+    {label:'人体顕熱', data:results.map(r=>r.peopleSens), backgroundColor:'#4FC4E4'},
+    {label:'人体潜熱', data:results.map(r=>r.peopleLat), backgroundColor:'#5B6FCF'},
+    {label:'機器顕熱', data:results.map(r=>r.equipSens), backgroundColor:'#ED6A47'}
+  ];
+  if(results.some(function(r){ return r.equipLat; })){
+    roomChartSets.push({label:'機器潜熱', data:results.map(r=>r.equipLat), backgroundColor:'#C45B8C'});
+  }
+  if(results.some(function(r){ return r.extraSens || r.extraLat; })){
+    roomChartSets.push({label:'追加顕熱', data:results.map(r=>r.extraSens), backgroundColor:'#9AA0A6'});
+  }
+  if(results.some(function(r){ return r.extraLat; })){
+    roomChartSets.push({label:'追加潜熱', data:results.map(r=>r.extraLat), backgroundColor:'#B8A078'});
+  }
   roomChart = new Chart(document.getElementById('roomChart'), {
     type:'bar',
     data:{
       labels: results.map(r=>r.name),
-      datasets:[
-        {label:'直達日射', data:results.map(r=>r.solarW), backgroundColor:'#F2A45C'},
-        {label:'人体顕熱', data:results.map(r=>r.peopleSens), backgroundColor:'#4FC4E4'},
-        {label:'機器顕熱', data:results.map(r=>r.equipSens), backgroundColor:'#ED6A47'},
-        {label:'追加', data:results.map(r=>r.extraSens), backgroundColor:'#9AA0A6'}
-      ]
+      datasets: roomChartSets
     },
     options:{responsive:true, maintainAspectRatio:false, animation:false,
-      scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'顕熱 (W)'}} }}
+      scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'顕熱・潜熱 (W)'}} }}
   });
   results.forEach(r=>{
     tr('2','発生エリア: '+r.name,'発熱量 [W]', r.totalSens.toFixed(1));

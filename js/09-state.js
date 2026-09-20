@@ -30,6 +30,7 @@ function loadModeState(mode){
 }
 function gatherState(){
   const s = {mode: appMode, inputs:{}, checks:{}, rooms:[],
+    atRoomReview: appMode==='architrend' && typeof atRoomReviewState==='function' ? atRoomReviewState() : null,
     atUnassigned: appMode==='architrend' ? atUnassignedWindows.slice() : [],
     atRoomCandidates: appMode==='architrend' ? atAssignableRooms.slice() : [],
     atNorthExcludedCount: appMode==='architrend' ? atNorthExcludedCount : 0,
@@ -52,7 +53,7 @@ function gatherState(){
       if(el) r.fields[cls] = el.value;
     });
     card.querySelectorAll('.win-row').forEach(w=>{
-      const win={};
+      const win={atMeshWindowIndex:w.dataset.atMeshWindowIndex||''};
       ['wName','wAz','glassSel','attachSel','wEta','wArea','wU'].forEach(cls=>{
         const el = w.querySelector('.'+cls);
         if(el) win[cls] = el.value;
@@ -72,6 +73,7 @@ function migrateSslMatDefaults(inputs){
 }
 function applyState(s){
   if(!s) return;
+  if(typeof atRestoreRoomReviewState==='function' && s.mode==='architrend') atRestoreRoomReviewState(s.atRoomReview);
   migrateSslMatDefaults(s.inputs);
   for(const id in (s.inputs||{})){
     if(id==='winGlass') continue; // winFrame復元後に選択肢を再構築してから反映する
