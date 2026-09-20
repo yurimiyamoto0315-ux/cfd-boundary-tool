@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boundary Conditions — FlowDesigner</title>
+<title>境界条件ツール — FlowDesigner</title>
 <link rel="icon" href="./favicon.ico" sizes="32x32">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
-<meta property="og:title" content="Boundary Conditions — FlowDesigner">
+<meta property="og:title" content="境界条件ツール — FlowDesigner">
 <meta property="og:image" content="./apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260920k">
+<link rel="stylesheet" href="style.css?v=20260920m">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -26,73 +26,73 @@
   <a class="header-name" href="#common">
     <img class="h-icon" src="./cfd-header-icon.svg" alt="">
     <span class="header-title">
-      <span class="header-kicker">FlowDesigner Add-in</span>
-      <strong>Boundary Conditions</strong>
-      <span class="header-sub">Steady-State Cooling Load</span>
+      <span class="header-kicker">FlowDesigner 連携</span>
+      <strong>境界条件ツール</strong>
+      <span class="header-sub">定常冷房の負荷設定</span>
     </span>
   </a>
   <div class="header-utils">
     <div class="header-status">
-      <span id="modeInfo" class="visually-hidden">Mode unset</span>
+      <span id="modeInfo" class="visually-hidden">モード未選択</span>
       <span class="status-dot" aria-hidden="true"></span>
       <span id="saveInfo">入力内容はこのブラウザに自動保存されます</span>
     </div>
     <div class="header-actions">
-      <button type="button" onclick="exportJSON()">Export JSON</button>
-      <button type="button" onclick="document.getElementById('importFile').click()">Import</button>
-      <button type="button" onclick="resetAll()">Reset</button>
+      <button type="button" onclick="exportJSON()">JSON書き出し</button>
+      <button type="button" onclick="document.getElementById('importFile').click()">読み込み</button>
+      <button type="button" onclick="resetAll()">リセット</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
     </div>
   </div>
 </header>
-<div class="mode-tabs" id="modeTabs" role="tablist" aria-label="Input mode">
-  <button type="button" role="tab" class="is-current" data-mode="manual" aria-selected="true" tabindex="0"><span class="tab-idx">01</span><span class="tab-label">Manual</span></button>
-  <button type="button" role="tab" data-mode="architrend" aria-selected="false" tabindex="-1"><span class="tab-idx">02</span><span class="tab-label">Architrend</span></button>
+<div class="mode-tabs" id="modeTabs" role="tablist" aria-label="入力モード">
+  <button type="button" role="tab" class="is-current" data-mode="manual" aria-selected="true" tabindex="0"><span class="tab-idx">01</span><span class="tab-label">手動入力</span></button>
+  <button type="button" role="tab" data-mode="architrend" aria-selected="false" tabindex="-1"><span class="tab-idx">02</span><span class="tab-label">アーキトレンド</span></button>
   <button type="button" role="tab" data-mode="energyplus" aria-selected="false" tabindex="-1"><span class="tab-idx">03</span><span class="tab-label">EnergyPlus</span></button>
   <span id="atRemainInfo" class="mode-tabs-remain" style="display:none; color:var(--chrome-hot);"></span>
 </div>
 </div>
 
 <div id="navBackdrop" class="nav-backdrop"></div>
-<nav class="toc" id="sidenav" aria-label="Stages">
-  <p class="toc-group">Input</p>
+<nav class="toc" id="sidenav" aria-label="段階">
+  <p class="toc-group">入力</p>
   <a href="#common">
-    <span class="toc-en">Common</span>
     <span class="toc-jp">日時・気象</span>
+    <span class="toc-en">Common</span>
   </a>
   <a href="#step1">
-    <span class="toc-en">01 Insulation / SAT <span class="st" id="st1">未</span></span>
-    <span class="toc-jp">断熱性能</span>
+    <span class="toc-jp">01 断熱性能 <span class="st" id="st1">未</span></span>
+    <span class="toc-en">Insulation / SAT</span>
   </a>
   <a href="#step2">
-    <span class="toc-en">02 Internal Gains <span class="st" id="st2">未</span></span>
-    <span class="toc-jp">内部発熱・日射</span>
+    <span class="toc-jp">02 内部発熱・日射 <span class="st" id="st2">未</span></span>
+    <span class="toc-en">Internal Gains</span>
   </a>
   <a href="#step3">
-    <span class="toc-en">03 Air Conditioner <span class="st" id="st3">未</span></span>
-    <span class="toc-jp">エアコン</span>
+    <span class="toc-jp">03 エアコン <span class="st" id="st3">未</span></span>
+    <span class="toc-en">Air Conditioner</span>
   </a>
-  <p class="toc-group">Export</p>
+  <p class="toc-group">書き出し</p>
   <a href="#idfmesh" class="toc-ssl">
-    <span class="toc-en">3DS Model</span>
     <span class="toc-jp">色分けモデル</span>
+    <span class="toc-en">3DS Model</span>
   </a>
   <a href="#ssl" class="toc-ssl">
-    <span class="toc-en">SSL Export</span>
     <span class="toc-jp">一括反映</span>
+    <span class="toc-en">SSL Export</span>
   </a>
-  <p class="toc-group">Run</p>
+  <p class="toc-group">解析</p>
   <a href="#step4">
-    <span class="toc-en">04 Solver Setup <span class="st" id="st4">未</span></span>
-    <span class="toc-jp">解析設定</span>
+    <span class="toc-jp">04 解析設定 <span class="st" id="st4">未</span></span>
+    <span class="toc-en">Solver Setup</span>
   </a>
   <a href="#step5">
-    <span class="toc-en">05 Run <span class="st" id="st5">未</span></span>
-    <span class="toc-jp">解析実行</span>
+    <span class="toc-jp">05 解析実行 <span class="st" id="st5">未</span></span>
+    <span class="toc-en">Run</span>
   </a>
   <a href="#transfer">
-    <span class="toc-en">Transfer List</span>
     <span class="toc-jp">手コピー用</span>
+    <span class="toc-en">Transfer List</span>
   </a>
 </nav>
 
@@ -163,8 +163,8 @@
 <!-- ================= 共通条件 ================= -->
 <h2 id="common">
   <span class="h2-text">
-    <span class="h2-en">Common</span>
     <span class="h2-jp">日時・気象・室内設定</span>
+    <span class="h2-en">Common</span>
   </span>
 </h2>
 <div class="stage-split">
@@ -265,7 +265,7 @@
 </div>
 
 <!-- ================= STEP 1 ================= -->
-<h2 id="step1"><span class="stepnum">01</span><span class="h2-text"><span class="h2-en">Insulation / SAT</span><span class="h2-jp">断熱性能と相当外気温度</span></span><label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
+<h2 id="step1"><span class="stepnum">01</span><span class="h2-text"><span class="h2-jp">断熱性能と相当外気温度</span><span class="h2-en">Insulation / SAT</span></span><label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
 
 <div class="stage-split">
 <aside class="stage-guide">
@@ -538,7 +538,7 @@
 </div>
 
 <!-- ================= STEP 2 ================= -->
-<h2 id="step2"><span class="stepnum">02</span><span class="h2-text"><span class="h2-en">Internal Gains</span><span class="h2-jp">内部発熱と直達日射（部屋ごとの発生エリア）</span></span><label class="done-label"><input type="checkbox" id="done2">このステップ完了</label></h2>
+<h2 id="step2"><span class="stepnum">02</span><span class="h2-text"><span class="h2-jp">内部発熱と直達日射（部屋ごとの発生エリア）</span><span class="h2-en">Internal Gains</span></span><label class="done-label"><input type="checkbox" id="done2">このステップ完了</label></h2>
 
 <div class="stage-split">
 <aside class="stage-guide">
@@ -737,7 +737,7 @@
 </div>
 
 <!-- ================= STEP 3 ================= -->
-<h2 id="step3"><span class="stepnum">03</span><span class="h2-text"><span class="h2-en">Air Conditioner</span><span class="h2-jp">エアコンの設定</span></span><label class="done-label"><input type="checkbox" id="done3">このステップ完了</label></h2>
+<h2 id="step3"><span class="stepnum">03</span><span class="h2-text"><span class="h2-jp">エアコンの設定</span><span class="h2-en">Air Conditioner</span></span><label class="done-label"><input type="checkbox" id="done3">このステップ完了</label></h2>
 
 <div class="stage-split">
 <aside class="stage-guide">
@@ -891,7 +891,7 @@
 </div>
 
 <!-- ================= 色分け3DS ================= -->
-<h2 id="idfmesh" class="ssl-head"><span class="stepnum">3DS</span><span class="h2-text"><span class="h2-en">3DS Model</span><span class="h2-jp">色分けモデルを書き出す</span></span></h2>
+<h2 id="idfmesh" class="ssl-head"><span class="stepnum">3DS</span><span class="h2-text"><span class="h2-jp">色分けモデルを書き出す</span><span class="h2-en">3DS Model</span></span></h2>
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · 色分けモデル</div>
@@ -925,7 +925,7 @@
 </div>
 
 <!-- ================= SSL連携 ================= -->
-<h2 id="ssl" class="ssl-head"><span class="stepnum">SSL</span><span class="h2-text"><span class="h2-en">SSL Export</span><span class="h2-jp">境界条件を一括反映する</span></span></h2>
+<h2 id="ssl" class="ssl-head"><span class="stepnum">SSL</span><span class="h2-text"><span class="h2-jp">境界条件を一括反映する</span><span class="h2-en">SSL Export</span></span></h2>
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · SSL 一括反映</div>
@@ -996,7 +996,7 @@
 </div>
 
 <!-- ================= STEP 4 ================= -->
-<h2 id="step4"><span class="stepnum">04</span><span class="h2-text"><span class="h2-en">Solver Setup</span><span class="h2-jp">解析設定の確認</span></span><label class="done-label"><input type="checkbox" id="done4">このステップ完了</label></h2>
+<h2 id="step4"><span class="stepnum">04</span><span class="h2-text"><span class="h2-jp">解析設定の確認</span><span class="h2-en">Solver Setup</span></span><label class="done-label"><input type="checkbox" id="done4">このステップ完了</label></h2>
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · Step 4 解析設定</div>
@@ -1040,7 +1040,7 @@
 </div>
 
 <!-- ================= STEP 5 ================= -->
-<h2 id="step5"><span class="stepnum">05</span><span class="h2-text"><span class="h2-en">Run</span><span class="h2-jp">解析を実行する</span></span><label class="done-label"><input type="checkbox" id="done5">このステップ完了</label></h2>
+<h2 id="step5"><span class="stepnum">05</span><span class="h2-text"><span class="h2-jp">解析を実行する</span><span class="h2-en">Run</span></span><label class="done-label"><input type="checkbox" id="done5">このステップ完了</label></h2>
 <div class="stage-split">
 <aside class="stage-guide">
   <div class="guide-now">いま · Step 5 解析実行</div>
@@ -1060,8 +1060,8 @@
 <!-- ================= 転記一覧 ================= -->
 <h2 id="transfer">
   <span class="h2-text">
-    <span class="h2-en">Transfer List</span>
     <span class="h2-jp">手コピー用・SSLが使えないとき</span>
+    <span class="h2-en">Transfer List</span>
   </span>
 </h2>
 <div class="stage-split">
@@ -1076,7 +1076,7 @@
 </div>
 
 <footer>
-  <b>SOURCES</b><br>
+  <b>出典</b><br>
   SAT計算: sat_calculator.html / 内部発熱: internal_heat_load_calculator.html /
   疑似厚み・必要処理熱量・風量: 境界条件設定_窓修正.xlsx (Z-Tシリーズ実測) /
   ドア隙間開口率: 隙間モデル化ケース④ (上辺・UC開口率不均一)<br>
@@ -1095,14 +1095,14 @@
 <script src="js/07-external-api.js?v=20260920f"></script>
 <script src="js/08-presets.js?v=20260920f"></script>
 <script src="js/09-state.js?v=20260920f"></script>
-<script src="js/10-architrend.js?v=20260920i"></script>
+<script src="js/10-architrend.js?v=20260920j"></script>
 <script src="js/12-energyplus.js?v=20260920k"></script>
 <script src="js/13-ssl-export.js?v=20260920n"></script>
 <script src="js/14-idf-mesh.js?v=20260920p"></script>
 <script src="js/16-at-3ds.js?v=20260920k"></script>
 <script src="js/17-at-rooms.js?v=20260920k"></script>
 <script src="js/19-at-stairs.js?v=20260920c"></script>
-<script src="js/18-at-room-viewer.js?v=20260920k"></script>
+<script src="js/18-at-room-viewer.js?v=20260920m"></script>
 <script src="js/11-init.js?v=20260920f"></script>
 </body>
 </html>

@@ -32,7 +32,7 @@ function selectMode(next){
 
 function setModeUI(mode){
   appMode = mode;
-  const modeLabel = mode==='architrend' ? 'MODE: ARCHITREND' : (mode==='energyplus' ? 'MODE: ENERGYPLUS' : 'MODE: MANUAL');
+  const modeLabel = mode==='architrend' ? 'モード: アーキトレンド' : (mode==='energyplus' ? 'モード: EnergyPlus' : 'モード: 手動入力');
   const modeInfo = document.getElementById('modeInfo');
   if(modeInfo) modeInfo.textContent = modeLabel;
   document.querySelectorAll('#modeTabs [data-mode]').forEach(btn=>{

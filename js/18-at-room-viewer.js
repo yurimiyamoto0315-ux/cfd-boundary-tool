@@ -298,7 +298,7 @@ function atRenderRoomViewer(){
   const livingVolume=typeof atMeshLivingVolume==='function'?atMeshLivingVolume(atMesh):0;
   const esc=escapeHtml;
   host.innerHTML=`
-    <div class="at-rv-heading"><div><span class="at-rv-eyebrow">ROOM REVIEW</span><h3>部屋の位置と名前を確認</h3></div>
+    <div class="at-rv-heading"><div><span class="at-rv-eyebrow">部屋の確認</span><h3>部屋の位置と名前を確認</h3></div>
       <div class="at-rv-metrics"><span class="at-rv-progress">確認済み ${checked} / ${rooms.length} 区画</span><span class="at-rv-volume">居室体積 ${livingVolume.toFixed(1)} m³</span></div></div>
     <p class="small">色の付いた床または一覧を選択 → 部屋名を修正 → 確定。破線は未確認です。収納・トイレ・未割当も表示します。階段は真上から中心線を引き、踏面と蹴上げが壁間に隙間なく並びます。</p>
     <div class="at-rv-toolbar" role="group" aria-label="表示する階">
