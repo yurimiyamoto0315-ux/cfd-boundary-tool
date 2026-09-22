@@ -527,7 +527,7 @@ function at3dsSnapHorizZToWalls(faces, tol){
     else uniq[uniq.length-1]=(uniq[uniq.length-1]+z)/2;
   });
   faces.forEach(function(f){
-    if(f.sslKey!=='floor1' && !(f.sslKey==='innerwall' && (f.nameJa==='内床' || f.nameJa==='天井'))) return;
+    if(f.sslKey!=='floor1' && f.sslKey!=='floor_out' && !(f.sslKey==='innerwall' && (f.nameJa==='内床' || f.nameJa==='天井'))) return;
     const vs=f.vertsMm||[];
     if(!vs.length) return;
     const med=at3dsMedian(vs.map(function(v){ return v.z; }));
