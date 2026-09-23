@@ -14,7 +14,7 @@ const AT_PART_CHILD_KEYS={
 };
 const atParts={items:[], overrides:{}, selected:'', selectedFace:'', mode:'select', doorKind:'door',
   templates:{}, acTemplates:{}, loadError:'', loadPromise:null, drag:null, seq:0, managedAc:false,
-  pendingAc:null, lastBlowDir:'水平'};
+  pendingAc:null, pendingAcId:'', lastBlowDir:'水平'};
 
 function atPartMatrix(text){
   const v=String(text||'').split(',').map(Number);
@@ -473,15 +473,21 @@ function atPartSceneHtml(rooms,project){
         html+=`<polygon points="${pts.map(q=>q.x.toFixed(1)+','+q.y.toFixed(1)).join(' ')}" fill="${color}" fill-opacity="0.76" stroke="#8b3820" stroke-width="1"/>`;
       });
     }
-    html+=`<circle cx="${p.x}" cy="${p.y}" r="${atParts.selected===it.id?9:6}" fill="${color}" stroke="white" stroke-width="2"/><text x="${p.x+10}" y="${p.y-10}" class="at-part-label">${escapeHtml(label)}</text><g data-part-delete="${it.id}" class="at-part-delete" role="button" tabindex="0" aria-label="${escapeHtml(label)}を削除"><circle cx="${p.x+16}" cy="${p.y+16}" r="10"/><path d="M${p.x+12} ${p.y+12}l8 8m0-8l-8 8"/><title>${escapeHtml(label)}を削除</title></g><title>${escapeHtml(label)} ${it.floor}F</title></g>`;
+    html+=`<circle cx="${p.x}" cy="${p.y}" r="${atParts.selected===it.id?9:6}" fill="${color}" stroke="white" stroke-width="2"/><text x="${p.x+10}" y="${p.y-10}" class="at-part-label">${escapeHtml(label)}</text>`;
+    if(it.kind==='ac'){
+      const dir=atPartAcDir(it), dx=p.x-28, dy=p.y+16;
+      html+=`<g data-part-dir="${it.id}" class="at-part-dir" role="button" tabindex="0" aria-label="風向 ${escapeHtml(dir)} を変更"><rect x="${(dx-22).toFixed(1)}" y="${(dy-11).toFixed(1)}" width="44" height="22" rx="11"/><text x="${dx.toFixed(1)}" y="${(dy+4).toFixed(1)}">${escapeHtml(dir)}</text><title>風向 ${escapeHtml(dir)} · クリックで変更</title></g>`;
+    }
+    html+=`<g data-part-delete="${it.id}" class="at-part-delete" role="button" tabindex="0" aria-label="${escapeHtml(label)}を削除"><circle cx="${p.x+16}" cy="${p.y+16}" r="10"/><path d="M${p.x+12} ${p.y+12}l8 8m0-8l-8 8"/><title>${escapeHtml(label)}を削除</title></g><title>${escapeHtml(label)} ${it.floor}F</title></g>`;
   });
   return `<g class="at-part-overlay"><defs><marker id="atAcSupplyArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#cf3427"/></marker></defs>${html}</g>`;
 }
 function atPartPointerDown(e,svg){
-  const del=e.target.closest('[data-part-delete]'),part=e.target.closest('[data-part-id]'),face=e.target.closest('[data-face-id]');
-  if(!del&&!part&&!face&&(atParts.mode==='select'||!atRoomView.plan)) return false;
-  atParts.drag={deleteId:del?.dataset.partDelete||'',partId:part?.dataset.partId||'',faceId:face?.dataset.faceId||'',
-    place:!del&&!part&&!face&&atParts.mode!=='select',x:e.clientX,y:e.clientY,moved:false,snapshot:false};
+  const dir=e.target.closest('[data-part-dir]'),del=e.target.closest('[data-part-delete]'),part=e.target.closest('[data-part-id]'),face=e.target.closest('[data-face-id]');
+  if(!dir&&!del&&!part&&!face&&(atParts.mode==='select'||!atRoomView.plan)) return false;
+  atParts.drag={dirId:dir?.dataset.partDir||'',deleteId:del?.dataset.partDelete||'',
+    partId:(!dir&&!del&&part)?part.dataset.partId:'',faceId:face?.dataset.faceId||'',
+    place:!dir&&!del&&!part&&!face&&atParts.mode!=='select',x:e.clientX,y:e.clientY,moved:false,snapshot:false};
   svg.setPointerCapture(e.pointerId);
   return true;
 }
@@ -489,7 +495,7 @@ function atPartPointerMove(e,svg){
   const d=atParts.drag;
   if(!d) return false;
   if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>4) d.moved=true;
-  if(d.deleteId) return true;
+  if(d.deleteId || d.dirId) return true;
   if(d.partId&&d.moved&&atRoomView.plan){
     const it=atParts.items.find(p=>p.id===d.partId);
     if(!it) return true;
@@ -509,6 +515,7 @@ function atPartPointerUp(e,svg){
   if(!d) return false;
   atParts.drag=null;
   if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+  if(d.dirId){if(!d.moved)atPartAskBlowDirEdit(d.dirId);return true;}
   if(d.deleteId){if(!d.moved)atPartRemove(d.deleteId);return true;}
   if(d.partId){atParts.selected=d.partId;atParts.mode='select';if(d.snapshot)atPartChanged();else atRenderRoomViewer();return true;}
   if(d.faceId){atParts.selectedFace=d.faceId;atParts.mode='select';atRenderRoomViewer();return true;}
@@ -538,6 +545,15 @@ function atPartPointerUp(e,svg){
 
 function atPartAskBlowDir(floor,x,y){
   atParts.pendingAc={floor,x,y};
+  atParts.pendingAcId='';
+  atPartShowBlowDirDialog();
+}
+function atPartAskBlowDirEdit(id){
+  const it=atParts.items.find(p=>p.id===id);
+  if(!it||it.kind!=='ac') return;
+  atParts.pendingAc=null;
+  atParts.pendingAcId=id;
+  atParts.selected=id;
   atPartShowBlowDirDialog();
 }
 function atPartBlowDirHint(dir){
@@ -555,7 +571,7 @@ function atPartShowBlowDirDialog(){
     overlay.hidden=true;
     overlay.innerHTML=`<div class="at-ac-dir-panel" role="dialog" aria-modal="true" aria-labelledby="atAcDirTitle">
       <h3 id="atAcDirTitle">エアコンの風向</h3>
-      <p class="small">吹き出し方向で形状と処理熱量の風量が決まります。あとから一覧でも変えられます。</p>
+      <p class="small">吹き出し方向で処理熱量の風量が決まります。平面図のエアコン横の風向表示からも変えられます。</p>
       <div class="at-ac-dir-choices">${AT_AC_DIRS.map(d=>`<button type="button" data-ac-dir="${d}"><b>${d}</b><span>${atPartBlowDirHint(d)}</span></button>`).join('')}</div>
       <button type="button" class="at-ac-dir-cancel" data-ac-dir-cancel>キャンセル</button>
     </div>`;
@@ -567,7 +583,8 @@ function atPartShowBlowDirDialog(){
     document.body.appendChild(overlay);
   }
   overlay.hidden=false;
-  const pick=atParts.lastBlowDir||'水平';
+  const edit=atParts.items.find(p=>p.id===atParts.pendingAcId);
+  const pick=edit?atPartAcDir(edit):(atParts.lastBlowDir||'水平');
   const buttons=[...overlay.querySelectorAll('[data-ac-dir]')];
   buttons.forEach(b=>b.setAttribute('aria-pressed', b.dataset.acDir===pick?'true':'false'));
   const btn=buttons.find(b=>b.dataset.acDir===pick)||buttons[0];
@@ -578,18 +595,20 @@ function atPartHideBlowDirDialog(){
   if(overlay) overlay.hidden=true;
 }
 function atPartConfirmPendingAc(dir){
-  const pending=atParts.pendingAc;
+  const pending=atParts.pendingAc, editId=atParts.pendingAcId;
   atParts.pendingAc=null;
+  atParts.pendingAcId='';
   atPartHideBlowDirDialog();
   if(!AT_AC_DIRS.includes(dir)) return;
   atParts.lastBlowDir=dir;
-  if(!pending) return;
-  atPartAdd('ac',pending.floor,pending.x,pending.y,{blowDir:dir});
+  if(editId){atPartSetBlowDir(editId,dir);return;}
+  if(pending) atPartAdd('ac',pending.floor,pending.x,pending.y,{blowDir:dir});
 }
 function atPartCancelPendingAc(){
   const overlay=document.getElementById('atAcDirDialog');
-  const open=!!(overlay&&!overlay.hidden)||!!atParts.pendingAc;
+  const open=!!(overlay&&!overlay.hidden)||!!atParts.pendingAc||!!atParts.pendingAcId;
   atParts.pendingAc=null;
+  atParts.pendingAcId='';
   atPartHideBlowDirDialog();
   return open;
 }

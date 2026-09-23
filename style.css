@@ -592,6 +592,10 @@
 .at-part-delete path{fill:none;stroke:rgba(55,65,70,.72);stroke-width:1.8;stroke-linecap:round}
 .at-part-delete:hover circle,.at-part-delete:focus circle{fill:rgba(105,115,118,.38);stroke:rgba(55,65,70,.75)}
 .at-part-delete:hover path,.at-part-delete:focus path{stroke:#374146}
+.at-part-dir{cursor:pointer}
+.at-part-dir rect{fill:rgba(40,79,156,.16);stroke:rgba(21,51,106,.55);stroke-width:1.4}
+.at-part-dir text{font-size:11px;font-weight:800;fill:#15336a;text-anchor:middle;paint-order:stroke;stroke:#fff;stroke-width:3px;pointer-events:none}
+.at-part-dir:hover rect,.at-part-dir:focus rect{fill:rgba(40,79,156,.32);stroke:#15336a}
 .at-ac-dir-overlay{position:fixed;inset:0;z-index:80;background:rgba(28,36,32,.45);display:flex;align-items:center;justify-content:center;padding:24px}
 .at-ac-dir-overlay[hidden]{display:none!important}
 .at-ac-dir-panel{background:#fff;border:1px solid #d8e1dd;border-radius:12px;padding:22px 24px 18px;max-width:520px;width:100%;box-shadow:0 18px 50px rgba(20,40,30,.22)}

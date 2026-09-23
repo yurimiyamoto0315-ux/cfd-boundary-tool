@@ -612,7 +612,12 @@ function atBindRoomScene(){
   };
   svg.onpointercancel=()=>{ atRoomView.drag=null; if(typeof atParts!=='undefined') atParts.drag=null; };
   svg.onkeydown=e=>{
+    const dir=e.target.closest('[data-part-dir]');
     const del=e.target.closest('[data-part-delete]');
+    if(dir&&(e.key==='Enter'||e.key===' ')){
+      e.preventDefault();
+      if(typeof atPartAskBlowDirEdit==='function') atPartAskBlowDirEdit(dir.dataset.partDir);
+    }
     if(del&&(e.key==='Enter'||e.key===' ')){
       e.preventDefault();
       atPartRemove(del.dataset.partDelete);
