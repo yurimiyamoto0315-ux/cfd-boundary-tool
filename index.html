@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260922o">
+<link rel="stylesheet" href="style.css?v=20260923g">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -790,8 +790,10 @@
     <div style="align-self:end;" class="small" id="acRatedInfo"></div>
   </div>
   <h3>3-2 風向・風量の選択 (Z-Tシリーズ実測ベース)</h3>
+  <p class="small" style="margin:-6px 0 10px;">Architrendではエアコンを置くときに風向（水平 / 30° / 50°）を選びます。ここでの風向は手動入力時、または未配置のときの初期値です。</p>
   <div class="row4">
-    <div><label>風向</label><select id="dirSel"><option value="水平">水平</option><option value="50°">50° (ノッチ3)</option><option value="30°">30°</option></select></div>
+    <div><label>風向</label><select id="dirSel"><option value="水平">水平</option><option value="50°">50° (ノッチ3)</option><option value="30°">30°</option></select>
+      <p class="small" id="dirSelNote" hidden></p></div>
     <div><label>風量ノッチ</label><select id="volSel"><option value="強">強風</option><option value="弱">弱風</option><option value="微">微風</option></select></div>
     <div><label>風量/台 (㎥/h) ※編集可</label><input type="number" id="flowPerUnit" value="608" step="1"></div>
     <div style="align-self:end;" class="small" id="flowInfo"></div>
@@ -897,7 +899,7 @@
     <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。合体概形の左下が原点。右の「解析領域」の数値をそのまま入れる</span></div>
     <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
   </div>
-  <p class="small">エアコン吹出・ドア隙間は元モデルに無いので 3DS には入りません。FD 上で置いてから SSL で条件を割り当てます。Architrend で内壁・天井が出ていれば色分けモデルに残します。階間床が無いファイルだけ、1F外形から室内2F床を補います。</p>
+  <p class="small">Architrend の3Dビューワーで配置したエアコン・ドアは家モデルの3DSに含まれます。吹出・吸込・ドア隙間の条件は、FDへ取り込んだ後にSSL一括反映で設定します。</p>
 </aside>
 <div class="stage-work">
 <div class="ssl-banner" id="idfMeshBanner">
@@ -1083,21 +1085,23 @@
 <script src="js/01-constants.js?v=20260920n"></script>
 <script src="js/02-solar.js?v=20260920f"></script>
 <script src="js/03-utils.js?v=20260920f"></script>
-<script src="js/04-rooms.js?v=20260920g"></script>
+<script src="js/04-rooms.js?v=20260923a"></script>
 <script src="js/05-ac.js?v=20260920f"></script>
 <script src="js/15-sat-etd.js?v=20260920f"></script>
-<script src="js/06-run-all.js?v=20260920k"></script>
+<script src="js/06-run-all.js?v=20260923b"></script>
 <script src="js/07-external-api.js?v=20260920f"></script>
-<script src="js/08-presets.js?v=20260920f"></script>
-<script src="js/09-state.js?v=20260920f"></script>
-<script src="js/10-architrend.js?v=20260920j"></script>
+<script src="js/08-presets.js?v=20260923a"></script>
+<script src="js/09-state.js?v=20260923a"></script>
+<script src="js/10-architrend.js?v=20260923a"></script>
 <script src="js/12-energyplus.js?v=20260920k"></script>
 <script src="js/13-ssl-export.js?v=20260920n"></script>
-<script src="js/14-idf-mesh.js?v=20260920p"></script>
-<script src="js/16-at-3ds.js?v=20260920k"></script>
+<script src="js/14-idf-mesh.js?v=20260923c"></script>
+<script src="js/16-at-3ds.js?v=20260923b"></script>
 <script src="js/17-at-rooms.js?v=20260920k"></script>
-<script src="js/19-at-stairs.js?v=20260920c"></script>
-<script src="js/18-at-room-viewer.js?v=20260920m"></script>
-<script src="js/11-init.js?v=20260920f"></script>
+<script src="js/19-at-stairs.js?v=20260923a"></script>
+<script src="js/18-at-room-viewer.js?v=20260923d"></script>
+<script src="js/19-at-fdd-templates.js?v=20260923c"></script>
+<script src="js/20-at-parts.js?v=20260923f"></script>
+<script src="js/11-init.js?v=20260923a"></script>
 </body>
 </html>

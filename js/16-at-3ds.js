@@ -833,6 +833,23 @@ function at3dsClassify(objects){
     face.verts=at3dsToMeters(face.vertsMm);
     delete face.vertsMm;
   });
+  // Geometry-based IDs survive changes in face iteration order. The source
+  // model SHA-256 is checked separately before saved overrides are restored.
+  const faceIds={};
+  faces.forEach(function(face){
+    const coords=(face.verts||[]).map(function(v){
+      return [v.x,v.y,v.z].map(function(n){ return Math.round(n*1000); }).join(',');
+    }).sort().join(';');
+    const identity=(face.idfName||'')+'|'+(face.mat||'')+'|'+coords;
+    let hash=2166136261;
+    for(let i=0;i<identity.length;i++){
+      hash^=identity.charCodeAt(i);
+      hash=Math.imul(hash,16777619);
+    }
+    const base=(hash>>>0).toString(36);
+    faceIds[base]=(faceIds[base]||0)+1;
+    face.atFaceId=base+(faceIds[base]>1?'-'+faceIds[base]:'');
+  });
   return {
     meshFaces:faces,
     stats:{

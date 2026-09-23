@@ -84,6 +84,7 @@ function addWindow(roomId, defaults){
   div.className='win-row';
   div.id = wid;
   if(defaults && defaults.atMeshWindowIndex!=null) div.dataset.atMeshWindowIndex=String(defaults.atMeshWindowIndex);
+  if(defaults && defaults.atFaceId!=null) div.dataset.atFaceId=String(defaults.atFaceId);
   let glassOpts = etaTable.map((g,i)=>'<option value="'+i+'">'+g.label+'</option>').join('');
   let attachOpts = attachTable.map((a,i)=>'<option value="'+i+'">'+a+'</option>').join('');
   div.innerHTML =
@@ -100,7 +101,7 @@ function addWindow(roomId, defaults){
   document.getElementById(roomId).querySelector('.winList').appendChild(div);
   if(defaults){
     for(const cls in defaults){
-      if(cls==='skipRerun' || cls==='atMeshWindowIndex') continue;
+      if(cls==='skipRerun' || cls==='atMeshWindowIndex' || cls==='atFaceId') continue;
       const el = div.querySelector('.'+cls);
       if(el) el.value = defaults[cls];
     }

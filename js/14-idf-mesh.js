@@ -1,6 +1,6 @@
 // ========================= IDF → 色分け 3DS 書き出し =========================
 // EnergyPlus の meshFaces (12-energyplus.js) から厚みなしポリゴンの 3DS を作る。
-// 窓は親壁と同一平面にぴったり重ねる（色で識別）。単位は mm。
+// 窓は親壁と同一平面にぴったり重ねる（色で識別）。出力単位は m。
 // 家・埋メ・発熱は同じオフセットで出し、合体概形 AABB の最小XYZ（左下）を原点にする。
 
 const IDF_MESH_PALETTE = {
@@ -20,6 +20,11 @@ const IDF_MESH_PALETTE = {
   innerwall: {r:180, g:180, b:180, mat:'INNER'},
   window: {r:80, g:180, b:220, mat:'WINDOW'},
   doorbody: {r:255, g:96, b:24, mat:'DOOR'},
+  doorgap_top: {r:98, g:164, b:70, mat:'DOOR_TOP'},
+  doorgap_uc: {r:0, g:128, b:128, mat:'DOOR_UC'},
+  ac_body: {r:128, g:128, b:128, mat:'AC_BODY'},
+  ac_supply: {r:0, g:60, b:255, mat:'AC_SUPPLY'},
+  ac_return: {r:29, g:109, b:53, mat:'AC_RETURN'},
   fill_solid: (typeof FILL_SOLID_COLOR!=='undefined') ? FILL_SOLID_COLOR : {r:61, g:61, b:61, mat:'FILL'},
   stair_solid: {r:150, g:118, b:72, mat:'STAIR'}
 };
@@ -480,15 +485,32 @@ function idfMeshPack3ds(usedMats, objects){
   const version=idfMeshChunk(0x0002, idfMeshU32(3));
   return new Uint8Array(idfMeshChunk(0x4D4D, idfMeshConcat([version, idfMeshChunk(0x3D3D, mdata)])));
 }
+function idfMeshAcBodySolidsMm(){
+  const out=[];
+  if(typeof atPartMeshesMm!=='function') return out;
+  atPartMeshesMm().forEach(function(mesh){
+    if(!mesh || mesh.key!=='ac_body' || !(mesh.verts||[]).length) return;
+    const faces=(mesh.tris||[]).map(function(t){
+      return {verts:[mesh.verts[t[0]], mesh.verts[t[1]], mesh.verts[t[2]]].filter(Boolean)};
+    });
+    const solid=idfMeshAabbPrismFromFacesMm([{verts:mesh.verts}]) || idfMeshWeldSolidFromFacesMm(faces);
+    if(solid && solid.verts && solid.verts.length>=8 && solid.tris && solid.tris.length){
+      out.push({solid:solid, src:mesh});
+    }
+  });
+  return out;
+}
 function buildIdfFillExport(){
   if(!idfMeshReady()) return null;
   const built=idfMeshBuildFillPrisms();
-  if(!built || !built.prisms.length) return null;
+  const acSolids=idfMeshAcBodySolidsMm();
+  if((!built || !built.prisms.length) && !acSolids.length) return null;
   const pal=IDF_MESH_PALETTE.fill_solid;
+  const acPal=IDF_MESH_PALETTE.ac_body;
   const objects=[];
   const rows=[];
   const origin=idfMeshOriginShiftMm();
-  built.prisms.forEach(function(mesh, idx){
+  (built && built.prisms || []).forEach(function(mesh, idx){
     const name='FILL'+String(idx+1).padStart(2,'0');
     const named=idfMeshNameZ(name);
     objects.push(idfMeshNamedMesh(named.bytes, idfMeshShiftVerts(mesh.verts, origin), mesh.tris, pal.mat));
@@ -502,15 +524,33 @@ function buildIdfFillExport(){
       rgb:pal.r+' '+pal.g+' '+pal.b
     });
   });
+  acSolids.forEach(function(item){
+    const mesh=item.src;
+    const code='AC';
+    const name=code+String(Number(String(mesh.id).replace(/\D/g,''))||0).padStart(3,'0')+'B';
+    const named=idfMeshNameZ(name);
+    objects.push(idfMeshNamedMesh(named.bytes, idfMeshShiftVerts(item.solid.verts, origin), item.solid.tris, acPal.mat));
+    rows.push({
+      tds:name,
+      nameJa:mesh.name||'エアコン本体',
+      idfName:mesh.id,
+      zone:(mesh.floor||'')+'F',
+      sslKey:'ac_body',
+      u:'',
+      rgb:acPal.r+' '+acPal.g+' '+acPal.b
+    });
+  });
   const mats={};
   mats[pal.mat]=pal;
+  if(acSolids.length) mats[acPal.mat]=acPal;
   return {
     bytes:idfMeshPack3ds(mats, objects),
     rows:rows,
-    zTop:built.zTop,
-    zBottom:built.zFound!=null ? built.zFound : built.zFloor1,
-    zFloor1:built.zFloor1,
-    prismCount:built.prisms.length,
+    zTop:built && built.zTop || 0,
+    zBottom:built && (built.zFound!=null ? built.zFound : built.zFloor1),
+    zFloor1:built && built.zFloor1,
+    prismCount:(built && built.prisms && built.prisms.length)||0,
+    acCount:acSolids.length,
     origin:origin
   };
 }
@@ -594,6 +634,7 @@ function idfMeshCombinedAabbMm(){
     if(solid) idfMeshExpandAabb(aabb, solid.verts);
   });
   idfMeshStairMeshes().forEach(function(mesh){ idfMeshExpandAabb(aabb, mesh.verts); });
+  if(typeof atPartMeshesMm==='function') atPartMeshesMm().forEach(function(mesh){ idfMeshExpandAabb(aabb, mesh.verts); });
   if(!(aabb.maxx>=aabb.minx) || !(aabb.maxy>=aabb.miny) || !(aabb.maxz>=aabb.minz)) return null;
   return aabb;
 }
@@ -603,9 +644,10 @@ function idfMeshOriginShiftMm(){
   return {dx:-aabb.minx, dy:-aabb.miny, dz:-aabb.minz, aabb:aabb};
 }
 function idfMeshShiftVerts(verts, shift){
-  if(!shift || (!shift.dx && !shift.dy && !shift.dz)) return verts;
+  const dx=(shift && shift.dx)||0, dy=(shift && shift.dy)||0, dz=(shift && shift.dz)||0;
+  const s=0.001;
   return (verts||[]).map(function(v){
-    return {x:v.x+shift.dx, y:v.y+shift.dy, z:v.z+shift.dz};
+    return {x:(v.x+dx)*s, y:(v.y+dy)*s, z:(v.z+dz)*s};
   });
 }
 function idfMeshOriginNote(shift){
@@ -793,6 +835,7 @@ function buildIdfMeshExport(){
   const roofPlanes = idfMeshRoofPlanesMm();
   let skippedAttic = 0;
   faces.forEach(face=>{
+    if(face.atReplacedByPart) return;
     if(idfMeshIsRoofDuplicateAttic(face, roofPlanes)){
       skippedAttic++;
       return;
@@ -820,6 +863,20 @@ function buildIdfMeshExport(){
     });
   });
   idfMeshAppendStairs(usedMats, objects, rows, seq, origin);
+  if(src.kind==='at' && typeof atPartMeshesMm==='function'){
+    atPartMeshesMm().forEach(function(mesh){
+      const pal=IDF_MESH_PALETTE[mesh.key];
+      if(!pal||!mesh.verts.length||!mesh.tris.length||mesh.key==='ac_body') return;
+      usedMats[pal.mat]=pal;
+      const code=mesh.kind==='ac'?'AC':'DR';
+      const suffix={ac_body:'B',ac_supply:'S',ac_return:'R',doorbody:'B',doorgap_top:'T',doorgap_uc:'U'}[mesh.key];
+      const name=code+String(Number(String(mesh.id).replace(/\D/g,''))||0).padStart(3,'0')+suffix;
+      const named=idfMeshNameZ(name);
+      objects.push(idfMeshNamedMesh(named.bytes,idfMeshShiftVerts(mesh.verts,origin),mesh.tris,pal.mat));
+      rows.push({tds:name,nameJa:mesh.name,idfName:mesh.id,zone:mesh.floor+'F',sslKey:mesh.key,
+        u:'',rgb:pal.r+' '+pal.g+' '+pal.b});
+    });
+  }
   if(!objects.length) return null;
   return {bytes: idfMeshPack3ds(usedMats, objects), rows, stamp:src.stamp, kind:src.kind, origin:origin, skippedAttic:skippedAttic};
 }
@@ -874,7 +931,7 @@ function exportIdfMesh(){
       idfMeshDownloadBlob(new Blob([gain.bytes], {type:'application/octet-stream'}), stamp+'_cfd_gain.3ds');
     }, 750);
   }
-  let msg = '家パネル '+built.rows.length+' 面の 3DS と名前CSVを書き出しました。';
+  let msg = '家パネル・配置パーツ '+built.rows.length+' 面の 3DS と名前CSVを書き出しました。';
   if(built.skippedAttic){
     msg += ' 屋根と同一面の小屋裏 '+built.skippedAttic+' 面は出していません。';
   }
@@ -882,8 +939,13 @@ function exportIdfMesh(){
     msg += ' 内部発熱は別ファイル *_cfd_gain.3ds（'+gain.rows.length+' 室・薄い赤・0.3mセットバック）。';
   }
   if(fill){
-    const zM = (fill.zTop/1000).toFixed(3);
-    msg += ' 外形埋メ '+fill.rows.length+' 個の *_cfd_fill.3ds も落ちます（屋根は棟高さ '+zM+' m まで、2F持ち出し下は基礎底まで。床下は埋めません）。FDでは家パネル・埋メ・発熱を別々に取り込み、埋メは障害物ソリッドです。';
+    const bits=[];
+    if(fill.prismCount){
+      const zM = (fill.zTop/1000).toFixed(3);
+      bits.push('外形埋メ '+fill.prismCount+' 個（屋根は棟高さ '+zM+' m まで、2F持ち出し下は基礎底まで。床下は埋めません）');
+    }
+    if(fill.acCount) bits.push('エアコン本体ソリッド '+fill.acCount+' 台');
+    msg += ' *_cfd_fill.3ds に '+bits.join('、')+' を出します。3DS の単位は m。FDでは家パネルと埋メを別々に取り込み、埋メとエアコン本体は障害物ソリッドです。';
   }else{
     msg += ' 埋メ立体は作れませんでした。';
   }
@@ -910,7 +972,7 @@ function refreshIdfMeshUi(){
   if(btn) btn.disabled = !ready;
   if(typeof appMode!=='undefined' && appMode==='architrend'){
     if(banner) banner.textContent = 'Architrend の 3DS があれば、方位色分けした CFD モデル種をここから出せます。内壁・天井つきの3DSにも対応します。厚みは付けません。';
-    if(guide) guide.textContent = 'Architrend の 3DS から、厚みなしの色分け 3DS を作ります。マテリアルの透明度で窓を分け、内壁と天井を残し、軒の出は壁の外形へ寄せます。階間床が無いファイルだけ 2F 床を補います。内部発熱の発生エリアは部屋が取れたとき *_cfd_gain.3ds に分けて出します。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。';
+    if(guide) guide.textContent = 'Architrend の 3DS から色分け 3DS を作ります。単位は m です。3Dビューワーで置いたドアとエアコンの吹出・吸込は家モデルへ、エアコン本体は埋メファイルへ障害物ソリッドとして出します。内部発熱は *_cfd_gain.3ds に分けて出します。';
   }else if(typeof appMode!=='undefined' && appMode==='energyplus'){
     if(banner) banner.textContent = 'IDF があれば、色分け済みの CFD モデル種をここから出せます。内部発熱は *_cfd_gain.3ds に分けて出します。厚みは付けません。';
     if(guide) guide.textContent = 'EnergyPlus の IDF 頂点から、厚みなしの色分け 3DS を作ります。居室に加えて床下（基礎外周）と小屋裏（屋根・妻壁）も出します。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds として別ファイルです。SSL で部屋ごとの発熱・発湿を自動割当します。居室に接する面は居室側だけ残し、二重にはしません。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。';
@@ -966,7 +1028,7 @@ function refreshIdfMeshUi(){
     }
   }else{
     const st = (typeof atMesh!=='undefined' && atMesh && atMesh.stats) ? atMesh.stats : null;
-    html += '<p class="small" style="margin:8px 0 0;">単位: mm / 厚みなし / 両面は外向きのみ'
+    html += '<p class="small" style="margin:8px 0 0;">単位: m / 厚みなし / 両面は外向きのみ'
       +(st && st.usedMaterials ? ' / マテリアルで部材判定' : ' / 幾何で部材判定')
       +(st && st.droppedEave ? ' / 庇 '+st.droppedEave+' 面を除外' : '')
       +'。メッシュはブラウザに保存しません。書き出し時に合体概形の左下を原点へ。</p>';
@@ -978,7 +1040,7 @@ function refreshIdfMeshUi(){
   const fill = buildIdfFillExport();
   if(fill){
     const zM = (fill.zTop/1000).toFixed(3);
-    html += '<p class="small" style="margin:8px 0 0;">埋メ: 屋根は同じ勾配ごとに棟高さ '+zM+' m まで、2F持ち出し下は基礎底まで、三角柱 '+fill.rows.length+' 個。床下（基礎の内側）は基礎・1F床が無効になるので埋めません。色 #3d3d3d / SSL は外形埋メ（障害物）。</p>';
+    html += '<p class="small" style="margin:8px 0 0;">埋メ: 屋根は同じ勾配ごとに棟高さ '+zM+' m まで、2F持ち出し下は基礎底まで、三角柱 '+fill.prismCount+' 個'+(fill.acCount?'、エアコン本体ソリッド '+fill.acCount+' 台':'')+'。床下（基礎の内側）は基礎・1F床が無効になるので埋めません。埋メ色 #3d3d3d、エアコン本体 #808080。SSL は障害物です。</p>';
   }
   const preview = buildIdfMeshExport();
   if(preview && preview.skippedAttic){

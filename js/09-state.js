@@ -53,7 +53,7 @@ function gatherState(){
       if(el) r.fields[cls] = el.value;
     });
     card.querySelectorAll('.win-row').forEach(w=>{
-      const win={atMeshWindowIndex:w.dataset.atMeshWindowIndex||''};
+      const win={atMeshWindowIndex:w.dataset.atMeshWindowIndex||'', atFaceId:w.dataset.atFaceId||''};
       ['wName','wAz','glassSel','attachSel','wEta','wArea','wU'].forEach(cls=>{
         const el = w.querySelector('.'+cls);
         if(el) win[cls] = el.value;

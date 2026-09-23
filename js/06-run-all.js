@@ -7,6 +7,8 @@ function tr(step, target, item, value, copyVal){
 
 function runAll(){
   transferRows = [];
+  if(typeof atPartSyncAcCount==='function') atPartSyncAcCount(false);
+  if(typeof atPartSyncAcFlow==='function') atPartSyncAcFlow();
   if(typeof applySharedToolDefaults==='function') applySharedToolDefaults();
   if(typeof appMode!=='undefined' && appMode==='energyplus' && typeof applyEpWindowsToRooms==='function'){
     try{
@@ -467,10 +469,25 @@ function runAll(){
   document.getElementById('acRatedInfo').textContent = '参考: '+cat.tatami+'畳クラス 定格 '+cat.rated+' kW / 最大 '+cat.max+' kW';
   const dir = document.getElementById('dirSel').value;
   const vol = document.getElementById('volSel').value;
-  document.getElementById('flowInfo').textContent = 'Z-Tシリーズ '+dir+'・'+vol+'風のフリーブロー値: '+flowTable[dir][vol]+' ㎥/h'+(dir==='30°' ? ' (実測値1点のみ・ノッチ共通)' : '');
+  const acMax=num('acMax'), acCount=Math.max(0, Math.round(num('acCount')));
+  const managedAc=typeof atParts!=='undefined' && atParts.managedAc && typeof appMode!=='undefined' && appMode==='architrend' && typeof atPartAcFlowSummary==='function';
+  const acSummary=managedAc ? atPartAcFlowSummary(vol) : null;
+  const usingPlaced=!!(acSummary && acSummary.units.length);
+  let flowPer=num('flowPerUnit');
+  let vTotal=flowPer*acCount;
+  let flowInfoText='Z-Tシリーズ '+dir+'・'+vol+'風のフリーブロー値: '+((flowTable[dir]||{})[vol]||flowPer)+' ㎥/h'+(dir==='30°' ? ' (実測値1点のみ・ノッチ共通)' : '');
+  if(usingPlaced){
+    vTotal=acSummary.total;
+    flowPer=acSummary.per;
+    if(acSummary.same){
+      flowInfoText='配置したエアコン '+acSummary.dir+'・'+vol+'風: 1台 '+acSummary.per+' ㎥/h × '+acCount+'台';
+      if(acSummary.dir==='30°') flowInfoText+=' (実測値1点のみ・ノッチ共通)';
+    }else{
+      flowInfoText='配置したエアコン '+acCount+'台の風量合計（'+vol+'風）: '+vTotal.toFixed(0)+' ㎥/h（台ごとに風向が異なるため1台平均 '+Math.round(acSummary.per)+' ㎥/h）';
+    }
+  }
+  document.getElementById('flowInfo').textContent = flowInfoText;
 
-  const acMax=num('acMax'), acCount=Math.max(1, Math.round(num('acCount')));
-  const flowPer=num('flowPerUnit');
   const ua=num('uaVal'), envA=num('envArea');
   const dT = oatNow - targetT;
   const qEnv = ua*envA*dT;
@@ -488,31 +505,39 @@ function runAll(){
     '<div class="stat"><div class="lbl">内部発熱+日射 (Step 2合計)</div><div class="val">'+qInt.toFixed(0)+' W</div></div>'+
     '<div class="stat hl"><div class="lbl">必要冷房処理熱量</div><div class="val">'+qReq.toFixed(0)+' W</div></div>';
 
-  const vTotal = flowPer*acCount;
-  const qPerUnit = qReq/acCount;
+  const qPerUnit = acCount>0 ? qReq/acCount : 0;
   let ts = targetT, dts = 0;
   if(vTotal>0){ dts = qReq/(RHOCP*vTotal); ts = targetT - dts; }
+  const tsText=acCount>0?ts.toFixed(2):'—';
   document.getElementById('supplyStats').innerHTML =
     '<div class="stat"><div class="lbl">総風量 ('+acCount+'台)</div><div class="val">'+vTotal.toFixed(0)+' ㎥/h</div></div>'+
-    '<div class="stat"><div class="lbl">1台あたり処理熱量</div><div class="val">'+qPerUnit.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">1台あたり処理熱量</div><div class="val">'+(acCount?qPerUnit.toFixed(0)+' W':'—')+'</div></div>'+
     '<div class="stat"><div class="lbl">必要温度差 ΔT</div><div class="val">'+dts.toFixed(2)+' K</div></div>'+
-    '<div class="stat hl"><div class="lbl">吹出温度 (CFD入力・全台共通)</div><div class="val">'+ts.toFixed(2)+' ℃ <button class="copy-btn" data-copy="'+ts.toFixed(2)+'">コピー</button></div></div>'+
+    '<div class="stat hl"><div class="lbl">吹出温度 (CFD入力・全台共通)</div><div class="val">'+tsText+(acCount?' ℃ <button class="copy-btn" data-copy="'+tsText+'">コピー</button>':'')+'</div></div>'+
     '<div class="stat hl"><div class="lbl">吹出湿度 (CFD入力・業界慣行で95%RH固定)</div><div class="val">95 %RH <button class="copy-btn" data-copy="95">コピー</button></div></div>'+
     '<div class="stat"><div class="lbl">吸込温度 (=目標室温)</div><div class="val">'+targetT.toFixed(1)+' ℃</div></div>';
 
   let warns='';
   const capW = acMax*1000*acCount;
-  if(qReq > capW){
+  if(!acCount){
+    warns += '<div class="warn">エアコン未配置です。3Dビューワーで配置すると台数が自動設定されます。</div>';
+  }else if(qReq > capW){
     warns += '<div class="warn">能力不足: 必要処理熱量 '+qReq.toFixed(0)+' W が最大冷房能力 '+capW.toFixed(0)+' W ('+acMax+' kW × '+acCount+'台) を超えています。畳数クラスを上げるか台数を増やしてください。</div>';
   }else{
     warns += '<div class="small ok">能力チェックOK: 負荷率 '+(qReq/capW*100).toFixed(0)+'% (必要 '+qReq.toFixed(0)+' W / 最大 '+capW.toFixed(0)+' W)</div>';
   }
-  if(ts < 5) warns += '<div class="warn">吹出温度が '+ts.toFixed(1)+' ℃と極端に低くなっています。実機では出せない温度です。風量を増やす・台数を増やす・負荷を見直すなどしてください。</div>';
-  else if(ts < 10) warns += '<div class="warn">吹出温度が10℃を下回っています。実機の下限に近いため、風量アップや台数追加も検討してください。</div>';
+  if(acCount && ts < 5) warns += '<div class="warn">吹出温度が '+ts.toFixed(1)+' ℃と極端に低くなっています。実機では出せない温度です。風量を増やす・台数を増やす・負荷を見直すなどしてください。</div>';
+  else if(acCount && ts < 10) warns += '<div class="warn">吹出温度が10℃を下回っています。風量アップや台数追加も検討してください。</div>';
+  if(usingPlaced && !acSummary.same) warns += '<div class="warn">風向が台ごとに違うため、SSLの1台あたり風量は平均値です。FlowDesignerで吹出流量を台ごとに直してください。</div>';
   document.getElementById('acWarn').innerHTML = warns;
   renderAcCompare(qReq, flowPer, acMax, targetT, acCount);
-  tr('3','エアコン (吹出・1台あたり)','風量 [㎥/h]', flowPer);
-  tr('3','エアコン (吹出)','吹出温度 [℃]', ts.toFixed(2));
+  if(usingPlaced){
+    acSummary.units.forEach((it,i)=>{
+      tr('3','エアコン'+(i+1)+' ('+atPartAcDir(it)+' · '+it.floor+'F)','風量 [㎥/h]', acSummary.flows[i]);
+    });
+  }
+  tr('3','エアコン (吹出・1台あたり)','風量 [㎥/h]', usingPlaced && !acSummary.same ? Math.round(flowPer) : flowPer);
+  tr('3','エアコン (吹出)','吹出温度 [℃]', tsText);
   tr('3','エアコン (吹出)','吹出湿度 [%RH] (業界慣行で95%RH固定)', '95');
   tr('3','エアコン (吸込)','吸込温度 [℃] (=目標室温)', targetT.toFixed(1));
 

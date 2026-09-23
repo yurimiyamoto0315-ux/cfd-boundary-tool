@@ -35,9 +35,11 @@ document.addEventListener('change', function(e){
     needsRerun = true;
   }
   if(e.target.id==='dirSel' || e.target.id==='volSel'){
-    const dir = document.getElementById('dirSel').value;
+    const dirEl = document.getElementById('dirSel');
     const vol = document.getElementById('volSel').value;
-    document.getElementById('flowPerUnit').value = flowTable[dir][vol];
+    if(dirEl && !dirEl.disabled){
+      document.getElementById('flowPerUnit').value = flowTable[dirEl.value][vol];
+    }
     needsRerun = true;
   }
   if(e.target.id==='winFrame'){

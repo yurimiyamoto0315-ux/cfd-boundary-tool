@@ -354,6 +354,103 @@ function atStairWidth(r){
   const b=typeof atRingBBox==='function' ? atRingBBox(r.ring||[]) : {dx:0.8, dy:0.8};
   return Math.max(0.35, Math.min(AT_STAIR_WIDTH_MAX, Math.min(b.dx, b.dy)*0.92));
 }
+function atStairAddSpanWalls(xs, ys, sp){
+  if(!sp) return;
+  if(Math.abs(sp.n.x)>0.5){
+    xs.push(sp.left.x, sp.right.x);
+  }else{
+    ys.push(sp.left.y, sp.right.y);
+  }
+}
+function atStairLandingAabb(path, cum, i, segs){
+  const tin=atStairNorm({x:path[i].x-path[i-1].x, y:path[i].y-path[i-1].y});
+  const tout=atStairNorm({x:path[i+1].x-path[i].x, y:path[i+1].y-path[i].y});
+  if(!atStairIsRightAngle(tin, tout)) return null;
+  const prev=cum[i]-cum[i-1], next=cum[i+1]-cum[i];
+  const inset=Math.min(0.14, prev*0.4, next*0.4);
+  if(!(inset>0.02)) return null;
+  const spanIn=atStairSpanAt(atStairPointAt(path, cum[i]-inset), tin, segs);
+  const spanOut=atStairSpanAt(atStairPointAt(path, cum[i]+inset), tout, segs);
+  const c=path[i];
+  const xs=[c.x], ys=[c.y];
+  atStairAddSpanWalls(xs, ys, spanIn);
+  atStairAddSpanWalls(xs, ys, spanOut);
+  const minx=Math.min.apply(null, xs), maxx=Math.max.apply(null, xs);
+  const miny=Math.min.apply(null, ys), maxy=Math.max.apply(null, ys);
+  if(!(maxx-minx>0.16) || !(maxy-miny>0.16)) return null;
+  let s0=cum[i], s1=cum[i];
+  if(Math.abs(tin.x)>0.5) s0=cum[i]-Math.abs(c.x-(tin.x>0?minx:maxx));
+  else s0=cum[i]-Math.abs(c.y-(tin.y>0?miny:maxy));
+  if(Math.abs(tout.x)>0.5) s1=cum[i]+Math.abs((tout.x>0?maxx:minx)-c.x);
+  else s1=cum[i]+Math.abs((tout.y>0?maxy:miny)-c.y);
+  s0=Math.max(cum[i-1]+0.04, Math.min(cum[i]-0.08, s0));
+  s1=Math.min(cum[i+1]-0.04, Math.max(cum[i]+0.08, s1));
+  if(!(s1-s0>0.12)) return null;
+  return {
+    s0:s0, s1:s1, s:cum[i], i:i, tin:tin, tout:tout,
+    minx:minx, maxx:maxx, miny:miny, maxy:maxy
+  };
+}
+function atStairMergeLandings(zones){
+  const src=(zones||[]).slice().sort(function(a,b){ return a.s-b.s; });
+  const out=[];
+  src.forEach(function(z){
+    const last=out[out.length-1];
+    const overlap=last && z.s0<=last.s1+0.06;
+    const boxHit=last && z.minx<=last.maxx+0.04 && z.maxx>=last.minx-0.04
+      && z.miny<=last.maxy+0.04 && z.maxy>=last.miny-0.04;
+    if(last && (overlap || boxHit)){
+      last.s0=Math.min(last.s0, z.s0);
+      last.s1=Math.max(last.s1, z.s1);
+      last.s=(last.s0+last.s1)/2;
+      last.minx=Math.min(last.minx, z.minx);
+      last.maxx=Math.max(last.maxx, z.maxx);
+      last.miny=Math.min(last.miny, z.miny);
+      last.maxy=Math.max(last.maxy, z.maxy);
+      last.tout=z.tout||last.tout;
+    }else out.push({
+      s0:z.s0, s1:z.s1, s:z.s, i:z.i, tin:z.tin, tout:z.tout,
+      minx:z.minx, maxx:z.maxx, miny:z.miny, maxy:z.maxy
+    });
+  });
+  return out;
+}
+function atStairGrowLandingToRing(z, ring, alongIn){
+  if(!z || !(ring||[]).length) return;
+  const xs=ring.map(function(p){ return p.x; });
+  const ys=ring.map(function(p){ return p.y; });
+  const minx=Math.min.apply(null, xs), maxx=Math.max.apply(null, xs);
+  const miny=Math.min.apply(null, ys), maxy=Math.max.apply(null, ys);
+  const t=alongIn ? z.tin : z.tout;
+  if(!t){
+    z.minx=Math.min(z.minx, minx); z.maxx=Math.max(z.maxx, maxx);
+    z.miny=Math.min(z.miny, miny); z.maxy=Math.max(z.maxy, maxy);
+    return;
+  }
+  if(alongIn){
+    if(Math.abs(t.x)>0.5){
+      if(t.x>0) z.minx=Math.min(z.minx, maxx);
+      else z.maxx=Math.max(z.maxx, minx);
+    }else{
+      if(t.y>0) z.miny=Math.min(z.miny, maxy);
+      else z.maxy=Math.max(z.maxy, miny);
+    }
+  }else{
+    if(Math.abs(t.x)>0.5){
+      if(t.x>0) z.maxx=Math.max(z.maxx, minx);
+      else z.minx=Math.min(z.minx, maxx);
+    }else{
+      if(t.y>0) z.maxy=Math.max(z.maxy, miny);
+      else z.miny=Math.min(z.miny, maxy);
+    }
+  }
+}
+function atStairLandingRing(z){
+  return atStairEnsureCcw([
+    {x:z.minx, y:z.miny}, {x:z.maxx, y:z.miny},
+    {x:z.maxx, y:z.maxy}, {x:z.minx, y:z.maxy}
+  ]);
+}
 function atStairFromPath(r, mesh){
   const path=atStairMakeOrtho(atStairCopyPath(r.stairPath).map(function(p){
     return atStairClampPoint(p, r, mesh);
@@ -378,25 +475,12 @@ function atStairFromPath(r, mesh){
   }
   const segs=atStairWallSegs(mesh, r, fromZ+rise*0.4);
   const cum=atStairCum(path);
-  const landZones=[];
+  const rawLand=[];
   for(let i=1;i<path.length-1;i++){
-    const tin=atStairNorm({x:path[i].x-path[i-1].x, y:path[i].y-path[i-1].y});
-    const tout=atStairNorm({x:path[i+1].x-path[i].x, y:path[i+1].y-path[i].y});
-    if(!atStairIsRightAngle(tin, tout)) continue;
-    const spanIn=atStairSpanAt(path[i], tin, segs);
-    const spanOut=atStairSpanAt(path[i], tout, segs);
-    const halfIn=Math.max(0.2, spanOut.width/2);
-    const halfOut=Math.max(0.2, spanIn.width/2);
-    const prev=cum[i]-cum[i-1], next=cum[i+1]-cum[i];
-    if(prev<halfIn*0.6 || next<halfOut*0.6) continue;
-    landZones.push({
-      s0:cum[i]-halfIn, s1:cum[i]+halfOut, s:cum[i], i:i,
-      tin:tin, tout:tout, spanIn:spanIn, spanOut:spanOut
-    });
+    const z=atStairLandingAabb(path, cum, i, segs);
+    if(z) rawLand.push(z);
   }
-  function inLand(s){
-    return landZones.some(function(z){ return s>=z.s0-1e-6 && s<=z.s1+1e-6; });
-  }
+  const landZones=atStairMergeLandings(rawLand);
   function xyRing(spanA, spanB){
     return atStairEnsureCcw([
       {x:spanA.left.x, y:spanA.left.y},
@@ -405,34 +489,36 @@ function atStairFromPath(r, mesh){
       {x:spanB.left.x, y:spanB.left.y}
     ]);
   }
+  const flights=[];
+  let cursor=0;
+  landZones.forEach(function(z){
+    if(z.s0-cursor>0.06) flights.push({s0:cursor, s1:z.s0, landAfter:z});
+    cursor=z.s1;
+  });
+  if(pathLen-cursor>0.06) flights.push({s0:cursor, s1:pathLen, landAfter:null});
+  const flightLen=flights.reduce(function(s,f){ return s+(f.s1-f.s0); },0)||pathLen;
+  let left=nRisers;
+  flights.forEach(function(f, i){
+    const n=i===flights.length-1 ? left : Math.max(1, Math.round(nRisers*(f.s1-f.s0)/flightLen));
+    f.n=Math.max(i===flights.length-1?left:1, Math.min(left, n));
+    left-=f.n;
+  });
+  if(left>0 && flights.length) flights[flights.length-1].n+=left;
   const treads=[];
   const risers=[];
   const panels=[];
-  landZones.forEach(function(z){
-    const c=path[z.i];
-    const xs=[c.x], ys=[c.y];
-    [z.spanIn, z.spanOut].forEach(function(sp){
-      if(Math.abs(sp.n.x)>0.5){ xs.push(c.x+sp.n.x*sp.a, c.x-sp.n.x*sp.b); }
-      else { ys.push(c.y+sp.n.y*sp.a, c.y-sp.n.y*sp.b); }
-    });
-    const minx=Math.min.apply(null, xs), maxx=Math.max.apply(null, xs);
-    const miny=Math.min.apply(null, ys), maxy=Math.max.apply(null, ys);
-    const ring=atStairEnsureCcw([
-      {x:minx, y:miny}, {x:maxx, y:miny}, {x:maxx, y:maxy}, {x:minx, y:maxy}
-    ]);
-    const zTop=fromZ+(z.s/pathLen)*rise;
-    treads.push({ring:ring, z:zTop, zTop:zTop, s:z.s, tangent:atStairNorm(atStairAdd(z.tin, z.tout)), kind:'landing'});
-    panels.push({kind:'landing', verts:ring.map(function(p){ return {x:p.x, y:p.y, z:zTop}; })});
-  });
-  for(let i=0;i<nRisers;i++){
-    const s0=i*going, s1=(i+1)*going;
-    const z0=fromZ+i*riser, z1=fromZ+(i+1)*riser;
-    const mid=(s0+s1)/2;
-    const p0=atStairPointAt(path, s0), p1=atStairPointAt(path, s1);
-    const tan=atStairTangentAt(path, mid);
-    const sp0=atStairSpanAt(p0, tan, segs);
-    const sp1=atStairSpanAt(p1, tan, segs);
-    if(!inLand(s0)){
+  let done=0;
+  flights.forEach(function(f, fi){
+    const n=Math.max(1, f.n||1);
+    const goingF=(f.s1-f.s0)/n;
+    for(let i=0;i<n;i++){
+      const s0=f.s0+i*goingF, s1=f.s0+(i+1)*goingF, mid=(s0+s1)/2;
+      const z0=fromZ+done*riser;
+      const z1=(fi===flights.length-1 && i===n-1) ? toZ : fromZ+(done+1)*riser;
+      const p0=atStairPointAt(path, s0), p1=atStairPointAt(path, s1);
+      const tan=atStairTangentAt(path, mid);
+      const sp0=atStairSpanAt(p0, tan, segs);
+      const sp1=atStairSpanAt(p1, tan, segs);
       const rv=[
         {x:sp0.left.x, y:sp0.left.y, z:z0},
         {x:sp0.right.x, y:sp0.right.y, z:z0},
@@ -441,17 +527,29 @@ function atStairFromPath(r, mesh){
       ];
       risers.push({verts:rv, s:s0, z0:z0, z1:z1, tangent:tan, kind:'riser'});
       panels.push({kind:'riser', verts:rv});
-    }
-    if(!inLand(mid)){
       const ring=xyRing(sp0, sp1);
-      treads.push({ring:ring, z:z1, zTop:z1, s:mid, tangent:tan, kind:'tread'});
+      treads.push({ring:ring, z:z1, zTop:z1, s:mid, tangent:tan, kind:'tread', s0:s0, s1:s1});
       panels.push({kind:'tread', verts:ring.map(function(p){ return {x:p.x, y:p.y, z:z1}; })});
+      done++;
     }
-  }
+    if(f.landAfter){
+      const last=treads[treads.length-1];
+      if(last) atStairGrowLandingToRing(f.landAfter, last.ring, true);
+    }
+  });
+  landZones.forEach(function(z){
+    const after=treads.find(function(t){ return t.kind==='tread' && t.s>=z.s1-1e-6; });
+    if(after) atStairGrowLandingToRing(z, after.ring, false);
+    const incoming=treads.filter(function(t){ return t.kind==='tread' && t.s1!=null && t.s1<=z.s0+1e-4; });
+    const zTop=incoming.length ? incoming[incoming.length-1].zTop : fromZ;
+    const ring=atStairLandingRing(z);
+    treads.push({ring:ring, z:zTop, zTop:zTop, s:z.s, tangent:atStairNorm(atStairAdd(z.tin||{x:1,y:0}, z.tout||{x:0,y:1})), kind:'landing'});
+    panels.push({kind:'landing', verts:ring.map(function(p){ return {x:p.x, y:p.y, z:zTop}; })});
+  });
   treads.sort(function(a,b){ return a.s-b.s; });
   return {
     fromZ:fromZ, toZ:toZ, path:path, treads:treads, risers:risers, panels:panels,
-    runLine:path, note:note, nRisers:nRisers, riser:riser, going:going
+    runLine:path, note:note, nRisers:nRisers, riser:riser, going:going, landings:landZones
   };
 }
 function atPlanStairsForMesh(mesh){

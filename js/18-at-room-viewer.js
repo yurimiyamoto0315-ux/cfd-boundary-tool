@@ -9,11 +9,12 @@ function atSetRoomCatalog(rooms){
 }
 function atRoomReviewState(){
   if(!atMesh || !atMesh.reviewHash) return atRoomView.pending;
-  return {version:2, hash:atMesh.reviewHash, fileName:atMesh.fileName,
-    northDeg:atRoomView.northDeg, rooms:JSON.parse(JSON.stringify(atMesh.rooms)), catalog:atRoomView.catalog};
+  return {version:3, hash:atMesh.reviewHash, fileName:atMesh.fileName,
+    northDeg:atRoomView.northDeg, rooms:JSON.parse(JSON.stringify(atMesh.rooms)), catalog:atRoomView.catalog,
+    parts:typeof atPartReviewData==='function'?atPartReviewData():null};
 }
 function atRestoreRoomReviewState(state){
-  atRoomView.pending=state && (state.version===1 || state.version===2) ? state : null;
+  atRoomView.pending=state && (state.version===1 || state.version===2 || state.version===3) ? state : null;
   if(atRoomView.pending) atRoomView.catalog=atRoomView.pending.catalog||[];
   if(atRoomView.pending && isFinite(atRoomView.pending.northDeg)) atRoomView.northDeg=atRoomView.pending.northDeg;
   atRestoreRoomAssignments();
@@ -27,6 +28,7 @@ function atRestoreRoomAssignments(){
     r.ring.length>=3 && r.ring.every(p=>Number.isFinite(p.x) && Number.isFinite(p.y)));
   if(!valid) return false;
   atMesh.rooms=JSON.parse(JSON.stringify(s.rooms));
+  if(typeof atPartRestoreReview==='function') atPartRestoreReview(s.parts);
   if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
   if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
   atMesh.gainVolumes=null;
@@ -44,6 +46,7 @@ async function atRoomModelLoaded(buffer){
   atRoomView.zoom=1;
   atRoomView.restored=atRestoreRoomAssignments();
   if(!atRoomView.restored){
+    if(typeof atPartRestoreReview==='function') atPartRestoreReview(null);
     atRoomView.northDeg=0;
     atApplyNorthToMesh();
     if(!atLastParse) atRoomView.catalog=[];
@@ -125,7 +128,7 @@ function atRoomCard(key){
   return Array.from(document.querySelectorAll('.room-card')).find(c=>c.dataset.atRoomKey===key);
 }
 function atWindowRowData(row){
-  const w={atMeshWindowIndex:row.dataset.atMeshWindowIndex||''};
+  const w={atMeshWindowIndex:row.dataset.atMeshWindowIndex||'',atFaceId:row.dataset.atFaceId||''};
   ['wName','wAz','glassSel','attachSel','wEta','wArea','wU'].forEach(k=>{
     const el=row.querySelector('.'+k); if(el) w[k]=el.value;
   });
@@ -137,32 +140,40 @@ function atSyncMeshWindowsToRooms(){
   const meshWins=atAssignWindowsToRooms(atMesh.meshFaces,atMesh.rooms,atMesh.stats);
   const rows=new Map();
   document.querySelectorAll('.win-row[data-at-mesh-window-index]').forEach(row=>{
-    rows.set(String(row.dataset.atMeshWindowIndex),row);
+    const id=row.dataset.atFaceId||((row.dataset.atMeshWindowIndex!==undefined&&row.dataset.atMeshWindowIndex!=='')
+      ?meshWins[Number(row.dataset.atMeshWindowIndex)]?.face?.atFaceId:null);
+    if(id!=null){row.dataset.atFaceId=String(id);rows.set(String(id),row);}
   });
   const queued=new Map();
   (atUnassignedWindows||[]).forEach(w=>{
-    if(w.atMeshWindowIndex!==undefined && w.atMeshWindowIndex!=='') queued.set(String(w.atMeshWindowIndex),w);
+    const id=w.atFaceId||((w.atMeshWindowIndex!==undefined&&w.atMeshWindowIndex!=='')
+      ?meshWins[Number(w.atMeshWindowIndex)]?.face?.atFaceId:null);
+    if(id!=null&&id!=='') queued.set(String(id),w);
   });
-  const nextUnassigned=(atUnassignedWindows||[]).filter(w=>w.atMeshWindowIndex===undefined || w.atMeshWindowIndex==='');
+  const nextUnassigned=(atUnassignedWindows||[]).filter(w=>!w.atFaceId && (w.atMeshWindowIndex===undefined || w.atMeshWindowIndex===''));
+  const valid=new Set(meshWins.map(w=>String(w.face.atFaceId)));
+  rows.forEach((row,id)=>{if(!valid.has(id)) row.remove();});
   meshWins.forEach((mw,i)=>{
     const index=String(i);
+    const faceId=String(mw.face.atFaceId);
     const room=(atMesh.rooms||[]).find(r=>r.key===mw.roomKey);
     if(room && (room.keep || room.habitable) && !atRoomCard(room.key)){
       atAddRoomCardFromMesh(room);
     }
     const card=room && (room.keep || room.habitable) ? atRoomCard(room.key) : null;
-    const row=rows.get(index);
-    const saved=row ? atWindowRowData(row) : queued.get(index);
+    const row=rows.get(faceId);
+    const saved=row ? atWindowRowData(row) : queued.get(faceId);
+    if(row){row.dataset.atMeshWindowIndex=index;row.dataset.atFaceId=faceId;}
     if(card){
       if(row){
         const list=card.querySelector('.winList');
         if(row.parentElement!==list) list.appendChild(row);
       }else if(saved){
-        addWindow(card.id,Object.assign({},saved,{atMeshWindowIndex:index,skipRerun:true}));
+        addWindow(card.id,Object.assign({},saved,{atMeshWindowIndex:index,atFaceId:faceId,skipRerun:true}));
       }
     }else if(saved){
-      if(!nextUnassigned.some(w=>String(w.atMeshWindowIndex)===index)){
-        nextUnassigned.push(Object.assign({},saved,{atMeshWindowIndex:index}));
+      if(!nextUnassigned.some(w=>String(w.atFaceId)===faceId)){
+        nextUnassigned.push(Object.assign({},saved,{atMeshWindowIndex:index,atFaceId:faceId}));
       }
       if(row) row.remove();
     }
@@ -317,6 +328,7 @@ function atRenderRoomViewer(){
       <div class="at-rv-angle"><input id="atNorthDeg" type="number" min="-180" max="180" step="1" value="${atRoomView.northDeg}"><span>°</span></div>
       <button type="button" data-action="north-zero">0°に戻す</button>
     </div>
+    ${typeof atPartToolbarHtml==='function'?atPartToolbarHtml():''}
     <div class="at-rv-workspace"><div class="at-rv-stage">
       <svg id="atRoomScene" viewBox="0 0 900 570" role="group" aria-label="3DSの部屋配置。各部屋は右の一覧からも選べます。"></svg>
       <div class="at-rv-help">${selected && atIsStairRoom && atIsStairRoom(selected)
@@ -345,6 +357,7 @@ function atRenderRoomViewer(){
         <button type="button" data-room="${esc(r.key)}" aria-pressed="${r===selected}" class="at-rv-room">
           <i style="background:${atRoomColor(r)}"></i><span><b>${atRoomNumber(r)}. ${esc(atRoomTitle(r))}</b><small>${r.floor}F · ${r.area.toFixed(2)} m² · ${atRoomVolume(r).toFixed(1)} m³ · ${r.reviewed?'確認済み':'未確認'}${r.habitable?' · 居室':(r.keep?' · 日射のみ':' · 発熱なし')}</small></span>
         </button>`).join('')}</div>
+      ${typeof atPartSideHtml==='function'?atPartSideHtml():''}
     </aside></div>
     <div class="at-rv-footer" id="atRoomReviewStatus" aria-live="polite"></div>`;
   const unused=atRoomView.catalog.filter((p,i)=>!rooms.some(r=>r.pdfIndex===i));
@@ -356,6 +369,7 @@ function atRenderRoomViewer(){
     if(atRoomView.suppressClick){ atRoomView.suppressClick=false; return; }
     const btn=e.target.closest('button');
     if(!btn) return;
+    if(typeof atPartHandleButton==='function' && atPartHandleButton(btn)) return;
     if(btn.dataset.floor){ atRoomView.floor=btn.dataset.floor; atRoomView.zoom=1; atRenderRoomViewer(); }
     else if(btn.dataset.room) atSelectViewerRoom(btn.dataset.room);
     else if(btn.dataset.view){ atRoomView.plan=btn.dataset.view==='plan'; atRenderRoomViewer(); }
@@ -381,6 +395,14 @@ function atRenderRoomViewer(){
   const northRange=document.getElementById('atNorthRange');
   if(northNum) northNum.onchange=()=>atSetNorthAngle(northNum.value);
   if(northRange) northRange.oninput=()=>atSetNorthAngle(northRange.value);
+  const doorKind=document.getElementById('atDoorPartKind');
+  if(doorKind) doorKind.onchange=()=>{atParts.doorKind=doorKind.value;atRenderRoomViewer();};
+  const selectedKind=document.getElementById('atSelectedDoorKind');
+  if(selectedKind) selectedKind.onchange=()=>atPartSetKind(atParts.selected,selectedKind.value);
+  const partAngle=document.getElementById('atPartAngle');
+  if(partAngle) partAngle.onchange=()=>atPartRotateAc(atParts.selected,partAngle.value);
+  const blowDir=document.getElementById('atPartBlowDir');
+  if(blowDir) blowDir.onchange=()=>atPartSetBlowDir(atParts.selected,blowDir.value);
   atBindRoomScene();
   atDrawRoomScene();
 }
@@ -482,7 +504,8 @@ function atDrawRoomScene(){
       <marker id="atStairArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d14e32"/></marker>
     </defs>
     <g class="at-rv-compass"><line x1="${pc.x}" y1="${pc.y}" x2="${pt.x}" y2="${pt.y}" marker-end="url(#atNorthArrow)"/><text x="${pt.x}" y="${pt.y-10}" text-anchor="middle">N</text></g>`;
-  svg.innerHTML=compass+layers.map(l=>l.html).join('')+atStairSceneHtml(rooms, project);
+  svg.innerHTML=compass+layers.map(l=>l.html).join('')+atStairSceneHtml(rooms, project)
+    +(typeof atPartSceneHtml==='function'?atPartSceneHtml(rooms,project):'');
 }
 function atStairSceneHtml(rooms, project){
   const pts=vs=>vs.map(p=>{const q=project(p); return q.x.toFixed(1)+','+q.y.toFixed(1);}).join(' ');
@@ -547,6 +570,7 @@ function atBindRoomScene(){
   const svg=document.getElementById('atRoomScene');
   svg.onpointerdown=e=>{
     if(e.button!==0) return;
+    if(typeof atPartPointerDown==='function' && atPartPointerDown(e,svg)) return;
     const vertex=e.target.closest('[data-stair-vertex]');
     atRoomView.drag={x:e.clientX,y:e.clientY,yaw:atRoomView.yaw,tilt:atRoomView.tilt,moved:false,
       key:e.target.closest('[data-scene-room]')?.dataset.sceneRoom,
@@ -556,6 +580,7 @@ function atBindRoomScene(){
     svg.setPointerCapture(e.pointerId);
   };
   svg.onpointermove=e=>{
+    if(typeof atPartPointerMove==='function' && atPartPointerMove(e,svg)) return;
     const d=atRoomView.drag; if(!d) return;
     if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5) d.moved=true;
     if(d.vertex>=0){
@@ -574,6 +599,7 @@ function atBindRoomScene(){
     }
   };
   svg.onpointerup=e=>{
+    if(typeof atPartPointerUp==='function' && atPartPointerUp(e,svg)) return;
     const d=atRoomView.drag; atRoomView.drag=null;
     if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
     if(d && d.vertex>=0){
@@ -584,7 +610,14 @@ function atBindRoomScene(){
     }
     if(d && !d.moved && d.key && d.key!==atRoomView.selected) atSelectViewerRoom(d.key);
   };
-  svg.onpointercancel=()=>{ atRoomView.drag=null; };
+  svg.onpointercancel=()=>{ atRoomView.drag=null; if(typeof atParts!=='undefined') atParts.drag=null; };
+  svg.onkeydown=e=>{
+    const del=e.target.closest('[data-part-delete]');
+    if(del&&(e.key==='Enter'||e.key===' ')){
+      e.preventDefault();
+      atPartRemove(del.dataset.partDelete);
+    }
+  };
   svg.ondblclick=e=>{
     e.preventDefault();
     const r=(atMesh.rooms||[]).find(q=>q.key===atRoomView.selected);

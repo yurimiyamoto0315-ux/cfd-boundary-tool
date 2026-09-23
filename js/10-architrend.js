@@ -1163,6 +1163,7 @@ function applyArchitrendMeshRooms(result){
       wArea: pdf && pdf.area!=null ? String(pdf.area) : String(Math.round((mw.area||0)*100)/100),
       glassSel:'0', attachSel:'0',
       atMeshWindowIndex:String(meshWinIndex),
+      atFaceId:String(mw.face.atFaceId),
       roofLike: mw.floor==='R'
     };
     if(roomId && w.wArea!==''){

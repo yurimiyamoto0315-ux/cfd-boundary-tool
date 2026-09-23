@@ -72,7 +72,10 @@ runAll = function(){
   }
   if(backdrop) backdrop.addEventListener('click', ()=> setNavOpen(false));
   document.addEventListener('keydown', e=>{
-    if(e.key==='Escape') setNavOpen(false);
+    if(e.key==='Escape'){
+      if(typeof atPartCancelPendingAc==='function' && atPartCancelPendingAc()) return;
+      setNavOpen(false);
+    }
   });
   nav.querySelectorAll('a').forEach(a=>{
     a.addEventListener('click', ()=> setNavOpen(false));

@@ -1,19 +1,64 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 150 608 548" role="img" aria-label="Boundary Conditions">
+<svg id="_レイヤー_1" data-name="レイヤー_1" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2872.6 399.5">
+  <!-- Generator: Adobe Illustrator 29.8.11, SVG Export Plug-In . SVG Version: 2.1.1 Build 11)  -->
   <defs>
-    <linearGradient id="mark" x1="11.8" y1="331.41" x2="317.37" y2="331.41" gradientUnits="userSpaceOnUse">
+    <style>
+      .st0 {
+        letter-spacing: .6em;
+      }
+
+      .st0, .st1 {
+        font-family: DunbarText-Regular, 'Dunbar Text';
+      }
+
+      .st2 {
+        fill: none;
+        stroke: #0072aa;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 5.9px;
+      }
+
+      .st3 {
+        letter-spacing: 0em;
+      }
+
+      .st3, .st4, .st5, .st6 {
+        font-family: KozGoPr6N-Regular-90ms-RKSJ-H, 'Kozuka Gothic Pr6N';
+      }
+
+      .st7 {
+        fill: url(#_名称未設定グラデーション);
+      }
+
+      .st4 {
+        letter-spacing: .5em;
+      }
+
+      .st5 {
+        letter-spacing: 1.6em;
+      }
+
+      .st8 {
+        fill: #fff;
+        font-size: 96.6px;
+      }
+    </style>
+    <linearGradient id="_名称未設定グラデーション" data-name="名称未設定グラデーション" x1="36.5" y1="-783.5" x2="262.3" y2="-783.5" gradientTransform="translate(0 -670.2) scale(1 -1)" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-      <stop offset=".08" stop-color="#d6f3ff" stop-opacity=".3"/>
-      <stop offset=".22" stop-color="#a8e2ff" stop-opacity=".6"/>
-      <stop offset=".4" stop-color="#7ec8f0" stop-opacity=".85"/>
-      <stop offset=".55" stop-color="#6ba3d6"/>
-      <stop offset=".72" stop-color="#8497cf"/>
-      <stop offset=".88" stop-color="#a189c9"/>
+      <stop offset="0" stop-color="#d6f3ff" stop-opacity=".3"/>
+      <stop offset=".2" stop-color="#a8e2ff" stop-opacity=".6"/>
+      <stop offset=".4" stop-color="#7ec8f0" stop-opacity=".9"/>
+      <stop offset=".6" stop-color="#6ba3d6"/>
+      <stop offset=".7" stop-color="#8497cf"/>
+      <stop offset=".9" stop-color="#a189c9"/>
       <stop offset="1" stop-color="#8b8fc4"/>
     </linearGradient>
   </defs>
-  <polyline points="507.94 389.51 575.41 233.92 480.28 233.92 427.87 354.79" fill="none" stroke="#7eb8e8" stroke-miterlimit="10" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M507.94,389.51c-6.09,13.44-15.7,34.09-29.47,54.25-46.7,68.39-105.26,100.69-117.86,107.4-52.16,27.74-100.42,34.89-128.88,36.9l52.23-98.69c55.17-18.62,89.19-46.14,122.44-94.83,10.22-14.97,17.92-31.94,22.05-41.06" fill="none" stroke="#7eb8e8" stroke-miterlimit="10" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M213.6,553.87l-52.41,120.87h-95.13l67.47-155.59c53.11-127.46,182.33-195.92,276.21-198.55l-52.23,98.69c-55.17,18.62-89.19,46.14-122.44,94.83-10.22,14.97-17.92,31.94-22.05,41.06" fill="none" stroke="#7eb8e8" stroke-miterlimit="10" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M317.37,331.42l-120.62,157.95V173.46l120.62,157.96ZM115.78,229.15v204.54h80.96v-204.54h-80.96ZM56.26,433.46h43.33v-204.07h-43.33v204.07ZM11.8,433.69h28.27v-204.54H11.8v204.54Z" fill="url(#mark)"/>
+  <image width="1179" height="2096" transform="translate(2878 -750.2) rotate(-90) scale(.3 -1.4)" xlink:href="cfd-header-icon-1.png"/>
+  <text class="st8" transform="translate(498.4 125.6)"><tspan class="st0" x="0" y="0">FlowDesigner</tspan><tspan class="st5" x="1344" y=".7">連</tspan><tspan class="st3" x="1597.9" y=".7">携</tspan><tspan class="st1" x="0" y="169.1" xml:space="preserve">C  F  D  </tspan><tspan class="st4" x="299.5" y="169.8">境界条件自動化ツー</tspan><tspan class="st6" x="1597.9" y="169.8">ル</tspan></text>
+  <polyline class="st2" points="403.1 156.2 452.9 41.2 382.6 41.2 343.9 130.5"/>
+  <path class="st2" d="M403.1,156.2c-4.5,9.9-11.6,25.2-21.8,40.1-34.5,50.5-77.8,74.4-87.1,79.4-38.5,20.5-74.2,25.8-95.2,27.3l38.6-72.9c40.8-13.8,65.9-34.1,90.5-70.1,7.6-11.1,13.2-23.6,16.3-30.3"/>
+  <path class="st2" d="M185.6,277.6l-38.7,89.3h-70.3l49.9-115c39.2-94.2,134.7-144.8,204.1-146.7l-38.6,72.9c-40.8,13.8-65.9,34.1-90.5,70.1-7.6,11.1-13.2,23.6-16.3,30.3"/>
+  <path class="st7" d="M262.3,113.3l-89.1,116.7V-3.5l89.1,116.7ZM113.3,37.7v151.2h59.8V37.7h-59.8,0ZM69.3,188.7h32V37.9h-32s0,150.8,0,150.8ZM36.5,188.8h20.9V37.7h-20.9v151.2Z"/>
 </svg>
