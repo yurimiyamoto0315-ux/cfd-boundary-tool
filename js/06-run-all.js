@@ -220,6 +220,12 @@ function runAll(){
       tr('1-4','屋根 (発生パネル)','外気温 [℃] = SAT', roofCfd.toFixed(2));
       tr('1-4','屋根 (発生パネル)','熱通過率 [W/m²K]', fmtU(uRoof));
     }
+    const uDoor = numOrNull('uDoor');
+    ['北','北東','東','南東','南','南西','西','北西'].forEach(nm=>{
+      if(!isFinite(satByOri[nm]) || uDoor==null) return;
+      tr('1-4','外部扉 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
+      tr('1-4','外部扉 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uDoor));
+    });
   }
 
   // 1F床は床下空気と室内のあいだなので形状モデルの熱通過率。
@@ -518,12 +524,13 @@ function runAll(){
     '<div class="stat"><div class="lbl">吸込温度 (=目標室温)</div><div class="val">'+targetT.toFixed(1)+' ℃</div></div>';
 
   let warns='';
+  const acMaxBlank = !String(document.getElementById('acMax').value||'').trim();
   const capW = acMax*1000*acCount;
   if(!acCount){
     warns += '<div class="warn">エアコン未配置です。3Dビューワーで配置すると台数が自動設定されます。</div>';
-  }else if(qReq > capW){
+  }else if(!acMaxBlank && qReq > capW){
     warns += '<div class="warn">能力不足: 必要処理熱量 '+qReq.toFixed(0)+' W が最大冷房能力 '+capW.toFixed(0)+' W ('+acMax+' kW × '+acCount+'台) を超えています。畳数クラスを上げるか台数を増やしてください。</div>';
-  }else{
+  }else if(!acMaxBlank){
     warns += '<div class="small ok">能力チェックOK: 負荷率 '+(qReq/capW*100).toFixed(0)+'% (必要 '+qReq.toFixed(0)+' W / 最大 '+capW.toFixed(0)+' W)</div>';
   }
   if(acCount && ts < 5) warns += '<div class="warn">吹出温度が '+ts.toFixed(1)+' ℃と極端に低くなっています。実機では出せない温度です。風量を増やす・台数を増やす・負荷を見直すなどしてください。</div>';

@@ -388,6 +388,9 @@
   }
   .ssl-flow .ssl-step b{font-size:15px; letter-spacing:.02em; line-height:1.35; grid-column:2;}
   .ssl-flow .ssl-step span{font-size:14px; color:var(--ink2); font-weight:500; line-height:1.45; grid-column:2;}
+  .ssl-flow .ssl-step.is-note{grid-template-columns:1fr;}
+  .ssl-flow .ssl-step.is-note b,
+  .ssl-flow .ssl-step.is-note span{grid-column:1;}
   .at-validation-ok{color:#4F7B59;}
   .at-validation-ng{color:var(--heat);}
   .at-unassigned-row{display:grid; grid-template-columns:1.2fr 0.7fr 0.7fr 0.7fr 1.4fr auto;

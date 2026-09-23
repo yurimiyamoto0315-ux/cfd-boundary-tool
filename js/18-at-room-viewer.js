@@ -89,6 +89,12 @@ function atApplyNorthToMesh(){
       f.sslKey='wall_'+orient;
       f.nameJa='外壁'+orient;
     }
+    if(f.atOriginalKey==='window' && typeof atParts!=='undefined' && atParts.overrides && atParts.overrides[String(f.atFaceId)]==='door' && isFinite(f.modelToolAz)){
+      const orient=at3dsOrientFromToolAz(at3dsWrap180(f.modelToolAz-atRoomView.northDeg));
+      f.sslKey='extdoor_'+orient;
+      f.nameJa='ドア';
+      f.atReplacedByPart=false;
+    }
     counts[f.nameJa]=(counts[f.nameJa]||0)+1;
   });
   if(atMesh.stats) atMesh.stats.counts=counts;
@@ -459,14 +465,17 @@ function atDrawRoomScene(){
     const rs=rooms.filter(r=>r.floor===floor), z=Math.min(...rs.map(r=>r.z));
     const parts=[];
     (atMesh.meshFaces||[]).forEach(f=>{
-      if(!atIsPartition(f) && f.sslKey!=='window') return;
+      const isWin=f.sslKey==='window';
+      const isExt=/^extdoor_/.test(f.sslKey||'');
+      if(!atIsPartition(f) && !isWin && !isExt) return;
       const triangles=f.tris?.length?f.tris.map(t=>t.map(i=>f.verts[i])):[f.verts||[]];
       triangles.forEach(vs=>{
         if(vs.length<3 || vs.some(p=>!p)) return;
         let cut=atClipRoomFace(vs,z-0.04,true);
         cut=atClipRoomFace(cut,z+0.7,false);
         if(cut.length<3) return;
-        parts.push({d:depths(cut),html:`<polygon points="${points(cut)}" fill="${f.sslKey==='window'?'#b8d9e5':'#e5e9e7'}" stroke="#738780" stroke-width="0.65" opacity="0.7"/>`});
+        const fill=isWin?'#b8d9e5':isExt?'#e07a3d':'#e5e9e7';
+        parts.push({d:depths(cut),html:`<polygon points="${points(cut)}" fill="${fill}" stroke="#738780" stroke-width="0.65" opacity="0.7"/>`});
       });
     });
     rs.forEach(r=>{

@@ -172,6 +172,8 @@ const SSL_PRIORITY = {
   wall_南:10, wall_南西:10, wall_西:10, wall_北西:10,
   roof:10, floor1:10, floor_out:10, found:10, innerwall:10, attic:10, fill_solid:10, stair_solid:10,
   window:30, doorbody:30,
+  extdoor_北:30, extdoor_北東:30, extdoor_東:30, extdoor_南東:30,
+  extdoor_南:30, extdoor_南西:30, extdoor_西:30, extdoor_北西:30,
   doorgap_top:50, doorgap_uc:50, ac_body:50,
   ac_supply:90, ac_return:90
 };

@@ -13,9 +13,9 @@ function isNorthFacingAz(value){
 }
 const AT_BLANK_IDS = [
   'calcDate','detailHour','lat','lon','tmax','tmin','tpeak','targetT',
-  'uWall','uRoof','uWin','uaVal','envArea','roomVol','ach','hxRate','acMax'
+  'uWall','uRoof','uWin','uDoor','uaVal','envArea','roomVol','ach','hxRate','acMax'
 ];
-const AT_MANUAL_IDS = AT_BLANK_IDS.concat(['acCount']);
+const AT_MANUAL_IDS = AT_BLANK_IDS.filter(id=>id!=='acMax'&&id!=='uDoor').concat(['acCount']);
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -144,7 +144,7 @@ function csvNumber(value){
 function emptyArchitrendResult(){
   return {
     projectName:null, workName:null, projectLocation:null,
-    ua:null, envArea:null, uRoof:null, uWall:null, uFloor:null, uFound:null, uWin:null,
+    ua:null, envArea:null, uRoof:null, uWall:null, uFloor:null, uFound:null, uWin:null, uDoor:null,
     trueNorthDeg:null, trueNorthNote:null,
     rooms:[], habitableRooms:[], excludedRooms:[], windows:[],
     notes:[], validation:{}, sources:{}, inputSources:{csv:false,pdf:false}
@@ -239,7 +239,7 @@ function mergeArchitrendSources(csvParsed,pdfParsed){
   result.notes=[...(result.notes||[])];
   const warnings=[];
   if(pdfResult){
-    ['projectName','workName','projectLocation','ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
+    ['projectName','workName','projectLocation','ua','envArea','uRoof','uWall','uFloor','uFound','uWin','uDoor'].forEach(key=>{
       if(result[key]!==null) result.sources[key]='PDF p.1';
     });
     if(result.habitableRooms.length) result.sources.rooms='PDF p.'+
@@ -518,6 +518,7 @@ function parsePositionedEnvelope(layoutPages){
     ua:leftNumberOnLine('外皮平均熱貫流率(UA)'),
     envArea:leftNumberOnLine('外皮面積[㎡]'),
     uRoof:getU('屋根(1)'), uWall:getU('外壁(1)'), uFloor:getU('床(1)'), uFound:getU('基礎(1)'),
+    uDoor:getU('ドア(1)'),
     uWin:uniqueWin.length===1?parseFloat(uniqueWin[0]):null,
     page:page.number
   };
@@ -536,6 +537,7 @@ function parseArchiTrendText(fullText, layoutPages){
     uFloor: null,
     uFound: null,
     uWin: null,
+    uDoor: null,
     trueNorthDeg: null,
     trueNorthNote: null,
     rooms: [],
@@ -579,6 +581,7 @@ function parseArchiTrendText(fullText, layoutPages){
     if(vals.length >= 12){
       result.uRoof = vals[0];
       result.uWall = vals[1];
+      result.uDoor = vals[6];
       result.uFloor = vals[10];
       result.uFound = vals[11];
       const winUs = vals.slice(7, 10);
@@ -766,7 +769,7 @@ function parseArchiTrendText(fullText, layoutPages){
   // 座標付き表解析を優先する。平文化で崩れやすい窓・居室表を行/列として読み直す
   const envelopeLayout=parsePositionedEnvelope(layoutPages);
   if(envelopeLayout){
-    ['ua','envArea','uRoof','uWall','uFloor','uFound','uWin'].forEach(key=>{
+    ['ua','envArea','uRoof','uWall','uFloor','uFound','uWin','uDoor'].forEach(key=>{
       if(envelopeLayout[key]!==null) result[key]=envelopeLayout[key];
     });
     for(let i=warnings.length-1;i>=0;i--){
@@ -882,7 +885,8 @@ function renderArchitrendReview(parsed, applied){
     ['外壁U',result.uWall==null?'—':result.uWall,sourceOf('uWall')],
     ['床U',result.uFloor==null?'—':result.uFloor,sourceOf('uFloor')],
     ['基礎U',result.uFound==null?'—':result.uFound,sourceOf('uFound')],
-    ['窓U',result.uWin==null?'—':result.uWin,sourceOf('uWin')]
+    ['窓U',result.uWin==null?'—':result.uWin,sourceOf('uWin')],
+    ['外部扉U',result.uDoor==null?'—':result.uDoor,sourceOf('uDoor')]
   ];
   const windowRows=result.windows.map(w=>
     '<tr><td>'+escapeHtml(w.id)+'</td><td>'+escapeHtml(w.floor||'—')+'</td>'+
@@ -1212,6 +1216,7 @@ function applyArchitrendParse(parsed){
   setVal('uFloor1', result.uFloor);
   setVal('uFound', result.uFound);
   setVal('uWin', result.uWin);
+  setVal('uDoor', result.uDoor);
   if(result.projectLocation) setVal('siteAddress',result.projectLocation);
 
   atAssignableRooms=(result.rooms||[]).map((r,i)=>Object.assign({},r,{

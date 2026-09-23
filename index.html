@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260923j">
+<link rel="stylesheet" href="style.css?v=20260923k">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -86,7 +86,7 @@
     <span class="toc-en">Run</span>
   </a>
   <a href="#transfer">
-    <span class="toc-jp">手コピー用</span>
+    <span class="toc-jp">コピー用</span>
     <span class="toc-en">Transfer List</span>
   </a>
 </nav>
@@ -417,6 +417,10 @@
     <div class="field-user"><label>外壁の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWall" value="0.39" step="0.01"></div>
     <div class="field-user"><label>屋根の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uRoof" value="0.27" step="0.01"></div>
   </div>
+  <div class="row2" style="max-width:500px; margin-top:10px;">
+    <div class="field-user"><label>外部扉の熱通過率 U (W/m²K)</label><input type="number" id="uDoor" step="0.01"></div>
+  </div>
+  <p class="small">窓をドアに変えた面は、元の形のままこのUと方位のSATで外部扉にします。扉の隙間は作りません。</p>
   <p class="small" style="font-weight:600; margin:12px 0 4px;">↓ 参考: 1日のSAT変化 (方位別・傾向確認用)</p>
   <div style="position:relative; width:100%; height:300px; margin:8px 0;">
     <canvas id="satChart"></canvas>
@@ -785,12 +789,13 @@
   <h3 style="margin-top:0;">3-1 機種の選択</h3>
   <div class="row4">
     <div class="field-user"><label>畳数クラス<span class="tag-req">要設定</span></label><select id="tatamiSel"></select></div>
-    <div class="field-user"><label>最大冷房能力 (kW) ※編集可<span class="tag-req">要設定</span></label><input type="number" id="acMax" value="3.4" step="0.1"></div>
+    <div class="field-user"><label>最大冷房能力 (kW) ※編集可</label><input type="number" id="acMax" value="3.4" step="0.1"></div>
     <div class="field-user"><label>台数<span class="tag-req">要設定</span></label><input type="number" id="acCount" value="1" step="1" min="1"></div>
     <div style="align-self:end;" class="small" id="acRatedInfo"></div>
   </div>
+  <p class="small" style="margin:-2px 0 12px;">最大冷房能力は空欄のままでも大丈夫です。吹出温度の計算には使いません。台数は空欄にできません。1台以上がないと吹出温度を計算できません。</p>
   <h3>3-2 風向・風量の選択 (Z-Tシリーズ実測ベース)</h3>
-  <p class="small" style="margin:-6px 0 10px;">Architrendではエアコンを置くときに風向（水平 / 30° / 50°）を選びます。ここでの風向は手動入力時、または未配置のときの初期値です。</p>
+  <p class="small" style="margin:-6px 0 10px;">風向は FlowDesigner に渡す設定です。エアコンを置くときに水平 / 30° / 50° を選びます。ここでの風向は、手動入力のときと、まだ置いていないときの初期値です。</p>
   <div class="row4">
     <div><label>風向</label><select id="dirSel"><option value="水平">水平</option><option value="50°">50° (ノッチ3)</option><option value="30°">30°</option></select>
       <p class="small" id="dirSelNote" hidden></p></div>
@@ -894,10 +899,10 @@
   <div class="guide-now">いま · 色分けモデル</div>
   <p class="small" style="margin-top:0;" id="idfMeshGuide">EnergyPlus の IDF、または Architrend の 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
   <div class="ssl-flow">
-    <div class="ssl-step"><span class="n">1</span><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはページ上部の3DS（内壁つき可）</span></div>
-    <div class="ssl-step"><span class="n">2</span><b>3DS を書き出す</b><span>部材名付き・色分け。埋メは *_cfd_fill.3ds、内部発熱は *_cfd_gain.3ds で別ファイル</span></div>
-    <div class="ssl-step"><span class="n">3</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。合体概形の左下が原点。右の「解析領域」の数値をそのまま入れる</span></div>
-    <div class="ssl-step"><span class="n">4</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
+    <div class="ssl-step is-note"><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはページ上部の3DS（内壁つき可）</span></div>
+    <div class="ssl-step"><span class="n">1</span><b>3DS を書き出す</b><span>部材名付き・色分け。埋メは *_cfd_fill.3ds、内部発熱は *_cfd_gain.3ds で別ファイル</span></div>
+    <div class="ssl-step"><span class="n">2</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。合体概形の左下が原点。右の「解析領域」の数値をそのまま入れる</span></div>
+    <div class="ssl-step"><span class="n">3</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
   </div>
   <p class="small">Architrend の3Dビューワーで配置したエアコン・ドアは家モデルの3DSに含まれます。吹出・吸込・ドア隙間の条件は、FDへ取り込んだ後にSSL一括反映で設定します。</p>
 </aside>
@@ -955,8 +960,8 @@
     <div>
       <label>FDプロジェクトの流量単位 (エアコン風量の換算先)</label>
       <select id="sslFlowUnit">
-        <option value="cmm" selected>m³/min (CMM・FD既定)</option>
-        <option value="cmh">m³/h (CMH)</option>
+        <option value="cmh" selected>㎥/h (CMH)</option>
+        <option value="cmm">m³/min (CMM)</option>
       </select>
     </div>
     <div class="small" style="align-self:end;">FlowDesigner側の「領域の設定」の流量単位に合わせてください。SSLの空調解析系スクリプトは CMM 前提です。</div>
@@ -1057,7 +1062,7 @@
 <!-- ================= 転記一覧 ================= -->
 <h2 id="transfer">
   <span class="h2-text">
-    <span class="h2-jp">手コピー用・SSLが使えないとき</span>
+    <span class="h2-jp">コピー用・SSLが使えないとき</span>
     <span class="h2-en">Transfer List</span>
   </span>
 </h2>
@@ -1067,7 +1072,7 @@
   <p class="small" style="margin-top:0;">SSL連携が使えない場合の控えです。上から順にFlowDesignerへ転記すれば境界条件の設定が完了します。</p>
 </aside>
 <div class="stage-work">
-<p class="desc">通常は Step 3 のあとの SSL 一括反映を使います。ここは手コピー用の控えです。</p>
+<p class="desc">通常は Step 3 のあとの SSL 一括反映を使います。ここはコピー用の控えです。</p>
 <div class="box" id="transferWrap"></div>
 </div>
 </div>
@@ -1077,31 +1082,31 @@
   SAT計算: sat_calculator.html / 内部発熱: internal_heat_load_calculator.html /
   疑似厚み・必要処理熱量・風量: 境界条件設定_窓修正.xlsx (Z-Tシリーズ実測) /
   ドア隙間開口率: 隙間モデル化ケース④ (上辺・UC開口率不均一)<br>
-  定常冷房解析・メッシュ100mm前提 — 境界条件は SSL 一括反映 (objParam.csv) で FlowDesigner へ渡す。手コピーは転記一覧を使用
+  定常冷房解析・メッシュ100mm前提 — 境界条件は SSL 一括反映 (objParam.csv) で FlowDesigner へ渡す。コピーは転記一覧を使用
 </footer>
 
 </div><!-- /.wrap -->
 
-<script src="js/01-constants.js?v=20260920n"></script>
+<script src="js/01-constants.js?v=20260923a"></script>
 <script src="js/02-solar.js?v=20260920f"></script>
 <script src="js/03-utils.js?v=20260920f"></script>
 <script src="js/04-rooms.js?v=20260923a"></script>
-<script src="js/05-ac.js?v=20260920f"></script>
+<script src="js/05-ac.js?v=20260923a"></script>
 <script src="js/15-sat-etd.js?v=20260920f"></script>
-<script src="js/06-run-all.js?v=20260923b"></script>
+<script src="js/06-run-all.js?v=20260923d"></script>
 <script src="js/07-external-api.js?v=20260920f"></script>
 <script src="js/08-presets.js?v=20260923a"></script>
-<script src="js/09-state.js?v=20260923a"></script>
-<script src="js/10-architrend.js?v=20260923a"></script>
+<script src="js/09-state.js?v=20260923b"></script>
+<script src="js/10-architrend.js?v=20260923c"></script>
 <script src="js/12-energyplus.js?v=20260920k"></script>
-<script src="js/13-ssl-export.js?v=20260920n"></script>
-<script src="js/14-idf-mesh.js?v=20260923c"></script>
+<script src="js/13-ssl-export.js?v=20260923a"></script>
+<script src="js/14-idf-mesh.js?v=20260923d"></script>
 <script src="js/16-at-3ds.js?v=20260923b"></script>
 <script src="js/17-at-rooms.js?v=20260920k"></script>
 <script src="js/19-at-stairs.js?v=20260923a"></script>
-<script src="js/18-at-room-viewer.js?v=20260923e"></script>
+<script src="js/18-at-room-viewer.js?v=20260923f"></script>
 <script src="js/19-at-fdd-templates.js?v=20260923c"></script>
-<script src="js/20-at-parts.js?v=20260923g"></script>
+<script src="js/20-at-parts.js?v=20260923h"></script>
 <script src="js/11-init.js?v=20260923a"></script>
 </body>
 </html>

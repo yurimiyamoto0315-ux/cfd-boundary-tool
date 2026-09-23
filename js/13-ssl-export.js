@@ -110,6 +110,13 @@ function sslWallParams(nm){
     {id:58, label:'熱通過率', tr:['1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]']}
   ];
 }
+function sslExtDoorParams(nm){
+  return [
+    {id:54, label:'種類', fixed:'外気温と熱通過率'},
+    {id:57, label:'外気温(SAT)', tr:['1-4','外部扉 '+nm+' (発生パネル)','外気温 [℃] = SAT']},
+    {id:58, label:'熱通過率', tr:['1-4','外部扉 '+nm+' (発生パネル)','熱通過率 [W/m²K]']}
+  ];
+}
 const SSL_CATEGORIES = [
   {key:'wall_北', label:'外壁 北 (発生パネル)', params: sslWallParams('北')},
   {key:'wall_北東', label:'外壁 北東 (発生パネル)', params: sslWallParams('北東')},
@@ -119,6 +126,14 @@ const SSL_CATEGORIES = [
   {key:'wall_南西', label:'外壁 南西 (発生パネル)', params: sslWallParams('南西')},
   {key:'wall_西', label:'外壁 西 (発生パネル)', params: sslWallParams('西')},
   {key:'wall_北西', label:'外壁 北西 (発生パネル)', params: sslWallParams('北西')},
+  {key:'extdoor_北', label:'外部扉 北 (発生パネル)', params: sslExtDoorParams('北')},
+  {key:'extdoor_北東', label:'外部扉 北東 (発生パネル)', params: sslExtDoorParams('北東')},
+  {key:'extdoor_東', label:'外部扉 東 (発生パネル)', params: sslExtDoorParams('東')},
+  {key:'extdoor_南東', label:'外部扉 南東 (発生パネル)', params: sslExtDoorParams('南東')},
+  {key:'extdoor_南', label:'外部扉 南 (発生パネル)', params: sslExtDoorParams('南')},
+  {key:'extdoor_南西', label:'外部扉 南西 (発生パネル)', params: sslExtDoorParams('南西')},
+  {key:'extdoor_西', label:'外部扉 西 (発生パネル)', params: sslExtDoorParams('西')},
+  {key:'extdoor_北西', label:'外部扉 北西 (発生パネル)', params: sslExtDoorParams('北西')},
   {key:'roof', label:'屋根 (発生パネル)', params:[
     {id:54, label:'種類', fixed:'外気温と熱通過率'},
     {id:57, label:'外気温(SAT)', tr:['1-4','屋根 (発生パネル)','外気温 [℃] = SAT']},

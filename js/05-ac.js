@@ -6,14 +6,18 @@ function renderAcCompare(qReq, flowPer, acMax, targetT, currentCount){
     const qPer = qReq/n;
     const dT = vT>0 ? qReq/(RHOCP*vT) : 0;
     const ts = targetT - dT;
-    const capOk = (acMax*1000*n) >= qReq;
+    const capKnown = acMax>0;
+    const capOk = capKnown && (acMax*1000*n) >= qReq;
     const cur = (n===currentCount);
+    const judge = capKnown
+      ? (capOk?'<span class="ok">OK</span>':'<span style="color:#DE5A3A; font-weight:600;">能力不足</span>')
+      : '—';
     html += '<tr'+(cur?' style="background:#F4F4F4; font-weight:600;"':'')+'>'+
       '<td>'+n+'台'+(cur?' ← 現在の設定':'')+'</td>'+
       '<td>'+vT.toFixed(0)+'</td>'+
       '<td>'+qPer.toFixed(0)+'</td>'+
       '<td>'+ts.toFixed(2)+'</td>'+
-      '<td>'+(capOk?'<span class="ok">OK</span>':'<span style="color:#DE5A3A; font-weight:600;">能力不足</span>')+'</td></tr>';
+      '<td>'+judge+'</td></tr>';
   }
   html += '</table>';
   document.getElementById('acCountCompare').innerHTML = html;

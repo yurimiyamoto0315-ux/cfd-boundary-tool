@@ -168,7 +168,7 @@ function atPartReviewData(){
 }
 function atPartRestoreReview(data){
   const p=data||{};
-  atParts.items=Array.isArray(p.items)?p.items.filter(it=>it&&
+  atParts.items=Array.isArray(p.items)?p.items.filter(it=>it&&!it.sourceFaceId&&
     Object.prototype.hasOwnProperty.call(AT_PART_FILES,it.kind)&&/^part-\d+$/.test(String(it.id))&&
     Number.isFinite(it.x)&&Number.isFinite(it.y)&&Number.isFinite(it.angle)&&
     Number.isInteger(Number(it.floor))&&Number(it.floor)>0):[];
@@ -180,13 +180,22 @@ function atPartRestoreReview(data){
   atPartApplyOverrides();
   atPartSyncAcCount(false);
 }
+function atPartFaceOrient(face){
+  const north=(typeof atRoomView!=='undefined'&&atRoomView)?Number(atRoomView.northDeg)||0:0;
+  if(face&&Number.isFinite(face.modelToolAz)&&typeof at3dsOrientFromToolAz==='function'&&typeof at3dsWrap180==='function'){
+    return at3dsOrientFromToolAz(at3dsWrap180(face.modelToolAz-north));
+  }
+  return '南';
+}
 function atPartApplyOverrides(){
   if(!atMesh) return;
   atMesh.meshFaces.forEach((f,i)=>{
     const id=String(f.atFaceId==null?i:f.atFaceId);
     if(f.atOriginalKey===undefined){f.atOriginalKey=f.sslKey;f.atOriginalName=f.nameJa;}
     if(f.atOriginalKey==='window'&&atParts.overrides[id]==='door'){
-      f.sslKey='doorbody';f.nameJa='ドア';f.atReplacedByPart=atParts.items.some(it=>it.sourceFaceId===id);
+      f.sslKey='extdoor_'+atPartFaceOrient(f);
+      f.nameJa='ドア';
+      f.atReplacedByPart=false;
     }else{
       f.sslKey=f.atOriginalKey;f.nameJa=f.atOriginalName;f.atReplacedByPart=false;
     }
@@ -322,27 +331,15 @@ function atPartRemove(id){
 function atPartConvertFace(faceId){
   if(!atMesh) return;
   const face=atMesh.meshFaces.find(f=>String(f.atFaceId)===String(faceId));
-  if(!face||face.atOriginalKey!=='window'&&face.sslKey!=='window') return;
-  const b=atFaceBBox(face);
-  const z=(Math.min(...face.verts.map(v=>v.z))+Math.max(...face.verts.map(v=>v.z)))/2;
-  const room=atMesh.rooms.filter(r=>z>=r.z-0.1&&z<=r.zTop+0.1)
-    .sort((a,c)=>Math.abs(a.z-z)-Math.abs(c.z-z))[0];
-  if(!room) return;
-  let snapped=atPartSnapDoor((b.minx+b.maxx)/2,(b.miny+b.maxy)/2,room.floor,atParts.doorKind);
-  if(!snapped){
-    const tpl=atParts.templates[atParts.doorKind];
-    if(!tpl) return;
-    snapped={x:(b.minx+b.maxx)/2,y:(b.miny+b.maxy)/2,
-      angle:(b.dx>=b.dy?0:90)-tpl.widthAxis*180/Math.PI,wallFaceId:faceId};
-  }
+  const original=face&&(face.atOriginalKey||face.sslKey);
+  if(!face||original!=='window') return;
+  if(atParts.overrides[String(faceId)]==='door') return;
   atSnapshotRoomEdit();
-  // Keep the classification independent of the placed part so deleting the part
-  // exposes the corrected original door face instead of turning it into glass.
   atParts.overrides[String(faceId)]='door';
-  const id='part-'+(++atParts.seq);
-  atParts.items.push({id,kind:atParts.doorKind,floor:room.floor,x:snapped.x,y:snapped.y,
-    angle:snapped.angle,sourceFaceId:String(faceId),flip:false});
-  atParts.selected=id;atParts.selectedFace=String(faceId);atParts.mode='select';
+  atParts.items=atParts.items.filter(it=>it.sourceFaceId!==String(faceId));
+  atParts.selected='';
+  atParts.selectedFace=String(faceId);
+  atParts.mode='select';
   atPartChanged();
 }
 function atPartResetFace(faceId){
@@ -400,12 +397,12 @@ function atPartSideHtml(){
       ${selected.kind==='ac'?`<label>風向 <select id="atPartBlowDir">${AT_AC_DIRS.map(d=>`<option value="${d}" ${atPartAcDir(selected)===d?'selected':''}>${d}</option>`).join('')}</select></label><label>平面回転角 <input id="atPartAngle" type="number" step="15" value="${Math.round(selected.angle)}">°</label><p class="small">赤い矢印が吹出方向 · 本体底面 FL+2000 mm · 風向は処理熱量の風量に反映します</p>`:
       `<label>パーツ <select id="atSelectedDoorKind">${['door','swing','slide'].map(k=>`<option value="${k}" ${selected.kind===k?'selected':''}>${escapeHtml(AT_PART_LABELS[k])}</option>`).join('')}</select></label><button type="button" data-part-action="flip">向きを反転</button>`}
       <button type="button" data-part-action="remove">配置を削除</button></div>`:''}
-    <h4>窓・ドアの認識</h4><p class="small">入口など窓と誤認識した面を選び、ドアへ変更できます。</p>
+    <h4>窓・ドアの認識</h4><p class="small">入口など窓と誤認識した面を選ぶと、同じ形のまま外部扉になります。隙間は作りません。</p>
     <div class="at-part-face-list">${faces.map(f=>{
       const id=String(f.atFaceId),isDoor=atParts.overrides[id]==='door';
       const b=atFaceBBox(f);
       return `<div class="at-part-face"><button type="button" data-face-select="${id}" aria-pressed="${atParts.selectedFace===id}">${isDoor?'ドア':'窓'} ${escapeHtml(f.idfName||('#'+id))} · (${((b.minx+b.maxx)/2).toFixed(2)}, ${((b.miny+b.maxy)/2).toFixed(2)}) m</button>
-        <button type="button" data-face-action="${isDoor?'reset':'convert'}" data-face-id="${id}">${isDoor?'窓に戻す':'ドア＋パーツへ'}</button></div>`;
+        <button type="button" data-face-action="${isDoor?'reset':'convert'}" data-face-id="${id}">${isDoor?'窓に戻す':'ドアにする'}</button></div>`;
     }).join('')}</div></section>`;
 }
 function atPartHandleButton(btn){
