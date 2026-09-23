@@ -533,6 +533,22 @@ function atPointInRing(x, y, ring){
   }
   return inside;
 }
+function atDistPointToRing(x, y, ring){
+  let best=Infinity;
+  const pts=ring||[];
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i], b=pts[(i+1)%pts.length];
+    const vx=b.x-a.x, vy=b.y-a.y;
+    const len2=vx*vx+vy*vy||1e-12;
+    let t=((x-a.x)*vx+(y-a.y)*vy)/len2;
+    t=Math.max(0, Math.min(1, t));
+    best=Math.min(best, Math.hypot(x-(a.x+t*vx), y-(a.y+t*vy)));
+  }
+  return best;
+}
+function atRoomIsStair(r){
+  return typeof atIsStairRoom==='function' && atIsStairRoom(r);
+}
 function atAssignWindowsToRooms(meshFaces, rooms, stats){
   const wins=(meshFaces||[]).filter(function(f){ return f.sslKey==='window'; });
   const floorZ=stats && stats.floorZ;
@@ -562,18 +578,37 @@ function atAssignWindowsToRooms(meshFaces, rooms, stats){
       [cx-nx*0.15, cy-ny*0.15],
       [cx+nx*0.15, cy+ny*0.15]
     ];
-    let room=null, bestD=0.65;
-    (rooms||[]).forEach(function(r){
-      if(String(r.floor)!==floor && !(floor==='R' && r.floor>=2)) return;
-      const hit=probes.some(function(p){ return atPointInRing(p[0], p[1], r.ring); });
-      if(hit){ room=r; bestD=0; return; }
-      if(bestD===0) return;
-      const bb=atRingBBox(r.ring);
-      const dx=Math.max(0, bb.minx-cx, cx-bb.maxx);
-      const dy=Math.max(0, bb.miny-cy, cy-bb.maxy);
-      const d=Math.hypot(dx, dy);
-      if(d<bestD){ bestD=d; room=r; }
+    const same=(rooms||[]).filter(function(r){
+      return String(r.floor)===floor || (floor==='R' && r.floor>=2);
     });
+    const hits=same.filter(function(r){
+      return probes.some(function(p){ return atPointInRing(p[0], p[1], r.ring); });
+    });
+    // Extending a stair into the next room overlaps that room. The window stays
+    // on the non-stair room, including when it still sits on that room's wall.
+    const plain=hits.filter(function(r){ return !atRoomIsStair(r); });
+    let room=plain.length ? plain[plain.length-1] : null;
+    if(!room && hits.length){
+      let edge=null, edgeD=0.25;
+      same.forEach(function(r){
+        if(atRoomIsStair(r)) return;
+        const d=atDistPointToRing(cx, cy, r.ring);
+        if(d<edgeD){ edgeD=d; edge=r; }
+      });
+      room=edge || hits[hits.length-1];
+    }
+    if(!room){
+      let best=null, bestD=0.65, plainNear=null, plainD=0.65;
+      same.forEach(function(r){
+        const bb=atRingBBox(r.ring);
+        const dx=Math.max(0, bb.minx-cx, cx-bb.maxx);
+        const dy=Math.max(0, bb.miny-cy, cy-bb.maxy);
+        const d=Math.hypot(dx, dy);
+        if(d<bestD){ bestD=d; best=r; }
+        if(!atRoomIsStair(r) && d<plainD){ plainD=d; plainNear=r; }
+      });
+      room=plainNear || best;
+    }
     return {
       face:f, area:area, floor:floor, orient:orient, az:az, cx:cx, cy:cy,
       roomKey:room ? room.key : '', roomName:room ? room.name : ''
