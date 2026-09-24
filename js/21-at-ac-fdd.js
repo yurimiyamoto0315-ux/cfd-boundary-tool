@@ -42,32 +42,46 @@ function atFddMatrices(head){
   return {move: read('move'), rotate: read('rotate')};
 }
 
-function atFddPlace(raw, matrices, anchor, item, shift){
-  let v = {x: raw[0], y: raw[1], z: raw[2]};
-  if (matrices.rotate) v = atPartTransform(v, matrices.rotate);
-  if (matrices.move) v = atPartTransform(v, matrices.move);
-  v = {x: v.x - anchor.x, y: v.y - anchor.y, z: v.z - anchor.z};
+function atFddFormatMatrix(m){
+  return m.map(atFddNum).join(',');
+}
+
+// 斜め吹き出しの仰角は回転行列の向きに対する角度。頂点へ焼き込んで回転を
+// 単位行列にすると、水平の -90° が真下になる。頂点はローカルのまま残す。
+function atFddYawRotate(angleDeg, rotate){
+  const a = (Number(angleDeg) || 0) * Math.PI / 180;
+  const c = Math.cos(a), s = Math.sin(a);
+  const R = rotate || [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  return [
+    c*R[0] - s*R[4], c*R[1] - s*R[5], c*R[2] - s*R[6], 0,
+    s*R[0] + c*R[4], s*R[1] + c*R[5], s*R[2] + c*R[6], 0,
+    R[8], R[9], R[10], 0,
+    0, 0, 0, 1
+  ];
+}
+
+function atFddPlaceMove(item, anchor, shift, move){
   const a = (Number(item.angle) || 0) * Math.PI / 180;
   const c = Math.cos(a), s = Math.sin(a);
+  const M = move || [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const dx = M[3] - anchor.x, dy = M[7] - anchor.y, dz = M[11] - anchor.z;
   const zFloor = typeof atPartFloorZ === 'function' ? atPartFloorZ(item.floor) : 0;
   const zBase = (zFloor == null ? 0 : zFloor) + (item.kind === 'ac' ? 2 : 0);
-  return {
-    x: item.x + v.x * c - v.y * s + shift.x,
-    y: item.y + v.x * s + v.y * c + shift.y,
-    z: zBase + v.z + shift.z
-  };
+  return [1, 0, 0, item.x + dx * c - dy * s + shift.x,
+          0, 1, 0, item.y + dx * s + dy * c + shift.y,
+          0, 0, 1, zBase + dz + shift.z,
+          0, 0, 0, 1];
 }
 
 function atFddBakeHead(head, anchor, item, shift, flow, temp){
   const matrices = atFddMatrices(head);
   const name = (head.match(/<name>([^<]*)<\/name>/) || [])[1] || '';
-  let out = head.replace(/<vertex id="(\d+)">([^<]+)<\/vertex>/g, function(_, id, body){
-    const p = atFddPlace(body.split(',').map(Number), matrices, anchor, item, shift);
-    return '<vertex id="' + id + '">' + [atFddNum(p.x), atFddNum(p.y), atFddNum(p.z)].join(',') + '</vertex>';
-  });
-  const ident = atFddIdentityMatrix();
-  out = out.replace(/<matrix type="move">[^<]*<\/matrix>/, '<matrix type="move">' + ident + '</matrix>');
-  out = out.replace(/<matrix type="rotate">[^<]*<\/matrix>/, '<matrix type="rotate">' + ident + '</matrix>');
+  let out = head;
+  out = out.replace(/<matrix type="move">[^<]*<\/matrix>/, '<matrix type="move">' + atFddFormatMatrix(atFddPlaceMove(item, anchor, shift, matrices.move)) + '</matrix>');
+  // 回転・頂点・斜め吹き出しは空調班パーツのFDDのまま。平面角度があるときだけ回す。
+  if (Number(item.angle)) {
+    out = out.replace(/<matrix type="rotate">[^<]*<\/matrix>/, '<matrix type="rotate">' + atFddFormatMatrix(atFddYawRotate(item.angle, matrices.rotate)) + '</matrix>');
+  }
   if (name === '吹出口' || name === '吸込口') out = atFddSetValue(out, 'OUTLETAMOUNT', atFddNum(flow));
   if (name === '吹出口'){
     out = atFddSetValue(out, 'TEMP', atFddNum(temp));
