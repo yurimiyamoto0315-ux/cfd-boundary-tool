@@ -118,6 +118,22 @@ function resetAll(){
   ['manual','architrend','energyplus'].forEach(m=>localStorage.removeItem(modeStoreKey(m)));
   location.reload();
 }
+(function migrateLectureVentOff(){
+  const flag='cfdBoundaryTool_ventModeLecture';
+  try{
+    if(localStorage.getItem(flag)==='none') return;
+    [STORE_KEY, modeStoreKey('manual'), modeStoreKey('architrend'), modeStoreKey('energyplus')].forEach(key=>{
+      const raw=localStorage.getItem(key);
+      if(!raw) return;
+      const s=JSON.parse(raw);
+      if(s && s.inputs){
+        s.inputs.ventMode='none';
+        localStorage.setItem(key, JSON.stringify(s));
+      }
+    });
+    localStorage.setItem(flag, 'none');
+  }catch(err){}
+})();
 (function migrateSavedFlowUnitDefault(){
   const flag='cfdBoundaryTool_flowUnitDefault';
   try{
