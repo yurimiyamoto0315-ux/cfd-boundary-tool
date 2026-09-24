@@ -3,12 +3,13 @@
 const AT_AC_DIRS=['水平','30°','50°'];
 const AT_AC_FILES={'水平':'エアコン水平.fdd','30°':'エアコン30°.fdd','50°':'エアコン50°.fdd'};
 const AT_AC_BUNDLE={'水平':'ac_h','30°':'ac_30','50°':'ac_50'};
-const AT_PART_FILES={ac:'エアコン水平.fdd', door:'ドア.fdd', swing:'開戸.fdd', slide:'引戸.fdd'};
+const AT_PART_FILES={ac:'エアコン水平.fdd', door:'ドア100mmメッシュ.fdd', swing:'開戸.fdd', slide:'引戸.fdd'};
 const AT_PART_LABELS={ac:'エアコン', door:'ドア', swing:'開戸', slide:'引戸'};
 const AT_PART_CHILD_KEYS={
   ac:{'AC':'ac_body','吸い込み':'ac_return','吹き出し':'ac_supply',
     '本体':'ac_body','吸込口':'ac_return','吹出口':'ac_supply'},
-  door:{'本体':'doorbody','アンダーカット':'doorgap_uc','上端':'doorgap_top'},
+  door:{'本体':'doorbody','アンダーカット':'doorgap_uc','上端':'doorgap_top',
+    'DR001B':'doorbody','DR001U':'doorgap_uc','DR001T':'doorgap_top'},
   swing:{'ドア':'doorbody','隙間上部':'doorgap_top','隙間下部':'doorgap_uc'},
   slide:{'ドア':'doorbody','隙間上部':'doorgap_top','隙間下部':'doorgap_uc'}
 };
@@ -30,11 +31,17 @@ function atPartParseFdd(xmlText,kind,fileName){
   const doc=new DOMParser().parseFromString(xmlText,'application/xml');
   if(doc.querySelector('parsererror')) throw new Error(label+' のXMLが不正です');
   const root=doc.documentElement;
-  const group=Array.from(root.children).find(n=>n.children.length>20 && n.querySelector('vertex'));
-  if(!group) throw new Error(label+' に形状がありません');
+  const models=[];
+  (function walk(node){
+    Array.from(node.children).forEach(child=>{
+      if(child.tagName!=='model') return;
+      models.push(child);
+      walk(child);
+    });
+  })(root);
+  if(!models.length) throw new Error(label+' に形状がありません');
   const keyed=AT_PART_CHILD_KEYS[kind], meshes=[];
-  Array.from(group.children).forEach(node=>{
-    if(node.tagName!=='model') return;
+  models.forEach(node=>{
     const partName=Array.from(node.children).find(n=>n.tagName==='name')?.textContent||'';
     const key=keyed[partName];
     if(!key) return;
