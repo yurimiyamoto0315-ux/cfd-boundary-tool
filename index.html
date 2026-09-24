@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260923k">
+<link rel="stylesheet" href="style.css?v=20260924a">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -900,11 +900,11 @@
   <p class="small" style="margin-top:0;" id="idfMeshGuide">EnergyPlus の IDF、または Architrend の 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。</p>
   <div class="ssl-flow">
     <div class="ssl-step is-note"><b>モデルを読む</b><span>EnergyPlusはIDF、Architrendはページ上部の3DS（内壁つき可）</span></div>
-    <div class="ssl-step"><span class="n">1</span><b>3DS を書き出す</b><span>部材名付き・色分け。埋メは *_cfd_fill.3ds、内部発熱は *_cfd_gain.3ds で別ファイル</span></div>
+    <div class="ssl-step"><span class="n">1</span><b>3DS とエアコンFDDを書き出す</b><span>家・埋メ・発熱は3DS。エアコンは流量と吹出温度入りのFDD（3DSにすると吹出口にできない）</span></div>
     <div class="ssl-step"><span class="n">2</span><b>FD に取り込む</b><span>家パネル・埋メ・発熱を別々に開く。単位は mm。合体概形の左下が原点。右の「解析領域」の数値をそのまま入れる</span></div>
     <div class="ssl-step"><span class="n">3</span><b>SSL へ</b><span>色リストを出して、次の「SSL 一括反映」へ進む。外壁の発生パネル化と発生エリア化は objParam 読み込み時に自動</span></div>
   </div>
-  <p class="small">Architrend の3Dビューワーで配置したエアコン・ドアは家モデルの3DSに含まれます。吹出・吸込・ドア隙間の条件は、FDへ取り込んだ後にSSL一括反映で設定します。</p>
+  <p class="small">ドアとドア隙間は家の3DSに含まれ、開口率はSSLで入ります。エアコンは別のFDDです。家の3DSと同じ原点なので、FlowDesignerでは挿入位置を原点にして読み込みます。</p>
 </aside>
 <div class="stage-work">
 <div class="ssl-banner" id="idfMeshBanner">
@@ -919,6 +919,7 @@
   <div id="idfMeshSummary"></div>
   <div style="margin-top:14px;">
     <button type="button" id="idfMeshExportBtn" class="at-apply-btn" disabled>3DS・埋メ・発熱3DS・名前CSVを書き出す</button>
+    <button type="button" id="atAcFddExportBtn" class="at-apply-btn">エアコンFDDを書き出す</button>
     <span class="small" id="idfMeshExportInfo" style="margin-left:10px;"></span>
   </div>
   <p class="small" style="margin:10px 0 0;">家パネルは *_cfd.3ds。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds。切妻などの屋根の上と2F持ち出しの下は *_cfd_fill.3ds の三角柱（障害物）。基礎の内側（床下）は埋めません。3ファイルとも合体概形の左下（最小XYZ）が原点です。名前が切れたときは名前CSVが正です。扉色は #ff6018 です。</p>
@@ -1100,13 +1101,14 @@
 <script src="js/10-architrend.js?v=20260923c"></script>
 <script src="js/12-energyplus.js?v=20260920k"></script>
 <script src="js/13-ssl-export.js?v=20260923a"></script>
-<script src="js/14-idf-mesh.js?v=20260923d"></script>
+<script src="js/14-idf-mesh.js?v=20260924c"></script>
 <script src="js/16-at-3ds.js?v=20260923b"></script>
 <script src="js/17-at-rooms.js?v=20260923b"></script>
 <script src="js/19-at-stairs.js?v=20260923a"></script>
 <script src="js/18-at-room-viewer.js?v=20260923f"></script>
 <script src="js/19-at-fdd-templates.js?v=20260923c"></script>
-<script src="js/20-at-parts.js?v=20260923h"></script>
+<script src="js/20-at-parts.js?v=20260924c"></script>
+<script src="js/21-at-ac-fdd.js?v=20260924b"></script>
 <script src="js/11-init.js?v=20260923a"></script>
 </body>
 </html>

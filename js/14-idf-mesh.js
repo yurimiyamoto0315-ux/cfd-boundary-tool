@@ -666,11 +666,6 @@ function idfMeshOriginNote(shift){
   return '合体概形の左下（最小XYZ）を原点に揃えています。外形 '+sx+' × '+sy+' × '+sz+' m。';
 }
 const IDF_MESH_STEP_M = 0.1;
-const IDF_MESH_PAD_M = 0.1;
-function idfMeshSnapCeil(v, step){
-  if(!(step>0) || !isFinite(v)) return v;
-  return Math.ceil(v/step - 1e-9)*step;
-}
 function idfMeshDomainAdvice(){
   const shift=idfMeshOriginShiftMm();
   if(!shift || !shift.aabb) return null;
@@ -678,23 +673,19 @@ function idfMeshDomainAdvice(){
   const sy=(shift.aabb.maxy-shift.aabb.miny)/1000;
   const sz=(shift.aabb.maxz-shift.aabb.minz)/1000;
   if(!(sx>0) || !(sy>0) || !(sz>0)) return null;
-  const pad=IDF_MESH_PAD_M, step=IDF_MESH_STEP_M;
-  const min={x:-pad, y:-pad, z:-pad};
-  const max={
-    x:idfMeshSnapCeil(sx+pad, step),
-    y:idfMeshSnapCeil(sy+pad, step),
-    z:idfMeshSnapCeil(sz+pad, step)
-  };
-  const nx=Math.round((max.x-min.x)/step);
-  const ny=Math.round((max.y-min.y)/step);
-  const nz=Math.round((max.z-min.z)/step);
-  return {sx:sx, sy:sy, sz:sz, pad:pad, step:step, min:min, max:max, nx:nx, ny:ny, nz:nz, total:nx*ny*nz};
+  const step=IDF_MESH_STEP_M;
+  const min={x:0, y:0, z:0};
+  const max={x:sx, y:sy, z:sz};
+  const nx=Math.ceil(sx/step - 1e-12);
+  const ny=Math.ceil(sy/step - 1e-12);
+  const nz=Math.ceil(sz/step - 1e-12);
+  return {sx:sx, sy:sy, sz:sz, pad:0, step:step, min:min, max:max, nx:nx, ny:ny, nz:nz, total:nx*ny*nz};
 }
 function idfMeshDomainFmt(v, unit){
-  if(unit==='mm') return String(Math.round(v*1000));
   const n=Number(v);
   if(!isFinite(n)) return '—';
-  return (Math.round(n*1000)/1000).toFixed(3);
+  const shown=unit==='mm' ? n*1000 : n;
+  return shown.toFixed(5);
 }
 function idfMeshDomainCellsLabel(n){
   if(!(n>0)) return '—';
@@ -724,7 +715,7 @@ function renderIdfMeshDomain(){
   const src=typeof cfdMeshSource==='function' ? cfdMeshSource() : null;
   const d=src ? idfMeshDomainAdvice() : null;
   if(!d){
-    host.innerHTML='<p class="small" style="margin:0;">3DS または IDF を読むと、FlowDesigner に入れる解析領域の最小・最大がここに出ます。格子は 100 mm 均一、外形の外側へ 1 格子（100 mm）の余裕です。</p>';
+    host.innerHTML='<p class="small" style="margin:0;">3DS または IDF を読むと、FlowDesigner に入れる解析領域の最大値がここに出ます。最小（オフセット）は 0 です。</p>';
     return;
   }
   const f=function(v){ return idfMeshDomainFmt(v, unit); };
@@ -748,7 +739,7 @@ function renderIdfMeshDomain(){
   html+='<div class="fd-domain-cell"><span>格子数</span><b class="num">'+d.nx+' × '+d.ny+' × '+d.nz+'</b></div>';
   html+='<div class="fd-domain-cell"><span>合計</span><b class="num">'+idfMeshDomainCellsLabel(d.total)+'</b></div>';
   html+='</div>';
-  html+='<p class="fd-domain-note">合体概形 '+d.sx.toFixed(3)+' × '+d.sy.toFixed(3)+' × '+d.sz.toFixed(3)+' m。外側へ '+idfMeshDomainFmt(d.pad, unit)+' '+uLabel+'（1格子）広げ、格子に合わせて切り上げています。ドア隙間のモデル高さと同じ 100 mm 前提です。</p>';
+  html+='<p class="fd-domain-note">合体概形 '+idfMeshDomainFmt(d.sx,'m')+' × '+idfMeshDomainFmt(d.sy,'m')+' × '+idfMeshDomainFmt(d.sz,'m')+' m。原点はモデルの左下なので、最小（オフセット）は 0 のまま、最大だけこの値にしてください。</p>';
   html+='<div class="fd-domain-copy"><button type="button" data-domain-copy>この数値をコピー</button></div>';
   host.innerHTML=html;
 }
@@ -874,7 +865,7 @@ function buildIdfMeshExport(){
   if(src.kind==='at' && typeof atPartMeshesMm==='function'){
     atPartMeshesMm().forEach(function(mesh){
       const pal=IDF_MESH_PALETTE[mesh.key];
-      if(!pal||!mesh.verts.length||!mesh.tris.length||mesh.key==='ac_body') return;
+      if(!pal||!mesh.verts.length||!mesh.tris.length||mesh.kind==='ac') return;
       usedMats[pal.mat]=pal;
       const code=mesh.kind==='ac'?'AC':'DR';
       const suffix={ac_body:'B',ac_supply:'S',ac_return:'R',doorbody:'B',doorgap_top:'T',doorgap_uc:'U'}[mesh.key];
@@ -961,9 +952,9 @@ function exportIdfMesh(){
   if(originNote) msg += ' '+originNote;
   const domain=idfMeshDomainAdvice();
   if(domain){
-    msg += ' 解析領域（m） X '+domain.min.x.toFixed(3)+'〜'+domain.max.x.toFixed(3)
-      +' / Y '+domain.min.y.toFixed(3)+'〜'+domain.max.y.toFixed(3)
-      +' / Z '+domain.min.z.toFixed(3)+'〜'+domain.max.z.toFixed(3)
+    msg += ' 解析領域（m） X 0〜'+domain.max.x.toFixed(5)
+      +' / Y 0〜'+domain.max.y.toFixed(5)
+      +' / Z 0〜'+domain.max.z.toFixed(5)
       +'、格子 0.1 m。';
   }
   if(info) info.textContent = msg;
@@ -1056,7 +1047,7 @@ function refreshIdfMeshUi(){
   }
   const originNote = idfMeshOriginNote((fill && fill.origin) || idfMeshOriginShiftMm());
   if(originNote){
-    html += '<p class="small" style="margin:8px 0 0;">'+originNote+' 家・埋メ・発熱は同じずれです。</p>';
+    html += '<p class="small" style="margin:8px 0 0;">'+originNote+' 家・埋メ・発熱・エアコンFDDは同じ原点です。</p>';
   }
   sum.innerHTML = html;
 }
@@ -1064,6 +1055,8 @@ function refreshIdfMeshUi(){
 (function initIdfMeshUi(){
   const btn = document.getElementById('idfMeshExportBtn');
   if(btn) btn.addEventListener('click', exportIdfMesh);
+  const acBtn = document.getElementById('atAcFddExportBtn');
+  if(acBtn) acBtn.addEventListener('click', function(){ exportAtAcFdd(); });
   const host=document.getElementById('idfMeshDomain');
   if(host){
     host.addEventListener('click', function(e){

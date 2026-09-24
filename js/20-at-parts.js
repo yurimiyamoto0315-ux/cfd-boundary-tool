@@ -62,7 +62,7 @@ function atPartParseFdd(xmlText,kind,fileName){
   const anchor={x:(b.minx+b.maxx)/2,y:(b.miny+b.maxy)/2,z:b.minz};
   meshes.forEach(m=>m.verts=m.verts.map(v=>({x:v.x-anchor.x,y:v.y-anchor.y,z:v.z-anchor.z})));
   const widthAxis=(b.maxx-b.minx)>=(b.maxy-b.miny)?0:Math.PI/2;
-  return {kind,meshes,width:Math.max(b.maxx-b.minx,b.maxy-b.miny),
+  return {kind,meshes,anchor,width:Math.max(b.maxx-b.minx,b.maxy-b.miny),
     depth:Math.min(b.maxx-b.minx,b.maxy-b.miny),height:b.maxz-b.minz,widthAxis};
 }
 function atPartBounds(verts){
@@ -394,7 +394,7 @@ function atPartSideHtml(){
   return `<section class="at-part-side"><h4>配置したエアコン・ドア</h4>
     ${items.length?items.map(it=>`<div class="at-part-row"><button type="button" class="at-part-item" data-part-select="${it.id}" aria-pressed="${it.id===atParts.selected}">${escapeHtml(atPartAcLabel(it))} · ${it.floor}F · (${it.x.toFixed(2)}, ${it.y.toFixed(2)}) m${it.kind==='ac'?' · 底面FL+2000 mm':''}</button><button type="button" class="at-part-quick-delete" data-part-remove="${it.id}" aria-label="${escapeHtml(atPartAcLabel(it))}を削除">削除</button></div>`).join(''):'<p class="small">まだ配置していません。</p>'}
     ${selected?`<div class="at-part-edit"><b>${escapeHtml(atPartAcLabel(selected))} · ${selected.floor}F</b>
-      ${selected.kind==='ac'?`<label>風向 <select id="atPartBlowDir">${AT_AC_DIRS.map(d=>`<option value="${d}" ${atPartAcDir(selected)===d?'selected':''}>${d}</option>`).join('')}</select></label><label>平面回転角 <input id="atPartAngle" type="number" step="15" value="${Math.round(selected.angle)}">°</label><p class="small">赤い矢印が吹出方向 · 本体底面 FL+2000 mm · 風向は処理熱量の風量に反映します</p>`:
+      ${selected.kind==='ac'?`<label>風向 <select id="atPartBlowDir">${AT_AC_DIRS.map(d=>`<option value="${d}" ${atPartAcDir(selected)===d?'selected':''}>${d}</option>`).join('')}</select></label><label>平面回転角 <input id="atPartAngle" type="number" step="15" value="${Math.round(selected.angle)}">°</label><p class="small">赤い矢印が吹出方向 · ×の右の円をドラッグすると平面角度が回ります · 本体底面 FL+2000 mm</p>`:
       `<label>パーツ <select id="atSelectedDoorKind">${['door','swing','slide'].map(k=>`<option value="${k}" ${selected.kind===k?'selected':''}>${escapeHtml(AT_PART_LABELS[k])}</option>`).join('')}</select></label><button type="button" data-part-action="flip">向きを反転</button>`}
       <button type="button" data-part-action="remove">配置を削除</button></div>`:''}
     <h4>窓・ドアの認識</h4><p class="small">入口など窓と誤認識した面を選ぶと、同じ形のまま外部扉になります。隙間は作りません。</p>
@@ -475,16 +475,34 @@ function atPartSceneHtml(rooms,project){
       const dir=atPartAcDir(it), dx=p.x-28, dy=p.y+16;
       html+=`<g data-part-dir="${it.id}" class="at-part-dir" role="button" tabindex="0" aria-label="風向 ${escapeHtml(dir)} を変更"><rect x="${(dx-22).toFixed(1)}" y="${(dy-11).toFixed(1)}" width="44" height="22" rx="11"/><text x="${dx.toFixed(1)}" y="${(dy+4).toFixed(1)}">${escapeHtml(dir)}</text><title>風向 ${escapeHtml(dir)} · クリックで変更</title></g>`;
     }
-    html+=`<g data-part-delete="${it.id}" class="at-part-delete" role="button" tabindex="0" aria-label="${escapeHtml(label)}を削除"><circle cx="${p.x+16}" cy="${p.y+16}" r="10"/><path d="M${p.x+12} ${p.y+12}l8 8m0-8l-8 8"/><title>${escapeHtml(label)}を削除</title></g><title>${escapeHtml(label)} ${it.floor}F</title></g>`;
+    html+=`<g data-part-delete="${it.id}" class="at-part-delete" role="button" tabindex="0" aria-label="${escapeHtml(label)}を削除"><circle cx="${p.x+16}" cy="${p.y+16}" r="10"/><path d="M${p.x+12} ${p.y+12}l8 8m0-8l-8 8"/><title>${escapeHtml(label)}を削除</title></g>`;
+    if(it.kind==='ac'){
+      const gx=p.x+40, gy=p.y+16;
+      html+=`<g data-part-rotate="${it.id}" class="at-part-rotate" role="button" tabindex="0" aria-label="${escapeHtml(label)}の平面角度を回す"><circle cx="${gx}" cy="${gy}" r="10"/><path d="M${gx-3.2} ${gy-4.2}a5.2 5.2 0 1 1-1.6 6.4"/><path d="M${gx-6.2} ${gy+1.2}l3.2 2.2 1.6-3.4"/><title>ドラッグで平面角度を回転</title></g>`;
+    }
+    html+=`<title>${escapeHtml(label)} ${it.floor}F</title></g>`;
   });
   return `<g class="at-part-overlay"><defs><marker id="atAcSupplyArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#cf3427"/></marker></defs>${html}</g>`;
 }
+function atPartWrapDeg(deg){
+  return ((Number(deg)%360)+360)%360;
+}
+function atPartPointerAngle(it, e, svg){
+  const pt=atSceneSvgPoint(e, svg);
+  const w=atSceneUnprojectXY(pt.x, pt.y, atPartFloorZ(it.floor));
+  return Math.atan2(w.y-it.y, w.x-it.x)*180/Math.PI;
+}
 function atPartPointerDown(e,svg){
-  const dir=e.target.closest('[data-part-dir]'),del=e.target.closest('[data-part-delete]'),part=e.target.closest('[data-part-id]'),face=e.target.closest('[data-face-id]');
-  if(!dir&&!del&&!part&&!face&&(atParts.mode==='select'||!atRoomView.plan)) return false;
-  atParts.drag={dirId:dir?.dataset.partDir||'',deleteId:del?.dataset.partDelete||'',
-    partId:(!dir&&!del&&part)?part.dataset.partId:'',faceId:face?.dataset.faceId||'',
-    place:!dir&&!del&&!part&&!face&&atParts.mode!=='select',x:e.clientX,y:e.clientY,moved:false,snapshot:false};
+  const dir=e.target.closest('[data-part-dir]'),del=e.target.closest('[data-part-delete]'),rot=e.target.closest('[data-part-rotate]'),part=e.target.closest('[data-part-id]'),face=e.target.closest('[data-face-id]');
+  if(!dir&&!del&&!rot&&!part&&!face&&(atParts.mode==='select'||!atRoomView.plan)) return false;
+  const rotateId=rot?.dataset.partRotate||'';
+  atParts.drag={dirId:dir?.dataset.partDir||'',deleteId:del?.dataset.partDelete||'',rotateId,
+    partId:(!dir&&!del&&!rot&&part)?part.dataset.partId:'',faceId:face?.dataset.faceId||'',
+    place:!dir&&!del&&!rot&&!part&&!face&&atParts.mode!=='select',x:e.clientX,y:e.clientY,moved:false,snapshot:false};
+  if(rotateId){
+    const it=atParts.items.find(p=>p.id===rotateId);
+    if(it) atParts.drag.rotateBase=it.angle-atPartPointerAngle(it, e, svg);
+  }
   svg.setPointerCapture(e.pointerId);
   return true;
 }
@@ -492,6 +510,14 @@ function atPartPointerMove(e,svg){
   const d=atParts.drag;
   if(!d) return false;
   if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>4) d.moved=true;
+  if(d.rotateId){
+    const it=atParts.items.find(p=>p.id===d.rotateId);
+    if(!it) return true;
+    if(!d.snapshot){atSnapshotRoomEdit();d.snapshot=true;}
+    it.angle=atPartWrapDeg(d.rotateBase+atPartPointerAngle(it, e, svg));
+    atDrawRoomScene();
+    return true;
+  }
   if(d.deleteId || d.dirId) return true;
   if(d.partId&&d.moved&&atRoomView.plan){
     const it=atParts.items.find(p=>p.id===d.partId);
@@ -512,6 +538,7 @@ function atPartPointerUp(e,svg){
   if(!d) return false;
   atParts.drag=null;
   if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+  if(d.rotateId){atParts.selected=d.rotateId;atParts.mode='select';if(d.snapshot)atPartChanged();else atRenderRoomViewer();return true;}
   if(d.dirId){if(!d.moved)atPartAskBlowDirEdit(d.dirId);return true;}
   if(d.deleteId){if(!d.moved)atPartRemove(d.deleteId);return true;}
   if(d.partId){atParts.selected=d.partId;atParts.mode='select';if(d.snapshot)atPartChanged();else atRenderRoomViewer();return true;}
