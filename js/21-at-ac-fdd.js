@@ -73,13 +73,23 @@ function atFddPlaceMove(item, anchor, shift, move){
           0, 0, 0, 1];
 }
 
-function atFddBakeHead(head, anchor, item, shift, flow, temp){
+function atFddRelativeMove(move, parentMove){
+  const M = move || [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const P = parentMove || [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  return [1,0,0, M[3] - P[3], 0,1,0, M[7] - P[7], 0,0,1, M[11] - P[11], 0,0,0,1];
+}
+
+function atFddBakeHead(head, anchor, item, shift, flow, temp, parentMove){
   const matrices = atFddMatrices(head);
   const name = (head.match(/<name>([^<]*)<\/name>/) || [])[1] || '';
   let out = head;
-  out = out.replace(/<matrix type="move">[^<]*<\/matrix>/, '<matrix type="move">' + atFddFormatMatrix(atFddPlaceMove(item, anchor, shift, matrices.move)) + '</matrix>');
-  // 回転・頂点・斜め吹き出しは空調班パーツのFDDのまま。平面角度があるときだけ回す。
-  if (Number(item.angle)) {
+  const placed = parentMove
+    ? atFddRelativeMove(matrices.move, parentMove)
+    : atFddPlaceMove(item, anchor, shift, matrices.move);
+  out = out.replace(/<matrix type="move">[^<]*<\/matrix>/, '<matrix type="move">' + atFddFormatMatrix(placed) + '</matrix>');
+  // 子パーツの回転は空調班パーツのまま。平面角度は親だけにかける。
+  // 子にもかけると FlowDesigner が親の回転を重ねて、さらに90°回ることがある。
+  if (!parentMove && Number(item.angle)) {
     out = out.replace(/<matrix type="rotate">[^<]*<\/matrix>/, '<matrix type="rotate">' + atFddFormatMatrix(atFddYawRotate(item.angle, matrices.rotate)) + '</matrix>');
   }
   if (name === '吹出口' || name === '吸込口') out = atFddSetValue(out, 'OUTLETAMOUNT', atFddNum(flow));
@@ -102,16 +112,18 @@ function atFddSetValue(block, tag, text){
   return block.slice(0, v + 7) + text + block.slice(e);
 }
 
-function atFddBakeBlock(block, anchor, item, shift, flow, temp, names){
+function atFddBakeBlock(block, anchor, item, shift, flow, temp, names, parentMove){
   const childAt = block.indexOf('<model>', 7);
   const headEnd = childAt < 0 ? block.lastIndexOf('</model>') : childAt;
-  const head = atFddBakeHead(block.slice(0, headEnd), anchor, item, shift, flow, temp);
+  const rawHead = block.slice(0, headEnd);
+  const ownMove = atFddMatrices(rawHead).move;
+  const head = atFddBakeHead(rawHead, anchor, item, shift, flow, temp, parentMove);
   let children = '';
   let i = childAt;
   while (i >= 0 && i < block.length){
     const end = atFddModelEnd(block, i);
     if (end < 0) break;
-    children += atFddBakeBlock(block.slice(i, end), anchor, item, shift, flow, temp, names);
+    children += atFddBakeBlock(block.slice(i, end), anchor, item, shift, flow, temp, names, parentMove || ownMove);
     const next = block.indexOf('<model>', end);
     if (next < 0 || next >= block.lastIndexOf('</model>')) break;
     i = next;
