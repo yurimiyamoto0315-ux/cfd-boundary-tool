@@ -374,10 +374,10 @@ function runAll(){
 
     card.querySelector('.peopleSensResult').textContent = peopleSens.toFixed(1)+' W';
     card.querySelector('.occCountEcho').textContent = occ+' 人';
-    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h（潜熱 '+peopleLat.toFixed(1)+' W）';
+    card.querySelector('.peopleMoistResult').textContent = peopleMoist.toFixed(1)+' g/h';
     card.querySelector('.equipSensResult').textContent = equipSens.toFixed(1)+' W';
     card.querySelector('.areaEcho').textContent = roomArea.toFixed(1)+' ㎡';
-    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h（潜熱 '+equipLat.toFixed(1)+' W）';
+    card.querySelector('.equipMoistResult').textContent = equipMoist.toFixed(1)+' g/h';
     document.getElementById(card.id+'_summary').innerHTML =
       '<div class="stat"><div class="lbl">直達日射</div><div class="val">'+solarW.toFixed(0)+' W</div></div>'+
       '<div class="stat"><div class="lbl">人体顕熱</div><div class="val">'+peopleSens.toFixed(0)+' W</div></div>'+
@@ -388,8 +388,8 @@ function runAll(){
       '<div class="stat hl"><div class="lbl">合計潜熱</div><div class="val">'+totalLat.toFixed(0)+' W</div></div>'+
       '<div class="stat hl"><div class="lbl">合計発湿</div><div class="val">'+totalMoist.toFixed(0)+' g/h</div></div>';
     document.getElementById(card.id+'_cfd').innerHTML =
-      cfdRow('発生エリア > 発熱量 [W]', totalSens.toFixed(1)) +
-      cfdRow('発湿量 [g/h]', totalMoist.toFixed(1)) +
+      cfdRow('発生エリア > 発熱量 [W]（顕熱）', totalSens.toFixed(1)) +
+      cfdRow('発生エリア > 発湿量 [g/h]', totalMoist.toFixed(1)) +
       cfdRow('初期温度 [℃] (外気温と同じ)', oatNow.toFixed(2)) +
       cfdRow('初期湿度 [%]', initRH);
     results.push({name, solarW, peopleSens, peopleLat, equipSens, equipLat, extraSens, extraLat, totalSens, totalLat, totalMoist, winN});
@@ -508,7 +508,8 @@ function runAll(){
   document.getElementById('loadStats').innerHTML =
     '<div class="stat"><div class="lbl">外皮負荷</div><div class="val">'+qEnv.toFixed(0)+' W</div></div>'+
     '<div class="stat"><div class="lbl">換気負荷'+(ventMode==='none'?' (除外中)':'')+'</div><div class="val">'+qVent.toFixed(0)+' W</div></div>'+
-    '<div class="stat"><div class="lbl">内部発熱+日射 (Step 2合計)</div><div class="val">'+qInt.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">内部発熱+日射 (顕熱)</div><div class="val">'+qInt.toFixed(0)+' W</div></div>'+
+    '<div class="stat"><div class="lbl">内部発熱の発湿</div><div class="val">'+grand.totalMoist.toFixed(0)+' g/h</div></div>'+
     '<div class="stat hl"><div class="lbl">必要冷房処理熱量</div><div class="val">'+qReq.toFixed(0)+' W</div></div>';
 
   const qPerUnit = acCount>0 ? qReq/acCount : 0;
