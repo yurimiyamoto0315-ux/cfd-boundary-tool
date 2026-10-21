@@ -105,9 +105,9 @@ function atPartLoadTemplates(){
   atParts.loadPromise=Promise.all(jobs).then(()=>{
     atParts.templates.ac=atParts.acTemplates['水平'];
     atParts.loadError='';
-    if(typeof atRenderRoomViewer==='function'&&atMesh) atRenderRoomViewer();
+    if(typeof atRenderRoomViewer==='function'&&reviewMesh()) atRenderRoomViewer();
   }).catch(err=>{atParts.loadError=err.message;atParts.loadPromise=null;
-    if(typeof atRenderRoomViewer==='function'&&atMesh) atRenderRoomViewer();});
+    if(typeof atRenderRoomViewer==='function'&&reviewMesh()) atRenderRoomViewer();});
   return atParts.loadPromise;
 }
 function atPartAcDir(item){
@@ -118,6 +118,10 @@ function atPartAcTemplate(item){
 }
 function atPartAcLabel(item){
   return item&&item.kind==='ac'?'エアコン '+atPartAcDir(item):(AT_PART_LABELS[item&&item.kind]||'パーツ');
+}
+function atPartCaption(item){
+  if(!item||item.kind==='ac') return atPartAcLabel(item);
+  return atPartAcLabel(item)+(item.open?' 完全開口':'')+' '+atPartDoorWidth(item).toFixed(2)+'m';
 }
 function atPartTemplatesReady(){
   return AT_AC_DIRS.every(d=>!!atParts.acTemplates[d])&&!!atParts.templates.door&&!atParts.loadError;
@@ -140,17 +144,92 @@ function atPartAcFlowSummary(vol){
     total,per:units.length?total/units.length:0};
 }
 function atPartFloorZ(floor){
-  const rs=((typeof atMesh!=='undefined'&&atMesh&&atMesh.rooms)||[]).filter(r=>String(r.floor)===String(floor));
+  const rs=(((reviewMesh()&&reviewMesh().rooms)||[])).filter(r=>String(r.floor)===String(floor));
   return rs.length?Math.min(...rs.map(r=>r.z)):null;
+}
+function atPartDoorWidth(item){
+  const tpl=item&&atParts.templates[item.kind];
+  const w=Number(item&&item.width);
+  if(Number.isFinite(w)&&w>=0.3) return Math.min(w, 8);
+  return tpl&&tpl.width>0?tpl.width:0.8;
+}
+function atPartScaleDoorVert(v, tpl, width){
+  const base=tpl&&tpl.width>0?tpl.width:width;
+  const s=base>0?width/base:1;
+  if(!tpl||Math.abs(s-1)<1e-6) return {x:v.x,y:v.y,z:v.z};
+  if(tpl.widthAxis<0.01) return {x:v.x*s,y:v.y,z:v.z};
+  return {x:v.x,y:v.y*s,z:v.z};
+}
+function atPartRingPoint(p){
+  if(!p) return null;
+  if(Number.isFinite(p.x)&&Number.isFinite(p.y)) return {x:p.x,y:p.y};
+  if(Number.isFinite(p[0])&&Number.isFinite(p[1])) return {x:p[0],y:p[1]};
+  return null;
+}
+function atPartDistToRing(x,y,ring){
+  const pts=(ring||[]).map(atPartRingPoint).filter(Boolean);
+  if(pts.length<2) return Infinity;
+  let best=Infinity;
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i], b=pts[(i+1)%pts.length];
+    const vx=b.x-a.x, vy=b.y-a.y, len2=vx*vx+vy*vy||1e-12;
+    let t=((x-a.x)*vx+(y-a.y)*vy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    best=Math.min(best, Math.hypot(x-(a.x+t*vx), y-(a.y+t*vy)));
+  }
+  return best;
+}
+function atPartOpenHeight(item){
+  const tpl=item&&atParts.templates[item.kind];
+  const doorH=tpl&&tpl.height>0?tpl.height:2;
+  const z0=item?atPartFloorZ(item.floor):null;
+  if(z0==null) return doorH;
+  const rooms=((reviewMesh()&&reviewMesh().rooms)||[]).filter(r=>
+    String(r.floor)===String(item.floor)&&Number.isFinite(Number(r.zTop))&&Number(r.zTop)>z0+0.5);
+  if(rooms.length){
+    const near=rooms.filter(r=>atPartDistToRing(item.x,item.y,r.ring)<0.45);
+    const pool=near.length?near:rooms;
+    return Math.max(...pool.map(r=>Number(r.zTop)))-z0;
+  }
+  let best=null;
+  atPartWallCandidates(item.floor).forEach(({seg,face})=>{
+    const px=seg.axis==='x'?seg.x:Math.max(seg.x0,Math.min(seg.x1,item.x));
+    const py=seg.axis==='x'?Math.max(seg.y0,Math.min(seg.y1,item.y)):seg.y;
+    const dist=Math.hypot(px-item.x,py-item.y);
+    const zs=(face.verts||[]).map(v=>v.z).filter(Number.isFinite);
+    if(!zs.length||dist>0.75) return;
+    const zTop=Math.max(...zs);
+    if(!(zTop>z0+0.5)||(best&&dist>=best.dist)) return;
+    best={dist,z:zTop};
+  });
+  if(!best) return doorH;
+  const above=((reviewMesh()&&reviewMesh().rooms)||[]).map(r=>Number(r.z)).filter(z=>Number.isFinite(z)&&z>z0+0.8);
+  return Math.min(best.z, above.length?Math.min(...above):z0+6)-z0;
+}
+function atPartOpenLocalMesh(tpl, width, height){
+  const hw=width/2, h=height>0.5?height:(tpl&&tpl.height||2);
+  const verts=tpl.widthAxis<0.01
+    ? [{x:-hw,y:0,z:0},{x:hw,y:0,z:0},{x:hw,y:0,z:h},{x:-hw,y:0,z:h}]
+    : [{x:0,y:-hw,z:0},{x:0,y:hw,z:0},{x:0,y:hw,z:h},{x:0,y:-hw,z:h}];
+  return {key:'dooropen', name:'完全開口', verts, tris:[[0,1,2],[0,2,3]]};
+}
+function atPartDoorLocalMeshes(item){
+  const tpl=atParts.templates[item.kind];
+  if(!tpl) return [];
+  const width=atPartDoorWidth(item);
+  if(item.open) return [atPartOpenLocalMesh(tpl, width, atPartOpenHeight(item))];
+  return tpl.meshes.map(m=>({key:m.key, name:m.name, tris:m.tris,
+    verts:m.verts.map(v=>atPartScaleDoorVert(v, tpl, width))}));
 }
 function atPartWorldMeshes(item){
   const tpl=item.kind==='ac'?atPartAcTemplate(item):atParts.templates[item.kind];
   if(!tpl) return [];
   const zFloor=atPartFloorZ(item.floor);
   if(zFloor==null) return [];
+  const local=item.kind==='ac'?tpl.meshes:atPartDoorLocalMeshes(item);
   const a=(Number(item.angle)||0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   const zBase=zFloor+(item.kind==='ac'?2:0);
-  return tpl.meshes.map(m=>({key:m.key,name:m.name,kind:item.kind,id:item.id, floor:item.floor,
+  return local.map(m=>({key:m.key,name:m.name,kind:item.kind,id:item.id, floor:item.floor,
     verts:m.verts.map(v=>({x:item.x+v.x*c-v.y*s,y:item.y+v.x*s+v.y*c,z:zBase+v.z})),tris:m.tris}));
 }
 function atPartSupplyDirection(world){
@@ -164,7 +243,7 @@ function atPartSupplyDirection(world){
   return length>1e-5?{x:dx/length,y:dy/length}:null;
 }
 function atPartMeshesMm(){
-  if(typeof appMode==='undefined'||appMode!=='architrend'||!atMesh) return [];
+  if(typeof appMode==='undefined'||(appMode!=='architrend'&&appMode!=='energyplus')||!reviewMesh()) return [];
   return atParts.items.flatMap(item=>atPartWorldMeshes(item).map(mesh=>({
     ...mesh, verts:mesh.verts.map(v=>({x:v.x*1000,y:v.y*1000,z:v.z*1000}))
   })));
@@ -181,22 +260,29 @@ function atPartRestoreReview(data){
     Number.isInteger(Number(it.floor))&&Number(it.floor)>0):[];
   atParts.overrides=p.overrides&&typeof p.overrides==='object'?{...p.overrides}:{};
   atParts.managedAc=!!p.managedAc;
-  atParts.items.forEach(it=>{if(it.kind==='ac') it.blowDir=atPartAcDir(it);});
+  atParts.items.forEach(it=>{
+    if(it.kind==='ac') it.blowDir=atPartAcDir(it);
+    else{
+      const w=Number(it.width);
+      if(!Number.isFinite(w)||w<=0) delete it.width;
+      it.open=!!it.open;
+    }
+  });
   atParts.seq=atParts.items.reduce((max,it)=>Math.max(max,Number(String(it.id).replace(/\D/g,''))||0),0);
   atParts.selected='';atParts.selectedFace='';atParts.mode='select';
   atPartApplyOverrides();
   atPartSyncAcCount(false);
 }
 function atPartFaceOrient(face){
-  const north=(typeof atRoomView!=='undefined'&&atRoomView)?Number(atRoomView.northDeg)||0:0;
+  const north=typeof atNorthDeg==='function'?atNorthDeg():0;
   if(face&&Number.isFinite(face.modelToolAz)&&typeof at3dsOrientFromToolAz==='function'&&typeof at3dsWrap180==='function'){
     return at3dsOrientFromToolAz(at3dsWrap180(face.modelToolAz-north));
   }
   return '南';
 }
 function atPartApplyOverrides(){
-  if(!atMesh) return;
-  atMesh.meshFaces.forEach((f,i)=>{
+  if(!reviewMesh()) return;
+  reviewMesh().meshFaces.forEach((f,i)=>{
     const id=String(f.atFaceId==null?i:f.atFaceId);
     if(f.atOriginalKey===undefined){f.atOriginalKey=f.sslKey;f.atOriginalName=f.nameJa;}
     if(f.atOriginalKey==='window'&&atParts.overrides[id]==='door'){
@@ -255,8 +341,8 @@ function atPartChanged(recalculate){
   atPartApplyOverrides();
   atPartSyncAcCount(false);
   if(typeof atSyncMeshWindowsToRooms==='function') atSyncMeshWindowsToRooms();
-  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
-  if(typeof atBuildGainVolumes==='function') atMesh.gainVolumes=atBuildGainVolumes(atMesh);
+  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(reviewMesh());
+  if(typeof atBuildGainVolumes==='function') reviewMesh().gainVolumes=atBuildGainVolumes(reviewMesh());
   if(typeof at3dsEcho==='function') at3dsEcho();
   if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
   if(recalculate!==false&&typeof runAll==='function') runAll();
@@ -265,10 +351,10 @@ function atPartChanged(recalculate){
 }
 
 function atPartWallCandidates(floor){
-  if(!atMesh) return [];
+  if(!reviewMesh()) return [];
   const z=atPartFloorZ(floor);
   if(z==null) return [];
-  return atMesh.meshFaces.flatMap(f=>{
+  return reviewMesh().meshFaces.flatMap(f=>{
     if(typeof atIsPartition!=='function'||!atIsPartition(f)) return [];
     const vs=f.verts||[];
     if(!vs.length||Math.max(...vs.map(v=>v.z))<z+0.8||Math.min(...vs.map(v=>v.z))>z+1.8) return [];
@@ -276,42 +362,47 @@ function atPartWallCandidates(floor){
     return seg?[{seg,face:f}]:[];
   });
 }
-function atPartSnapDoor(x,y,floor,kind){
+function atPartSnapDoor(x,y,floor,kind,width){
   const tpl=atParts.templates[kind];
   if(!tpl) return null;
+  const want=Math.min(8, Math.max(0.3, Number.isFinite(width)&&width>0?width:tpl.width));
   let best=null;
   atPartWallCandidates(floor).forEach(({seg,face})=>{
-    const half=tpl.width/2;
     let px,py,angle,len;
     if(seg.axis==='x'){
-      len=seg.y1-seg.y0;if(len<tpl.width-0.01) return;
+      len=seg.y1-seg.y0;
+      const half=Math.min(want, Math.max(0.2,len))/2;
       px=seg.x;py=Math.max(seg.y0+half,Math.min(seg.y1-half,y));angle=90;
     }else{
-      len=seg.x1-seg.x0;if(len<tpl.width-0.01) return;
+      len=seg.x1-seg.x0;
+      const half=Math.min(want, Math.max(0.2,len))/2;
       py=seg.y;px=Math.max(seg.x0+half,Math.min(seg.x1-half,x));angle=0;
     }
     const dist=Math.hypot(px-x,py-y);
     if(!best||dist<best.distance) best={x:px,y:py,angle:angle-tpl.widthAxis*180/Math.PI,
-      distance:dist,wallFaceId:face.atFaceId};
+      distance:dist,wallFaceId:face.atFaceId,wallLen:len};
   });
-  return best&&best.distance<=0.75?best:null;
+  if(!best||best.distance>0.75) return null;
+  best.width=Math.min(Math.max(0.3,want), Math.max(0.3, best.wallLen));
+  return best;
 }
 function atPartAdd(kind,floor,x,y,extra){
   const blowDir=kind==='ac'?atPartAcDir({blowDir:extra&&extra.blowDir||atParts.lastBlowDir}):'';
   if(kind==='ac' && !atPartAcTemplate({kind:'ac',blowDir})) return false;
   if(kind!=='ac' && !atParts.templates[kind]) return false;
   if(atPartFloorZ(floor)==null) return false;
-  if(kind==='ac' && !atMesh.rooms.some(r=>String(r.floor)===String(floor)&&atPointInRing(x,y,r.ring))) return false;
+  if(kind==='ac' && !reviewMesh().rooms.some(r=>String(r.floor)===String(floor)&&atPointInRing(x,y,r.ring))) return false;
   let position={x,y,angle:0};
   if(kind!=='ac'){
-    const snapped=atPartSnapDoor(x,y,floor,kind);
+    const snapped=atPartSnapDoor(x,y,floor,kind,extra&&extra.width);
     if(!snapped) return false;
     position=snapped;
   }
   if(typeof atSnapshotRoomEdit==='function') atSnapshotRoomEdit();
   const id='part-'+(++atParts.seq);
   const item={id,kind,floor:Number(floor),x:position.x,y:position.y,angle:position.angle,
-    sourceFaceId:extra&&extra.sourceFaceId?String(extra.sourceFaceId):'',flip:false};
+    sourceFaceId:extra&&extra.sourceFaceId?String(extra.sourceFaceId):'',flip:false,open:false};
+  if(kind!=='ac') item.width=position.width;
   if(kind==='ac'){item.blowDir=blowDir;atParts.lastBlowDir=blowDir;atParts.managedAc=true;}
   atParts.items.push(item);
   atParts.selected=id;
@@ -336,8 +427,8 @@ function atPartRemove(id){
   atPartChanged();
 }
 function atPartConvertFace(faceId){
-  if(!atMesh) return;
-  const face=atMesh.meshFaces.find(f=>String(f.atFaceId)===String(faceId));
+  if(!reviewMesh()) return;
+  const face=reviewMesh().meshFaces.find(f=>String(f.atFaceId)===String(faceId));
   const original=face&&(face.atOriginalKey||face.sslKey);
   if(!face||original!=='window') return;
   if(atParts.overrides[String(faceId)]==='door') return;
@@ -360,10 +451,32 @@ function atPartResetFace(faceId){
 function atPartSetKind(id,kind){
   const it=atParts.items.find(p=>p.id===id);
   if(!it||it.kind==='ac'||kind==='ac'||!atParts.templates[kind]) return;
-  const snap=atPartSnapDoor(it.x,it.y,it.floor,kind);
+  const snap=atPartSnapDoor(it.x,it.y,it.floor,kind,atPartDoorWidth(it));
   if(!snap) return;
   atSnapshotRoomEdit();
-  it.kind=kind;it.x=snap.x;it.y=snap.y;it.angle=snap.angle+(it.flip?180:0);
+  it.kind=kind;it.width=snap.width;it.x=snap.x;it.y=snap.y;it.angle=snap.angle+(it.flip?180:0);
+  atPartChanged();
+}
+function atPartSetDoorWidth(id, meters){
+  const it=atParts.items.find(p=>p.id===id);
+  if(!it||it.kind==='ac') return;
+  const n=Number(meters);
+  if(!Number.isFinite(n)) return;
+  const snap=atPartSnapDoor(it.x,it.y,it.floor,it.kind,n);
+  if(!snap) return;
+  atSnapshotRoomEdit();
+  it.width=snap.width;it.x=snap.x;it.y=snap.y;it.angle=snap.angle+(it.flip?180:0);
+  atPartChanged();
+  if(snap.width+0.005<n){
+    const status=document.getElementById('atRoomReviewStatus');
+    if(status) status.textContent='この壁では幅 '+snap.width.toFixed(2)+' m までです。';
+  }
+}
+function atPartSetDoorOpen(id, open){
+  const it=atParts.items.find(p=>p.id===id);
+  if(!it||it.kind==='ac'||!!it.open===!!open) return;
+  atSnapshotRoomEdit();
+  it.open=!!open;
   atPartChanged();
 }
 function atPartRotateAc(id,angle){
@@ -378,33 +491,50 @@ function atPartFlipDoor(id){
 }
 function atPartFaceFloor(face){
   const z=atFaceZ(face);
-  const rs=(atMesh&&atMesh.rooms||[]).filter(r=>z>=r.z-0.1&&z<=r.zTop+0.1);
+  const rs=(reviewMesh()&&reviewMesh().rooms||[]).filter(r=>z>=r.z-0.1&&z<=r.zTop+0.1);
   return rs.length?rs.sort((a,b)=>b.z-a.z)[0].floor:null;
 }
+function atPartDoorReady(){
+  return ['door','swing','slide'].every(k=>!!atParts.templates[k])&&!atParts.loadError;
+}
+function atPartEditHtml(){
+  const selected=atParts.items.find(it=>it.id===atParts.selected);
+  if(!selected) return '';
+  if(selected.kind==='ac'){
+    return `<span class="at-rv-divider"></span><b>${escapeHtml(atPartAcLabel(selected))}</b>
+      <label>風向 <select id="atPartBlowDir">${AT_AC_DIRS.map(d=>`<option value="${d}" ${atPartAcDir(selected)===d?'selected':''}>${d}</option>`).join('')}</select></label>
+      <label>角度 <input id="atPartAngle" type="number" step="15" value="${Math.round(selected.angle)}">°</label>
+      <button type="button" data-part-action="remove">削除</button>`;
+  }
+  return `<span class="at-rv-divider"></span><b>${escapeHtml(atPartCaption(selected))}</b>
+    <label>種類 <select id="atSelectedDoorKind">${['door','swing','slide'].map(k=>`<option value="${k}" ${selected.kind===k?'selected':''}>${escapeHtml(AT_PART_LABELS[k])}</option>`).join('')}</select></label>
+    <label>幅 <input id="atPartDoorWidth" type="number" min="0.3" max="8" step="0.01" value="${atPartDoorWidth(selected).toFixed(2)}"> m</label>
+    <label class="at-part-check" title="扉を置かず、床からその階の天井までを開口率 100% にします"><input id="atPartDoorOpen" type="checkbox" ${selected.open?'checked':''}> 完全開口</label>
+    <button type="button" data-part-action="flip">反転</button>
+    <button type="button" data-part-action="remove">削除</button>`;
+}
 function atPartToolbarHtml(){
-  const mode=atParts.mode, ready=atPartTemplatesReady();
-  return `<div class="at-part-toolbar" role="group" aria-label="設備・ドアの配置">
-    <b>設備・ドア</b>
+  if(atParts.mode==='ac') atParts.mode='select';
+  const mode=atParts.mode, ready=atPartDoorReady();
+  const selected=atParts.items.some(it=>it.id===atParts.selected);
+  const hint=atParts.loadError?escapeHtml(atParts.loadError):(ready?(mode==='door'?'壁をクリックして配置':'幅と完全開口は、置いたドアを選ぶと出ます'):'ドアパーツを読み込み中…');
+  return `<div class="at-part-toolbar" role="group" aria-label="ドアの配置">
+    <b>配置</b>
     <button type="button" data-part-mode="select" aria-pressed="${mode==='select'}">選択</button>
-    <button type="button" data-part-mode="ac" aria-pressed="${mode==='ac'}" ${ready?'':'disabled'}>＋ エアコン</button>
     <button type="button" data-part-mode="door" aria-pressed="${mode==='door'}" ${ready?'':'disabled'}>＋ ドア</button>
-    <label>ドアの種類 <select id="atDoorPartKind"><option value="door" ${atParts.doorKind==='door'?'selected':''}>ドア</option><option value="swing" ${atParts.doorKind==='swing'?'selected':''}>開戸</option><option value="slide" ${atParts.doorKind==='slide'?'selected':''}>引戸</option></select></label>
-    <span class="small">${atParts.loadError?escapeHtml(atParts.loadError):(ready?(mode==='ac'?'平面図の部屋をクリック。置いたあと風向（水平 / 30° / 50°）を選びます。底面はFL+2000 mmです。':mode==='door'?'平面図の壁をクリック。壁へ吸着します。':'平面図で配置・移動できます。'):'FDDパーツを読み込み中…')}</span>
+    <label>追加 <select id="atDoorPartKind" aria-label="追加するドアの種類"><option value="door" ${atParts.doorKind==='door'?'selected':''}>ドア</option><option value="swing" ${atParts.doorKind==='swing'?'selected':''}>開戸</option><option value="slide" ${atParts.doorKind==='slide'?'selected':''}>引戸</option></select></label>
+    ${atPartEditHtml()}
+    ${selected?'':`<span class="small">${hint}</span>`}
   </div>`;
 }
 function atPartSideHtml(){
-  const floor=atRoomView.floor;
+  const floor=reviewView().floor;
   const items=atParts.items.filter(it=>floor==='all'||String(it.floor)===floor);
-  const selected=atParts.items.find(it=>it.id===atParts.selected);
-  const faces=(atMesh&&atMesh.meshFaces||[]).filter(f=>
+  const faces=(reviewMesh()&&reviewMesh().meshFaces||[]).filter(f=>
     (f.atOriginalKey||f.sslKey)==='window'&&(floor==='all'||String(atPartFaceFloor(f))===floor));
-  return `<section class="at-part-side"><h4>配置したエアコン・ドア</h4>
-    ${items.length?items.map(it=>`<div class="at-part-row"><button type="button" class="at-part-item" data-part-select="${it.id}" aria-pressed="${it.id===atParts.selected}">${escapeHtml(atPartAcLabel(it))} · ${it.floor}F · (${it.x.toFixed(2)}, ${it.y.toFixed(2)}) m${it.kind==='ac'?' · 底面FL+2000 mm':''}</button><button type="button" class="at-part-quick-delete" data-part-remove="${it.id}" aria-label="${escapeHtml(atPartAcLabel(it))}を削除">削除</button></div>`).join(''):'<p class="small">まだ配置していません。</p>'}
-    ${selected?`<div class="at-part-edit"><b>${escapeHtml(atPartAcLabel(selected))} · ${selected.floor}F</b>
-      ${selected.kind==='ac'?`<label>風向 <select id="atPartBlowDir">${AT_AC_DIRS.map(d=>`<option value="${d}" ${atPartAcDir(selected)===d?'selected':''}>${d}</option>`).join('')}</select></label><label>平面回転角 <input id="atPartAngle" type="number" step="15" value="${Math.round(selected.angle)}">°</label><p class="small">赤い矢印が吹出方向 · ×の右の円をドラッグすると平面角度が回ります · 本体底面 FL+2000 mm</p>`:
-      `<label>パーツ <select id="atSelectedDoorKind">${['door','swing','slide'].map(k=>`<option value="${k}" ${selected.kind===k?'selected':''}>${escapeHtml(AT_PART_LABELS[k])}</option>`).join('')}</select></label><button type="button" data-part-action="flip">向きを反転</button>`}
-      <button type="button" data-part-action="remove">配置を削除</button></div>`:''}
-    <h4>窓・ドアの認識</h4><p class="small">入口など窓と誤認識した面を選ぶと、同じ形のまま外部扉になります。隙間は作りません。</p>
+  return `<section class="at-part-side"><h4>配置したパーツ</h4>
+    ${items.length?items.map(it=>`<div class="at-part-row"><button type="button" class="at-part-item" data-part-select="${it.id}" aria-pressed="${it.id===atParts.selected}">${escapeHtml(atPartCaption(it))} · ${it.floor}F · (${it.x.toFixed(2)}, ${it.y.toFixed(2)}) m${it.kind==='ac'?' · 底面FL+2000 mm':''}</button><button type="button" class="at-part-quick-delete" data-part-remove="${it.id}" aria-label="${escapeHtml(atPartCaption(it))}を削除">削除</button></div>`).join(''):'<p class="small">まだ配置していません。</p>'}
+    <h4>窓をドアにする</h4><p class="small">選んだ面を、同じ形の外部扉にします。</p>
     <div class="at-part-face-list">${faces.map(f=>{
       const id=String(f.atFaceId),isDoor=atParts.overrides[id]==='door';
       const b=atFaceBBox(f);
@@ -413,7 +543,7 @@ function atPartSideHtml(){
     }).join('')}</div></section>`;
 }
 function atPartHandleButton(btn){
-  if(btn.dataset.partMode){atParts.mode=btn.dataset.partMode;atRoomView.plan=atParts.mode!=='select'||atRoomView.plan;atRenderRoomViewer();return true;}
+  if(btn.dataset.partMode){atParts.mode=btn.dataset.partMode;reviewView().plan=atParts.mode!=='select'||reviewView().plan;atRenderRoomViewer();return true;}
   if(btn.dataset.partRemove){atPartRemove(btn.dataset.partRemove);return true;}
   if(btn.dataset.partSelect){atParts.selected=btn.dataset.partSelect;atParts.mode='select';atRenderRoomViewer();return true;}
   if(btn.dataset.faceSelect){atParts.selectedFace=btn.dataset.faceSelect;atParts.mode='select';atRenderRoomViewer();return true;}
@@ -425,10 +555,10 @@ function atPartHandleButton(btn){
 }
 
 function atPartSceneHtml(rooms,project){
-  if(!atMesh) return '';
+  if(!reviewMesh()) return '';
   const floors=new Set(rooms.map(r=>String(r.floor)));
   let html='';
-  (atMesh.meshFaces||[]).forEach(f=>{
+  (reviewMesh().meshFaces||[]).forEach(f=>{
     if((f.atOriginalKey||f.sslKey)!=='window'||!floors.has(String(atPartFaceFloor(f)))) return;
     const vs=f.verts||[];
     if(vs.length<2) return;
@@ -447,10 +577,11 @@ function atPartSceneHtml(rooms,project){
   atParts.items.filter(it=>floors.has(String(it.floor))).forEach(it=>{
     const tpl=it.kind==='ac'?atPartAcTemplate(it):atParts.templates[it.kind];
     if(!tpl) return;
-    const world=atPartWorldMeshes(it),body=world.find(m=>m.key===(it.kind==='ac'?'ac_body':'doorbody'));
+    const world=atPartWorldMeshes(it),bodyKey=it.kind==='ac'?'ac_body':(it.open?'dooropen':'doorbody');
+    const body=world.find(m=>m.key===bodyKey);
     if(!body) return;
-    const color=it.kind==='ac'?'#284f9c':'#ea7037';
-    const label=atPartAcLabel(it);
+    const color=it.kind==='ac'?'#284f9c':(it.open?'#c026d3':'#ea7037');
+    const label=atPartCaption(it);
     const p=project({x:it.x,y:it.y,z:atPartFloorZ(it.floor)+(it.kind==='ac'?2.15:1.1)});
     html+=`<g data-part-id="${it.id}" class="at-part-scene-item">`;
     if(it.kind==='ac'){
@@ -466,13 +597,13 @@ function atPartSceneHtml(rooms,project){
     }else{
       const b=atPartBounds(body.verts);
       const a=it.angle*Math.PI/180, c=Math.cos(a),s=Math.sin(a);
-      const d=tpl.width/2;
+      const d=atPartDoorWidth(it)/2;
       const axis=tpl.widthAxis;
       const dx=Math.cos(axis)*d,dy=Math.sin(axis)*d;
       const u=project({x:it.x-dx*c+dy*s,y:it.y-dx*s-dy*c,z:atPartFloorZ(it.floor)+0.05});
       const v=project({x:it.x+dx*c-dy*s,y:it.y+dx*s+dy*c,z:atPartFloorZ(it.floor)+0.05});
-      html+=`<line x1="${u.x}" y1="${u.y}" x2="${v.x}" y2="${v.y}" stroke="${color}" stroke-width="7" stroke-linecap="round"/>`;
-      if(!atRoomView.plan) body.tris.forEach(t=>{
+      html+=`<line x1="${u.x}" y1="${u.y}" x2="${v.x}" y2="${v.y}" stroke="${color}" stroke-width="7" stroke-linecap="round"${it.open?' stroke-dasharray="8 5"':''}/>`;
+      if(!reviewView().plan) body.tris.forEach(t=>{
         const pts=t.map(i=>project(body.verts[i]));
         html+=`<polygon points="${pts.map(q=>q.x.toFixed(1)+','+q.y.toFixed(1)).join(' ')}" fill="${color}" fill-opacity="0.76" stroke="#8b3820" stroke-width="1"/>`;
       });
@@ -501,7 +632,7 @@ function atPartPointerAngle(it, e, svg){
 }
 function atPartPointerDown(e,svg){
   const dir=e.target.closest('[data-part-dir]'),del=e.target.closest('[data-part-delete]'),rot=e.target.closest('[data-part-rotate]'),part=e.target.closest('[data-part-id]'),face=e.target.closest('[data-face-id]');
-  if(!dir&&!del&&!rot&&!part&&!face&&(atParts.mode==='select'||!atRoomView.plan)) return false;
+  if(!dir&&!del&&!rot&&!part&&!face&&(atParts.mode==='select'||!reviewView().plan)) return false;
   const rotateId=rot?.dataset.partRotate||'';
   atParts.drag={dirId:dir?.dataset.partDir||'',deleteId:del?.dataset.partDelete||'',rotateId,
     partId:(!dir&&!del&&!rot&&part)?part.dataset.partId:'',faceId:face?.dataset.faceId||'',
@@ -526,15 +657,15 @@ function atPartPointerMove(e,svg){
     return true;
   }
   if(d.deleteId || d.dirId) return true;
-  if(d.partId&&d.moved&&atRoomView.plan){
+  if(d.partId&&d.moved&&reviewView().plan){
     const it=atParts.items.find(p=>p.id===d.partId);
     if(!it) return true;
     if(!d.snapshot){atSnapshotRoomEdit();d.snapshot=true;}
     const pt=atSceneSvgPoint(e,svg),w=atSceneUnprojectXY(pt.x,pt.y,atPartFloorZ(it.floor));
     if(it.kind==='ac'){it.x=w.x;it.y=w.y;}
     else{
-      const snap=atPartSnapDoor(w.x,w.y,it.floor,it.kind);
-      if(snap){it.x=snap.x;it.y=snap.y;it.angle=snap.angle+(it.flip?180:0);}
+      const snap=atPartSnapDoor(w.x,w.y,it.floor,it.kind,atPartDoorWidth(it));
+      if(snap){it.x=snap.x;it.y=snap.y;it.width=snap.width;it.angle=snap.angle+(it.flip?180:0);}
     }
     atDrawRoomScene();
   }
@@ -551,23 +682,14 @@ function atPartPointerUp(e,svg){
   if(d.partId){atParts.selected=d.partId;atParts.mode='select';if(d.snapshot)atPartChanged();else atRenderRoomViewer();return true;}
   if(d.faceId){atParts.selectedFace=d.faceId;atParts.mode='select';atRenderRoomViewer();return true;}
   if(d.place){
-    const floor=atRoomView.floor;
+    const floor=reviewView().floor;
     if(floor==='all') return true;
     const pt=atSceneSvgPoint(e,svg),w=atSceneUnprojectXY(pt.x,pt.y,atPartFloorZ(floor));
-    const kind=atParts.mode==='ac'?'ac':atParts.doorKind;
-    if(kind==='ac'){
-      if(!atMesh.rooms.some(r=>String(r.floor)===String(floor)&&atPointInRing(w.x,w.y,r.ring))){
-        const status=document.getElementById('atRoomReviewStatus');
-        if(status) status.textContent='この階の床の上を選んでください。';
-        return true;
-      }
-      atPartAskBlowDir(floor,w.x,w.y);
-      return true;
-    }
+    const kind=atParts.doorKind;
     const placed=atPartAdd(kind,floor,w.x,w.y);
     if(!placed){
       const status=document.getElementById('atRoomReviewStatus');
-      if(status) status.textContent='壁の近くを選んでください。パーツ幅が収まる壁に吸着します。';
+      if(status) status.textContent='壁の近くを選んでください。';
     }
     return true;
   }

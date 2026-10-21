@@ -40,7 +40,8 @@ function runAll(){
   const altDeg=(sp.alt*180/Math.PI), azDeg=(sp.az*180/Math.PI);
   const solarFc = (typeof readSolarFc==='function') ? readSolarFc() : 0.10;
   const epSat = (typeof computeEpSatBundle==='function')
-    ? computeEpSatBundle({month:mo, day:d, hour:detailHour, alpha:alpha, ho:ho, roofCorr:roofCorr, targetT:targetT})
+    ? computeEpSatBundle({month:mo, day:d, hour:detailHour, alpha:alpha, ho:ho, roofCorr:roofCorr, targetT:targetT,
+        sunAlt:sp.alt, sunAz:sp.az, idn:idn, isky:isky, rho:rho, tmax:tmax, tmin:tmin, tpeak:tpeak})
     : null;
   const useEpSat = !!(epSat && epSat.ok);
   const oatNow = useEpSat && isFinite(epSat.oatAt) ? epSat.oatAt : taNow;
@@ -153,7 +154,21 @@ function runAll(){
 
   const uWall = numOrNull('uWall'), uRoof = numOrNull('uRoof');
   const satByOri = {};
+  const shadeByOri = {};
+  const shadeGroups = (useEpSat && epSat.shadeGroups) ? epSat.shadeGroups : [];
+  shadeGroups.forEach(function(g){
+    if(!shadeByOri[g.orient]) shadeByOri[g.orient]=[];
+    shadeByOri[g.orient].push(g);
+  });
+  if(typeof assignEpShadeColors==='function') assignEpShadeColors(shadeGroups);
+  if(typeof applyEpShadeToMesh==='function') applyEpShadeToMesh(shadeGroups);
+  let shadeSplit = 0;
   let table = '<table><tr><th>方位</th><th>全天日射 Iw (W/m²)</th><th>SAT (℃)</th>'+(useEpSat?'<th>ETD (K)</th><th>φ (h) / η</th>':'')+'<th>CFD 外気温 (℃)</th><th>熱通過率 (W/m²K)</th><th></th></tr>';
+  function shadeSwatch(g){
+    const c = (g && g.color) || (typeof IDF_MESH_PALETTE!=='undefined' && IDF_MESH_PALETTE[g.sslKey]);
+    if(!c) return '';
+    return '<span style="display:inline-block;width:14px;height:10px;border:1px solid #C9C9C9;background:rgb('+c.r+','+c.g+','+c.b+');vertical-align:middle;margin-right:4px;"></span>';
+  }
   orientations.forEach(o=>{
     let iw=0, sat=taNow;
     if(geo.ok && sp.alt>0){
@@ -174,6 +189,25 @@ function runAll(){
       iso=epSat.isoByOri && epSat.isoByOri[o.name];
       if(isFinite(epSat.satByOri[o.name])) tCfd=epSat.satByOri[o.name];
     }
+    const gs = shadeByOri[o.name];
+    if(useEpSat && gs && gs.length>1){
+      gs.slice().sort(function(a,b){ return a.index-b.index; }).forEach(function(g){
+        shadeSplit++;
+        const label = g.index<=1 ? ('外壁 '+o.name) : ('外壁 '+o.name+'#'+g.index);
+        const gSat = isFinite(g.satRaw) ? g.satRaw : sat;
+        const gIw = isFinite(g.isol) ? g.isol : iw;
+        const gEtd = isFinite(g.etd) ? g.etd : null;
+        const gU = (g.u>0) ? Math.round(g.u*1000)/1000 : uWall;
+        const gT = g.tCfd;
+        if(g.index<=1 && isFinite(gT)) satByOri[o.name]=gT;
+        table += '<tr><td>'+shadeSwatch(g)+label+'</td><td>'+(isFinite(gIw)?gIw.toFixed(1):'—')+'</td><td>'+(isFinite(gSat)?gSat.toFixed(2):'—')+'</td>'+
+          (useEpSat?('<td>'+(gEtd!=null && isFinite(gEtd)?gEtd.toFixed(2):'—')+'</td><td>'+(iso?iso.phi.toFixed(1)+' / '+iso.eta.toFixed(2):'—')+'</td>'):'')+
+          '<td><b>'+(isFinite(gT)?gT.toFixed(2):'—')+'</b></td><td>'+fmtU(gU)+'</td>'+
+          '<td>'+(isFinite(gT)?'<button class="copy-btn" data-copy="'+gT.toFixed(2)+'">SATコピー</button>':'')+'</td></tr>';
+      });
+      return;
+    }
+    if(useEpSat && gs && gs.length===1 && isFinite(gs[0].tCfd)) tCfd=gs[0].tCfd;
     satByOri[o.name]=tCfd;
     const satTxt = isFinite(sat) ? sat.toFixed(2) : '—';
     const tTxt = isFinite(tCfd) ? tCfd.toFixed(2) : '—';
@@ -200,6 +234,9 @@ function runAll(){
   table += '</table>';
   if(useEpSat){
     table += '<p class="small" style="margin:8px 0 0;">CFDの発生パネル「外気温」は <b>室温 + ETD</b> です (q = U × ETD)。SAT列は相当外気温度そのもの、φ は ISO 13786 の時間遅れ、η は減衰率です。</p>';
+    if(shadeSplit){
+      table += '<p class="small" style="margin:4px 0 0;">同じ方位でも CFD 外気温の差が 0.1℃を超える外壁は行を分け、3DS も別色にします。庇の下は解析時刻の日影で壁を分割し、日なたと日陰で色を変えます。分割した部分の面積加重平均は SQL のその面の値です。</p>';
+    }
   }
   document.getElementById('satTableWrap').innerHTML = table;
   if(typeof renderEpWallHeat==='function'){
@@ -212,6 +249,16 @@ function runAll(){
   }
   if(geo.ok || useEpSat){
     ['北','北東','東','南東','南','南西','西','北西'].forEach(nm=>{
+      const gs = shadeByOri[nm];
+      if(useEpSat && gs && gs.length){
+        gs.forEach(function(g){
+          if(!isFinite(g.tCfd)) return;
+          const u = (g.u>0) ? Math.round(g.u*1000)/1000 : uWall;
+          tr('1-4', g.target, '外気温 [℃] = SAT', g.tCfd.toFixed(2));
+          tr('1-4', g.target, '熱通過率 [W/m²K]', fmtU(u));
+        });
+        return;
+      }
       if(!isFinite(satByOri[nm])) return;
       tr('1-4','外壁 '+nm+' (発生パネル)','外気温 [℃] = SAT', satByOri[nm].toFixed(2));
       tr('1-4','外壁 '+nm+' (発生パネル)','熱通過率 [W/m²K]', fmtU(uWall));
@@ -528,7 +575,7 @@ function runAll(){
   const acMaxBlank = !String(document.getElementById('acMax').value||'').trim();
   const capW = acMax*1000*acCount;
   if(!acCount){
-    warns += '<div class="warn">エアコン未配置です。3Dビューワーで配置すると台数が自動設定されます。</div>';
+    warns += '<div class="warn">エアコン未配置です。台数は Step 3 の入力を使います。</div>';
   }else if(!acMaxBlank && qReq > capW){
     warns += '<div class="warn">能力不足: 必要処理熱量 '+qReq.toFixed(0)+' W が最大冷房能力 '+capW.toFixed(0)+' W ('+acMax+' kW × '+acCount+'台) を超えています。畳数クラスを上げるか台数を増やしてください。</div>';
   }else if(!acMaxBlank){
@@ -573,6 +620,7 @@ function runAll(){
   });
   tt += '</table>';
   document.getElementById('transferWrap').innerHTML = tt;
+  if(typeof refreshIdfMeshUi==='function' && typeof appMode!=='undefined' && appMode==='energyplus') refreshIdfMeshUi();
 
   // ---- 進捗表示 ----
   for(let i=1;i<=5;i++){

@@ -66,6 +66,8 @@ function atUniq(vals, tol){
   });
   return out;
 }
+// これより近い上下の水平面は階高ではない。下側は床の裏側（天井）なので階にしない。
+const AT_MIN_STORY_M = 1.2;
 function atIsFloorFace(f){
   if(!f) return false;
   if(f.sslKey==='floor1' || f.sslKey==='floor_out') return true;
@@ -81,9 +83,35 @@ function atStoryTop(zBot, faces){
   (faces||[]).forEach(function(f){
     if(!(f.nameJa==='内床' || f.nameJa==='2F床' || f.nameJa==='天井' || f.sslKey==='attic')) return;
     const z=atFaceZ(f);
-    if(z>zBot+1.2 && z<best) best=z;
+    if(z>zBot+AT_MIN_STORY_M && z<best) best=z;
   });
   return isFinite(best) ? best : zBot+2.84;
+}
+function atBBoxOverlapArea(a, b){
+  const ox=Math.min(a.maxx,b.maxx)-Math.max(a.minx,b.minx);
+  const oy=Math.min(a.maxy,b.maxy)-Math.max(a.miny,b.miny);
+  if(!(ox>0) || !(oy>0)) return 0;
+  return ox*oy;
+}
+function atPlateIsSlabUnderside(plate, plates){
+  const z=atFaceZ(plate);
+  const b=atFaceBBox(plate);
+  const area=Math.max((b.maxx-b.minx)*(b.maxy-b.miny), 0.01);
+  return (plates||[]).some(function(up){
+    if(up===plate) return false;
+    const zu=atFaceZ(up);
+    if(!(zu>z+0.05 && zu<z+AT_MIN_STORY_M)) return false;
+    const ub=atFaceBBox(up);
+    const ov=atBBoxOverlapArea(b, ub);
+    const upArea=Math.max((ub.maxx-ub.minx)*(ub.maxy-ub.miny), 0.01);
+    return ov>Math.min(area, upArea)*0.35;
+  });
+}
+function atReleaseSlabUnderside(f){
+  if(!f) return;
+  if(f.nameJa==='内床' || f.nameJa==='2F床') f.nameJa='天井';
+  if(f.sslKey==='floor_out' || f.sslKey==='floor1') f.sslKey='innerwall';
+  f.cantilever=false;
 }
 function atRectRing(b){
   return [
@@ -190,9 +218,9 @@ function atSplitPlate(plate, splitters){
   }
   return rings.length ? rings : [atRectRing(b)];
 }
-function atBuildRoomsFromFaces(meshFaces, stats){
+function atRoomFloorPlates(meshFaces){
   const faces=meshFaces||[];
-  const floors=faces.filter(function(f){
+  const floorCandidates=faces.filter(function(f){
     if(atIsFloorFace(f)) return true;
     // The legacy material classifier labels floors above 2F as ceilings.
     // A horizontal face with a full-height story above is also a floor candidate.
@@ -205,6 +233,37 @@ function atBuildRoomsFromFaces(meshFaces, stats){
         bb.maxx>=b.minx-0.1 && bb.minx<=b.maxx+0.1 && bb.maxy>=b.miny-0.1 && bb.miny<=b.maxy+0.1;
     });
   });
+  const floors=floorCandidates.filter(function(f){
+    if(!atPlateIsSlabUnderside(f, floorCandidates)) return true;
+    atReleaseSlabUnderside(f);
+    return false;
+  });
+  return floors;
+}
+// Interstory space belongs to the room below. The next actual floor is the
+// common EP boundary; the ceiling underside must not create another zone.
+function atRoomStoryTop(z, faces, floors){
+  const ceiling=atStoryTop(z,faces);
+  const upper=(floors||[]).filter(f=>atFaceZ(f)>z+AT_MIN_STORY_M);
+  const next=upper.length?Math.min(...upper.map(atFaceZ)):Infinity;
+  return next>=ceiling-0.05 && next-ceiling<AT_MIN_STORY_M ? next : ceiling;
+}
+function atNormalizeRoomStories(rooms, faces){
+  if(!faces || !faces.length) return rooms||[];
+  const floors=atRoomFloorPlates(faces);
+  if(!floors.length) return rooms||[];
+  const levels=atUniq(floors.map(atFaceZ),0.05);
+  return (rooms||[]).filter(r=>levels.some(z=>Math.abs(z-r.z)<0.025)).map(r=>{
+    const i=levels.findIndex(z=>Math.abs(z-r.z)<0.025);
+    r.floor=i+1;
+    const top=atRoomStoryTop(r.z,faces,floors);
+    // Extend existing room assignments, retaining their keys and load settings.
+    if(top>r.zTop && top-r.zTop<AT_MIN_STORY_M)r.zTop=top;
+    return r;
+  });
+}
+function atBuildRoomsFromFaces(meshFaces, stats){
+  const faces=meshFaces||[], floors=atRoomFloorPlates(faces);
   if(!floors.length) return [];
   const bands={};
   floors.forEach(function(f){
@@ -216,7 +275,6 @@ function atBuildRoomsFromFaces(meshFaces, stats){
   const rooms=[];
   zs.forEach(function(z, si){
     const plates=bands[z];
-    const zTop=atStoryTop(z, faces);
     const walls=atStoryWalls(faces, z);
     plates.forEach(function(plate, pi){
       const splitters=walls.filter(function(w){
@@ -232,7 +290,7 @@ function atBuildRoomsFromFaces(meshFaces, stats){
           key:'at-mesh-'+si+'-'+rooms.length,
           floor: si+1,
           z: atFaceZ(plate),
-          zTop:zTop,
+          zTop:atRoomStoryTop(atFaceZ(plate),faces,floors),
           area:area,
           dx:bb.dx,
           dy:bb.dy,
@@ -260,7 +318,7 @@ function atMeshLivingVolume(mesh){
 function atMeshWindowKeys(mesh){
   const keys={};
   const src=(mesh && mesh.meshFaces) ? mesh
-    : ((typeof atMesh!=='undefined' && atMesh && atMesh.meshFaces) ? atMesh : mesh);
+    : ((typeof reviewMesh==='function' && reviewMesh() && reviewMesh().meshFaces) ? reviewMesh() : mesh);
   if(!src || typeof atAssignWindowsToRooms!=='function') return keys;
   (atAssignWindowsToRooms(src.meshFaces, (mesh && mesh.rooms) || src.rooms, src.stats)||[]).forEach(function(w){
     if(w.roomKey) keys[w.roomKey]=true;
@@ -496,7 +554,11 @@ function atBuildGainVolumes(mesh){
   return vols;
 }
 function atNorthDeg(){
-  return (typeof atRoomView!=='undefined' && isFinite(atRoomView.northDeg)) ? atRoomView.northDeg : 0;
+  if(typeof reviewView==='function'){
+    const v=reviewView();
+    if(v && isFinite(v.northDeg)) return v.northDeg;
+  }
+  return 0;
 }
 function atAzFromFace(f){
   if(f && isFinite(f.modelToolAz)) return at3dsWrap180(f.modelToolAz-atNorthDeg());

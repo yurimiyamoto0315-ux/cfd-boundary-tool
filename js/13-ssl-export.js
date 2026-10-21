@@ -183,6 +183,9 @@ const SSL_CATEGORIES = [
   {key:'doorgap_uc', label:'ドア隙間 アンダーカット (開口・圧損)', params:[
     {id:99, label:'開口率', tr:['1-2','ドア隙間 (UC)','モデル高さ [m] / 開口率 [%]']}
   ]},
+  {key:'dooropen', label:'ドア完全開口 (開口・圧損)', params:[
+    {id:99, label:'開口率', fixed:'100'}
+  ]},
   {key:'ac_supply', label:'エアコン吹出 (吹出口)', params:[
     {id:31, label:'設定方法', fixed:'流量'},
     {id:33, label:'流量', flow:true},
@@ -401,6 +404,12 @@ function sslColorCatalog(){
       add(k, {r:p.r, g:p.g, b:p.b}, 'palette');
     });
   }
+  if(typeof epShadePalette!=='undefined'){
+    Object.keys(epShadePalette).forEach(function(k){
+      const p=epShadePalette[k];
+      add(k, {r:p.r, g:p.g, b:p.b}, 'palette');
+    });
+  }
   sslWindowUGroups().forEach(function(g){
     add('window', g.color, 'window');
   });
@@ -448,7 +457,16 @@ function sslGuessCategory(rgbStr){
 function sslPriorityForKey(key){
   if(!key || key==='exclude' || String(key).indexOf('room:')===0) return null;
   if(typeof SSL_PRIORITY==='object' && SSL_PRIORITY[key]!=null) return SSL_PRIORITY[key];
+  if(String(key).indexOf('wall_')===0) return 10;
   return null;
+}
+function sslShadeCategory(g){
+  const tag=g.index<=1 ? g.orient : (g.orient+'#'+g.index);
+  return {
+    key:g.sslKey,
+    label:'外壁 '+tag+' (発生パネル)',
+    params:(typeof sslWallParams==='function') ? sslWallParams(tag) : []
+  };
 }
 function sslFillEmptyAssigns(assign){
   const next=assign||{};
@@ -520,6 +538,12 @@ function sslRoomNames(){
 function sslCategoryOptions(){
   const opts=[{key:'', label:'— 未割当 —'}];
   SSL_CATEGORIES.forEach(c=>opts.push({key:c.key, label:c.label}));
+  if(typeof epShadeGroups!=='undefined'){
+    epShadeGroups.forEach(function(g){
+      if(!g || g.index<=1) return;
+      opts.push({key:g.sslKey, label:'外壁 '+g.orient+'#'+g.index+' (発生パネル)'});
+    });
+  }
   sslRoomNames().forEach(n=>opts.push({key:'room:'+n, label:'発生エリア: '+n}));
   opts.push({key:'exclude', label:'対象外 (書き出さない)'});
   return opts;
@@ -627,6 +651,10 @@ function sslCategoryByKey(key){
       {id:77, label:'発熱量', roomGain:'heat'},
       {id:78, label:'発湿量', roomGain:'moist'}
     ]};
+  }
+  if(typeof epShadeGroups!=='undefined'){
+    const hit=epShadeGroups.find(function(g){ return g && g.sslKey===key && g.index>1; });
+    if(hit) return sslShadeCategory(hit);
   }
   return SSL_CATEGORIES.find(c=>c.key===key)||null;
 }

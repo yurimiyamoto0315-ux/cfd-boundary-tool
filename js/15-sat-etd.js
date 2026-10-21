@@ -2,6 +2,8 @@
 // EnergyPlus SQL の面日射があればそれを使い、無ければ従来の晴天 I_DN に r_G だけ掛ける。
 
 const SAT_PERIOD_H = 24;
+// 同じ方位でも、CFDに入れる外気温（室温+ETD）の差がこの値を超えた外壁は別グループにする。
+const EP_SHADE_DT = 0.1;
 const RG_TABLE = {
   S: {6:0.10, 7:0.14, 8:0.17, 9:0.27, 10:0.45, 11:0.61, 12:0.70,
       13:0.69, 14:0.58, 15:0.43, 16:0.33, 17:0.27, 18:0.22, 19:0.15, 20:0.12},
@@ -191,6 +193,71 @@ function epTransmittedW(winName, month, day, hour, area){
   return null;
 }
 
+function epShadeSurfTemp(s, indoor){
+  const e=s.etd, uCfd=s.uCfd, uIso=s.uIso;
+  if(uCfd>0 && uIso>0 && isFinite(e)) return indoor + (uIso*e)/uCfd;
+  if(isFinite(e)) return indoor+e;
+  return s.satRaw;
+}
+function epShadeAggregate(members, indoor){
+  let etdQ=0, uaCfd=0, uaIso=0, satW=0, satA=0, etdW=0, etdA=0, isolW=0, isolA=0, area=0;
+  members.forEach(function(s){
+    const areaS=s.area;
+    const e=s.etd, sa=s.satRaw, isol=s.isol, uCfd=s.uCfd, uIso=s.uIso;
+    if(isFinite(e) && uIso>0){ etdQ += uIso*e*areaS; uaIso += uIso*areaS; }
+    if(uCfd>0) uaCfd += uCfd*areaS;
+    area += areaS;
+    if(isFinite(sa)){ satW += sa*areaS; satA += areaS; }
+    if(isFinite(e)){ etdW += e*areaS; etdA += areaS; }
+    if(isFinite(isol)){ isolW += isol*areaS; isolA += areaS; }
+  });
+  const satRaw=satA>0 ? satW/satA : NaN;
+  const etd=etdA>0 ? etdW/etdA : NaN;
+  const ua=uaCfd>0 ? uaCfd : uaIso;
+  const tCfd=(ua>0 && isFinite(etdQ)) ? indoor + etdQ/ua : (isFinite(etd) ? indoor+etd : satRaw);
+  return {
+    tCfd:tCfd, satRaw:satRaw, etd:etd,
+    isol:isolA>0 ? isolW/isolA : NaN,
+    u:area>0 && uaCfd>0 ? uaCfd/area : null,
+    area:area, n:members.length
+  };
+}
+function epClusterShadeGroups(recs, indoor, thresh){
+  const step=(thresh>0)?thresh:EP_SHADE_DT;
+  const byOri={};
+  (recs||[]).forEach(function(s){
+    if(!s || s.isRoof || !isFinite(s.tSurf)) return;
+    const key=s.orient||'南';
+    if(!byOri[key]) byOri[key]=[];
+    byOri[key].push(s);
+  });
+  const groups=[];
+  Object.keys(byOri).forEach(function(orient){
+    const sorted=byOri[orient].slice().sort(function(a,b){
+      return a.tSurf-b.tSurf || String(a.name).localeCompare(String(b.name));
+    });
+    const clusters=[];
+    sorted.forEach(function(s){
+      const last=clusters[clusters.length-1];
+      if(!last || Math.abs(s.tSurf-last.seed)>step) clusters.push({seed:s.tSurf, members:[s]});
+      else last.members.push(s);
+    });
+    const packed=clusters.map(function(c){
+      return Object.assign({orient:orient, names:c.members.map(function(m){ return m.name; })}, epShadeAggregate(c.members, indoor));
+    });
+    packed.sort(function(a,b){ return b.area-a.area || b.tCfd-a.tCfd; });
+    const ordered=[packed[0]].concat(packed.slice(1).sort(function(a,b){ return b.tCfd-a.tCfd; }));
+    ordered.forEach(function(g,i){
+      const index=i+1;
+      g.index=index;
+      g.sslKey=index<=1 ? ('wall_'+orient) : ('wall_'+orient+'#'+index);
+      g.target=index<=1 ? ('外壁 '+orient+' (発生パネル)') : ('外壁 '+orient+'#'+index+' (発生パネル)');
+      groups.push(g);
+    });
+  });
+  return groups;
+}
+
 function computeEpSatBundle(opts){
   const parse=(typeof epParse!=='undefined') ? epParse : null;
   const wx=(typeof epSqlWx!=='undefined') ? epSqlWx : null;
@@ -214,6 +281,9 @@ function computeEpSatBundle(opts){
     if(!isFinite(t) && epw && epw.oatByKey){
       t=epw.oatByKey[wx.mo[i]+'-'+wx.d[i]+'-'+wx.h[i]];
     }
+    if(!isFinite(t) && opts.tmax!=null && opts.tmin!=null && opts.tpeak!=null && typeof taAt==='function'){
+      t=taAt(wx.h[i], opts.tmax, opts.tmin, opts.tpeak);
+    }
     oat[i]=t;
     if(isFinite(t)) oatOk++;
   }
@@ -222,6 +292,7 @@ function computeEpSatBundle(opts){
   const hours=wx.n>1 ? oat.map(function(_,i){ return i; }) : null;
   const {hi:hiUse, ho:hoUse}=(typeof epHiHo==='function') ? epHiHo() : {hi:hi, ho:ho};
   const rows=(typeof epOpaqueRows==='function') ? epOpaqueRows(parse, hiUse, hoUse) : [];
+  const shadeRecs=[];
   const groups={};
   function ensure(key){
     if(!groups[key]) groups[key]={satSum:[], etdQ:0, uaCfd:0, uaIso:0, area:0, iso:null, satAt:NaN, etdAt:NaN, isolAt:NaN, n:0};
@@ -255,6 +326,12 @@ function computeEpSatBundle(opts){
       g.satSum[i].w+=v*area; g.satSum[i].a+=area;
     });
     const e=etd[idx], sa=sat[idx], isol=isolArr[idx];
+    if(!isRoof){
+      const rec={name:s.name, orient:(typeof epOrientWithViewerNorth==='function'?epOrientWithViewerNorth(s):(s.orient||'南')), area:area, uCfd:uCfd, uIso:uIso, etd:e, satRaw:sa, isol:isol, isRoof:false,
+        eta:(iso && iso.eta>0)?iso.eta:1};
+      rec.tSurf=epShadeSurfTemp(rec, indoor);
+      shadeRecs.push(rec);
+    }
     if(isFinite(e) && uIso>0){
       g.etdQ += uIso*e*area;
       g.uaIso += uIso*area;
@@ -330,6 +407,9 @@ function computeEpSatBundle(opts){
     roofIsol:roof.isol,
     nSurfaces:used,
     daySeries:daySeries,
-    dayRoof:dayVals(roof.day)
+    dayRoof:dayVals(roof.day),
+    shadeGroups:epClusterShadeGroups(
+      (typeof epRefineShadeRecs==='function') ? epRefineShadeRecs(shadeRecs, opts, indoor) : shadeRecs,
+      indoor, EP_SHADE_DT)
   };
 }

@@ -158,7 +158,7 @@ function exportAtAcFdd(){
   const info = document.getElementById('idfMeshExportInfo');
   const units = typeof atPartAcUnits === 'function' ? atPartAcUnits() : [];
   if (!units.length){
-    if (info) info.textContent = 'エアコンが未配置です。3Dビューワーで置いてから書き出してください。';
+    if (info) info.textContent = 'エアコンの配置はありません。';
     return;
   }
   if (typeof atPartTemplatesReady === 'function' && !atPartTemplatesReady()){

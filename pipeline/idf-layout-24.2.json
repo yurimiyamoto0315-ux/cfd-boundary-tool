@@ -1,0 +1,709 @@
+{
+  "Building": {
+    "fields": [
+      "name",
+      "north_axis",
+      "terrain",
+      "loads_convergence_tolerance_value",
+      "temperature_convergence_tolerance_value",
+      "solar_distribution",
+      "maximum_number_of_warmup_days",
+      "minimum_number_of_warmup_days"
+    ],
+    "defaults": {
+      "north_axis": 0.0,
+      "terrain": "Suburbs",
+      "loads_convergence_tolerance_value": 0.04,
+      "temperature_convergence_tolerance_value": 0.4,
+      "solar_distribution": "FullExterior",
+      "maximum_number_of_warmup_days": 25,
+      "minimum_number_of_warmup_days": 1
+    }
+  },
+  "BuildingSurface:Detailed": {
+    "fields": [
+      "name",
+      "surface_type",
+      "construction_name",
+      "zone_name",
+      "space_name",
+      "outside_boundary_condition",
+      "outside_boundary_condition_object",
+      "sun_exposure",
+      "wind_exposure",
+      "view_factor_to_ground",
+      "number_of_vertices"
+    ],
+    "extensibles": [
+      "vertex_x_coordinate",
+      "vertex_y_coordinate",
+      "vertex_z_coordinate"
+    ],
+    "extension": "vertices",
+    "defaults": {
+      "sun_exposure": "SunExposed",
+      "wind_exposure": "WindExposed",
+      "view_factor_to_ground": "Autocalculate",
+      "number_of_vertices": "Autocalculate"
+    }
+  },
+  "Construction": {
+    "fields": [
+      "name",
+      "outside_layer",
+      "layer_2",
+      "layer_3",
+      "layer_4",
+      "layer_5",
+      "layer_6",
+      "layer_7",
+      "layer_8",
+      "layer_9",
+      "layer_10"
+    ],
+    "defaults": {}
+  },
+  "ElectricEquipment": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "schedule_name",
+      "design_level_calculation_method",
+      "design_level",
+      "watts_per_floor_area",
+      "watts_per_person",
+      "fraction_latent",
+      "fraction_radiant",
+      "fraction_lost",
+      "end_use_subcategory"
+    ],
+    "defaults": {
+      "design_level_calculation_method": "EquipmentLevel",
+      "fraction_latent": 0.0,
+      "fraction_radiant": 0.0,
+      "fraction_lost": 0.0,
+      "end_use_subcategory": "General"
+    }
+  },
+  "FenestrationSurface:Detailed": {
+    "fields": [
+      "name",
+      "surface_type",
+      "construction_name",
+      "building_surface_name",
+      "outside_boundary_condition_object",
+      "view_factor_to_ground",
+      "frame_and_divider_name",
+      "multiplier",
+      "number_of_vertices",
+      "vertex_1_x_coordinate",
+      "vertex_1_y_coordinate",
+      "vertex_1_z_coordinate",
+      "vertex_2_x_coordinate",
+      "vertex_2_y_coordinate",
+      "vertex_2_z_coordinate",
+      "vertex_3_x_coordinate",
+      "vertex_3_y_coordinate",
+      "vertex_3_z_coordinate",
+      "vertex_4_x_coordinate",
+      "vertex_4_y_coordinate",
+      "vertex_4_z_coordinate"
+    ],
+    "defaults": {
+      "view_factor_to_ground": "Autocalculate",
+      "multiplier": 1.0,
+      "number_of_vertices": "Autocalculate"
+    }
+  },
+  "GlobalGeometryRules": {
+    "fields": [
+      "starting_vertex_position",
+      "vertex_entry_direction",
+      "coordinate_system",
+      "daylighting_reference_point_coordinate_system",
+      "rectangular_surface_coordinate_system"
+    ],
+    "defaults": {
+      "daylighting_reference_point_coordinate_system": "Relative",
+      "rectangular_surface_coordinate_system": "Relative"
+    }
+  },
+  "Lights": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "schedule_name",
+      "design_level_calculation_method",
+      "lighting_level",
+      "watts_per_floor_area",
+      "watts_per_person",
+      "return_air_fraction",
+      "fraction_radiant",
+      "fraction_visible",
+      "fraction_replaceable",
+      "end_use_subcategory",
+      "return_air_fraction_calculated_from_plenum_temperature",
+      "return_air_fraction_function_of_plenum_temperature_coefficient_1",
+      "return_air_fraction_function_of_plenum_temperature_coefficient_2",
+      "return_air_heat_gain_node_name",
+      "exhaust_air_heat_gain_node_name"
+    ],
+    "defaults": {
+      "design_level_calculation_method": "LightingLevel",
+      "return_air_fraction": 0.0,
+      "fraction_radiant": 0.0,
+      "fraction_visible": 0.0,
+      "fraction_replaceable": 1.0,
+      "end_use_subcategory": "General",
+      "return_air_fraction_calculated_from_plenum_temperature": "No",
+      "return_air_fraction_function_of_plenum_temperature_coefficient_1": 0.0,
+      "return_air_fraction_function_of_plenum_temperature_coefficient_2": 0.0
+    }
+  },
+  "Material": {
+    "fields": [
+      "name",
+      "roughness",
+      "thickness",
+      "conductivity",
+      "density",
+      "specific_heat",
+      "thermal_absorptance",
+      "solar_absorptance",
+      "visible_absorptance"
+    ],
+    "defaults": {
+      "thermal_absorptance": 0.9,
+      "solar_absorptance": 0.7,
+      "visible_absorptance": 0.7
+    }
+  },
+  "Material:NoMass": {
+    "fields": [
+      "name",
+      "roughness",
+      "thermal_resistance",
+      "thermal_absorptance",
+      "solar_absorptance",
+      "visible_absorptance"
+    ],
+    "defaults": {
+      "thermal_absorptance": 0.9,
+      "solar_absorptance": 0.7,
+      "visible_absorptance": 0.7
+    }
+  },
+  "OtherEquipment": {
+    "fields": [
+      "name",
+      "fuel_type",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "schedule_name",
+      "design_level_calculation_method",
+      "design_level",
+      "power_per_floor_area",
+      "power_per_person",
+      "fraction_latent",
+      "fraction_radiant",
+      "fraction_lost",
+      "carbon_dioxide_generation_rate",
+      "end_use_subcategory"
+    ],
+    "defaults": {
+      "fuel_type": "None",
+      "design_level_calculation_method": "EquipmentLevel",
+      "fraction_latent": 0.0,
+      "fraction_radiant": 0.0,
+      "fraction_lost": 0.0,
+      "carbon_dioxide_generation_rate": 0.0,
+      "end_use_subcategory": "General"
+    }
+  },
+  "Output:SQLite": {
+    "fields": [
+      "option_type",
+      "unit_conversion_for_tabular_data"
+    ],
+    "defaults": {
+      "unit_conversion_for_tabular_data": "UseOutputControlTableStyle"
+    }
+  },
+  "Output:Variable": {
+    "fields": [
+      "key_value",
+      "variable_name",
+      "reporting_frequency",
+      "schedule_name"
+    ],
+    "defaults": {
+      "key_value": "*",
+      "reporting_frequency": "Hourly"
+    }
+  },
+  "People": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "number_of_people_schedule_name",
+      "number_of_people_calculation_method",
+      "number_of_people",
+      "people_per_floor_area",
+      "floor_area_per_person",
+      "fraction_radiant",
+      "sensible_heat_fraction",
+      "activity_level_schedule_name",
+      "carbon_dioxide_generation_rate",
+      "enable_ashrae_55_comfort_warnings",
+      "mean_radiant_temperature_calculation_type",
+      "surface_name_angle_factor_list_name",
+      "work_efficiency_schedule_name",
+      "clothing_insulation_calculation_method",
+      "clothing_insulation_calculation_method_schedule_name",
+      "clothing_insulation_schedule_name",
+      "air_velocity_schedule_name",
+      "thermal_comfort_model_1_type",
+      "thermal_comfort_model_2_type",
+      "thermal_comfort_model_3_type",
+      "thermal_comfort_model_4_type",
+      "thermal_comfort_model_5_type",
+      "thermal_comfort_model_6_type",
+      "thermal_comfort_model_7_type",
+      "ankle_level_air_velocity_schedule_name",
+      "cold_stress_temperature_threshold",
+      "heat_stress_temperature_threshold"
+    ],
+    "defaults": {
+      "number_of_people_calculation_method": "People",
+      "fraction_radiant": 0.3,
+      "sensible_heat_fraction": "Autocalculate",
+      "carbon_dioxide_generation_rate": 3.82e-08,
+      "enable_ashrae_55_comfort_warnings": "No",
+      "mean_radiant_temperature_calculation_type": "EnclosureAveraged",
+      "clothing_insulation_calculation_method": "ClothingInsulationSchedule",
+      "cold_stress_temperature_threshold": 15.56,
+      "heat_stress_temperature_threshold": 30.0
+    }
+  },
+  "RunPeriod": {
+    "fields": [
+      "name",
+      "begin_month",
+      "begin_day_of_month",
+      "begin_year",
+      "end_month",
+      "end_day_of_month",
+      "end_year",
+      "day_of_week_for_start_day",
+      "use_weather_file_holidays_and_special_days",
+      "use_weather_file_daylight_saving_period",
+      "apply_weekend_holiday_rule",
+      "use_weather_file_rain_indicators",
+      "use_weather_file_snow_indicators",
+      "treat_weather_as_actual",
+      "first_hour_interpolation_starting_values"
+    ],
+    "defaults": {
+      "use_weather_file_holidays_and_special_days": "Yes",
+      "use_weather_file_daylight_saving_period": "Yes",
+      "apply_weekend_holiday_rule": "No",
+      "use_weather_file_rain_indicators": "Yes",
+      "use_weather_file_snow_indicators": "Yes",
+      "treat_weather_as_actual": "No",
+      "first_hour_interpolation_starting_values": "Hour24"
+    }
+  },
+  "Schedule:Constant": {
+    "fields": [
+      "name",
+      "schedule_type_limits_name",
+      "hourly_value"
+    ],
+    "defaults": {
+      "hourly_value": 0.0
+    }
+  },
+  "Schedule:Day:Hourly": {
+    "fields": [
+      "name",
+      "schedule_type_limits_name",
+      "hour_1",
+      "hour_2",
+      "hour_3",
+      "hour_4",
+      "hour_5",
+      "hour_6",
+      "hour_7",
+      "hour_8",
+      "hour_9",
+      "hour_10",
+      "hour_11",
+      "hour_12",
+      "hour_13",
+      "hour_14",
+      "hour_15",
+      "hour_16",
+      "hour_17",
+      "hour_18",
+      "hour_19",
+      "hour_20",
+      "hour_21",
+      "hour_22",
+      "hour_23",
+      "hour_24"
+    ],
+    "defaults": {
+      "hour_1": 0.0,
+      "hour_2": 0.0,
+      "hour_3": 0.0,
+      "hour_4": 0.0,
+      "hour_5": 0.0,
+      "hour_6": 0.0,
+      "hour_7": 0.0,
+      "hour_8": 0.0,
+      "hour_9": 0.0,
+      "hour_10": 0.0,
+      "hour_11": 0.0,
+      "hour_12": 0.0,
+      "hour_13": 0.0,
+      "hour_14": 0.0,
+      "hour_15": 0.0,
+      "hour_16": 0.0,
+      "hour_17": 0.0,
+      "hour_18": 0.0,
+      "hour_19": 0.0,
+      "hour_20": 0.0,
+      "hour_21": 0.0,
+      "hour_22": 0.0,
+      "hour_23": 0.0,
+      "hour_24": 0.0
+    }
+  },
+  "Schedule:Week:Daily": {
+    "fields": [
+      "name",
+      "sunday_schedule_day_name",
+      "monday_schedule_day_name",
+      "tuesday_schedule_day_name",
+      "wednesday_schedule_day_name",
+      "thursday_schedule_day_name",
+      "friday_schedule_day_name",
+      "saturday_schedule_day_name",
+      "holiday_schedule_day_name",
+      "summerdesignday_schedule_day_name",
+      "winterdesignday_schedule_day_name",
+      "customday1_schedule_day_name",
+      "customday2_schedule_day_name"
+    ],
+    "defaults": {}
+  },
+  "Schedule:Year": {
+    "fields": [
+      "name",
+      "schedule_type_limits_name"
+    ],
+    "extensibles": [
+      "schedule_week_name",
+      "start_month",
+      "start_day",
+      "end_month",
+      "end_day"
+    ],
+    "extension": "schedule_weeks",
+    "defaults": {}
+  },
+  "Shading:Building:Detailed": {
+    "fields": [
+      "name",
+      "transmittance_schedule_name",
+      "number_of_vertices"
+    ],
+    "extensibles": [
+      "vertex_x_coordinate",
+      "vertex_y_coordinate",
+      "vertex_z_coordinate"
+    ],
+    "extension": "vertices",
+    "defaults": {
+      "number_of_vertices": "Autocalculate"
+    }
+  },
+  "SimulationControl": {
+    "fields": [
+      "do_zone_sizing_calculation",
+      "do_system_sizing_calculation",
+      "do_plant_sizing_calculation",
+      "run_simulation_for_sizing_periods",
+      "run_simulation_for_weather_file_run_periods",
+      "do_hvac_sizing_simulation_for_sizing_periods",
+      "maximum_number_of_hvac_sizing_simulation_passes"
+    ],
+    "defaults": {
+      "do_zone_sizing_calculation": "No",
+      "do_system_sizing_calculation": "No",
+      "do_plant_sizing_calculation": "No",
+      "run_simulation_for_sizing_periods": "Yes",
+      "run_simulation_for_weather_file_run_periods": "Yes",
+      "do_hvac_sizing_simulation_for_sizing_periods": "No",
+      "maximum_number_of_hvac_sizing_simulation_passes": 1
+    }
+  },
+  "Site:GroundTemperature:BuildingSurface": {
+    "fields": [
+      "january_ground_temperature",
+      "february_ground_temperature",
+      "march_ground_temperature",
+      "april_ground_temperature",
+      "may_ground_temperature",
+      "june_ground_temperature",
+      "july_ground_temperature",
+      "august_ground_temperature",
+      "september_ground_temperature",
+      "october_ground_temperature",
+      "november_ground_temperature",
+      "december_ground_temperature"
+    ],
+    "defaults": {
+      "january_ground_temperature": 18.0,
+      "february_ground_temperature": 18.0,
+      "march_ground_temperature": 18.0,
+      "april_ground_temperature": 18.0,
+      "may_ground_temperature": 18.0,
+      "june_ground_temperature": 18.0,
+      "july_ground_temperature": 18.0,
+      "august_ground_temperature": 18.0,
+      "september_ground_temperature": 18.0,
+      "october_ground_temperature": 18.0,
+      "november_ground_temperature": 18.0,
+      "december_ground_temperature": 18.0
+    }
+  },
+  "ThermostatSetpoint:DualSetpoint": {
+    "fields": [
+      "name",
+      "heating_setpoint_temperature_schedule_name",
+      "cooling_setpoint_temperature_schedule_name"
+    ],
+    "defaults": {}
+  },
+  "Timestep": {
+    "fields": [
+      "number_of_timesteps_per_hour"
+    ],
+    "defaults": {
+      "number_of_timesteps_per_hour": 6
+    }
+  },
+  "Version": {
+    "fields": [
+      "version_identifier"
+    ],
+    "defaults": {
+      "version_identifier": 24.2
+    }
+  },
+  "WindowMaterial:SimpleGlazingSystem": {
+    "fields": [
+      "name",
+      "u_factor",
+      "solar_heat_gain_coefficient",
+      "visible_transmittance"
+    ],
+    "defaults": {}
+  },
+  "Zone": {
+    "fields": [
+      "name",
+      "direction_of_relative_north",
+      "x_origin",
+      "y_origin",
+      "z_origin",
+      "type",
+      "multiplier",
+      "ceiling_height",
+      "volume",
+      "floor_area",
+      "zone_inside_convection_algorithm",
+      "zone_outside_convection_algorithm",
+      "part_of_total_floor_area"
+    ],
+    "defaults": {
+      "direction_of_relative_north": 0.0,
+      "x_origin": 0.0,
+      "y_origin": 0.0,
+      "z_origin": 0.0,
+      "type": 1,
+      "multiplier": 1,
+      "ceiling_height": "Autocalculate",
+      "volume": "Autocalculate",
+      "floor_area": "Autocalculate",
+      "part_of_total_floor_area": "Yes"
+    }
+  },
+  "ZoneControl:Thermostat": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_name",
+      "control_type_schedule_name",
+      "control_1_object_type",
+      "control_1_name",
+      "control_2_object_type",
+      "control_2_name",
+      "control_3_object_type",
+      "control_3_name",
+      "control_4_object_type",
+      "control_4_name",
+      "temperature_difference_between_cutout_and_setpoint"
+    ],
+    "defaults": {
+      "temperature_difference_between_cutout_and_setpoint": 0.0
+    }
+  },
+  "ZoneHVAC:EquipmentConnections": {
+    "fields": [
+      "zone_name",
+      "zone_conditioning_equipment_list_name",
+      "zone_air_inlet_node_or_nodelist_name",
+      "zone_air_exhaust_node_or_nodelist_name",
+      "zone_air_node_name",
+      "zone_return_air_node_or_nodelist_name",
+      "zone_return_air_node_1_flow_rate_fraction_schedule_name",
+      "zone_return_air_node_1_flow_rate_basis_node_or_nodelist_name"
+    ],
+    "defaults": {}
+  },
+  "ZoneHVAC:EquipmentList": {
+    "fields": [
+      "name",
+      "load_distribution_scheme"
+    ],
+    "extensibles": [
+      "zone_equipment_object_type",
+      "zone_equipment_name",
+      "zone_equipment_cooling_sequence",
+      "zone_equipment_heating_or_no_load_sequence",
+      "zone_equipment_sequential_cooling_fraction_schedule_name",
+      "zone_equipment_sequential_heating_fraction_schedule_name"
+    ],
+    "extension": "equipment",
+    "defaults": {
+      "load_distribution_scheme": "SequentialLoad"
+    }
+  },
+  "ZoneHVAC:IdealLoadsAirSystem": {
+    "fields": [
+      "name",
+      "availability_schedule_name",
+      "zone_supply_air_node_name",
+      "zone_exhaust_air_node_name",
+      "system_inlet_air_node_name",
+      "maximum_heating_supply_air_temperature",
+      "minimum_cooling_supply_air_temperature",
+      "maximum_heating_supply_air_humidity_ratio",
+      "minimum_cooling_supply_air_humidity_ratio",
+      "heating_limit",
+      "maximum_heating_air_flow_rate",
+      "maximum_sensible_heating_capacity",
+      "cooling_limit",
+      "maximum_cooling_air_flow_rate",
+      "maximum_total_cooling_capacity",
+      "heating_availability_schedule_name",
+      "cooling_availability_schedule_name",
+      "dehumidification_control_type",
+      "cooling_sensible_heat_ratio",
+      "humidification_control_type",
+      "design_specification_outdoor_air_object_name",
+      "outdoor_air_inlet_node_name",
+      "demand_controlled_ventilation_type",
+      "outdoor_air_economizer_type",
+      "heat_recovery_type",
+      "sensible_heat_recovery_effectiveness",
+      "latent_heat_recovery_effectiveness",
+      "design_specification_zonehvac_sizing_object_name"
+    ],
+    "defaults": {
+      "maximum_heating_supply_air_temperature": 50.0,
+      "minimum_cooling_supply_air_temperature": 13.0,
+      "maximum_heating_supply_air_humidity_ratio": 0.0156,
+      "minimum_cooling_supply_air_humidity_ratio": 0.0077,
+      "heating_limit": "NoLimit",
+      "cooling_limit": "NoLimit",
+      "dehumidification_control_type": "ConstantSensibleHeatRatio",
+      "cooling_sensible_heat_ratio": 0.7,
+      "humidification_control_type": "None",
+      "demand_controlled_ventilation_type": "None",
+      "outdoor_air_economizer_type": "NoEconomizer",
+      "heat_recovery_type": "None",
+      "sensible_heat_recovery_effectiveness": 0.7,
+      "latent_heat_recovery_effectiveness": 0.65
+    }
+  },
+  "ZoneInfiltration:DesignFlowRate": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "schedule_name",
+      "design_flow_rate_calculation_method",
+      "design_flow_rate",
+      "flow_rate_per_floor_area",
+      "flow_rate_per_exterior_surface_area",
+      "air_changes_per_hour",
+      "constant_term_coefficient",
+      "temperature_term_coefficient",
+      "velocity_term_coefficient",
+      "velocity_squared_term_coefficient"
+    ],
+    "defaults": {
+      "design_flow_rate_calculation_method": "Flow/Zone",
+      "constant_term_coefficient": 1.0,
+      "temperature_term_coefficient": 0.0,
+      "velocity_term_coefficient": 0.0,
+      "velocity_squared_term_coefficient": 0.0
+    }
+  },
+  "ZoneVentilation:DesignFlowRate": {
+    "fields": [
+      "name",
+      "zone_or_zonelist_or_space_or_spacelist_name",
+      "schedule_name",
+      "design_flow_rate_calculation_method",
+      "design_flow_rate",
+      "flow_rate_per_floor_area",
+      "flow_rate_per_person",
+      "air_changes_per_hour",
+      "ventilation_type",
+      "fan_pressure_rise",
+      "fan_total_efficiency",
+      "constant_term_coefficient",
+      "temperature_term_coefficient",
+      "velocity_term_coefficient",
+      "velocity_squared_term_coefficient",
+      "minimum_indoor_temperature",
+      "minimum_indoor_temperature_schedule_name",
+      "maximum_indoor_temperature",
+      "maximum_indoor_temperature_schedule_name",
+      "delta_temperature",
+      "delta_temperature_schedule_name",
+      "minimum_outdoor_temperature",
+      "minimum_outdoor_temperature_schedule_name",
+      "maximum_outdoor_temperature",
+      "maximum_outdoor_temperature_schedule_name",
+      "maximum_wind_speed"
+    ],
+    "defaults": {
+      "design_flow_rate_calculation_method": "Flow/Zone",
+      "ventilation_type": "Natural",
+      "fan_pressure_rise": 0.0,
+      "fan_total_efficiency": 1.0,
+      "constant_term_coefficient": 1.0,
+      "temperature_term_coefficient": 0.0,
+      "velocity_term_coefficient": 0.0,
+      "velocity_squared_term_coefficient": 0.0,
+      "minimum_indoor_temperature": -100.0,
+      "maximum_indoor_temperature": 100.0,
+      "delta_temperature": -100.0,
+      "minimum_outdoor_temperature": -100.0,
+      "maximum_outdoor_temperature": 100.0,
+      "maximum_wind_speed": 40.0
+    }
+  }
+}

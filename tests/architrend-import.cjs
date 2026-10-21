@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx={window:{},console};vm.createContext(ctx);
+for(const file of ['23-pipeline-defaults.js','23-architrend-import.js'])vm.runInContext(fs.readFileSync('js/'+file,'utf8'),ctx);
+const clone=x=>JSON.parse(JSON.stringify(x)),defaults=ctx.window.boundaryPipelineDefaults;
+function model(){return {source:'architrend',rooms:[{id:'r1',sourceId:'mesh1',name:'r1',floor:1,people:0,equipmentW:0,conditioned:false}],constructions:clone(defaults.constructions),surfaces:[{id:'wall',roomId:'r1',type:'Wall',boundary:'Outdoors',construction:'wall',vertices:[[0,0,0],[5,0,0],[5,0,3],[0,0,3]]},{id:'roof',roomId:'r1',type:'Roof',boundary:'Outdoors',construction:'roof',vertices:[[0,0,3],[5,0,3],[5,4,3],[0,4,3]]},{id:'floor',roomId:'r1',type:'Floor',boundary:'Outdoors',construction:'floor',vertices:[[0,0,0],[5,0,0],[5,4,0],[0,4,0]]}],openings:[{id:'win1',sourceId:'face1',type:'Window',surfaceId:'wall',construction:'window',vertices:[[1,0,1],[2,0,1],[2,0,2],[1,0,2]]}]};}
+const data={uWall:.405,uRoof:.218,uFloor:.227,uFound:.259,uWin:2.15,windows:[{id:'G南-1',width:1,height:1,floor:'1',eta:.4,sourceLabel:'PDF p.3'}],rooms:[{name:'LDK',area:20,floor:'1',type:'A'}],sources:{uWall:'PDF p.1',uRoof:'PDF p.1',uWin:'PDF p.1',rooms:'PDF p.9'}};
+const context={defaults,fresh:true,rooms:[{key:'mesh1',pdfIndex:0,name:'LDK',floor:1,area:20}],roomValues:{mesh1:{people:4,equipmentW:100}}};
+const m=model();ctx.window.applyArchitrendToBoundaryModel(m,data,context);
+assert.equal(m.rooms[0].name,'LDK');assert.equal(m.rooms[0].people,4);assert.equal(m.rooms[0].conditioned,true);
+assert.ok(Math.abs(m.constructions.AT_Source_wall.resistance-(1/.405-.15))<1e-10);
+assert.equal(m.constructions.AT_Source_window_win1.u,2.15);assert.equal(m.constructions.AT_Source_window_win1.shgc,.4);
+assert.equal(m.constructions.AT_Source_window_win1.visibleTransmittance,undefined);
+assert.equal(m.surfaces.find(s=>s.id==='floor').construction,'floor','Do not assign a cantilever U-factor to the ground floor');
+const saved=JSON.stringify(m.constructions);ctx.window.applyArchitrendToBoundaryModel(m,data,{...context,fresh:false});assert.equal(JSON.stringify(m.constructions),saved);
+m.constructions.AT_Source_wall.resistance=7;m.rooms[0].people=3;m.rooms[0].name='手で直した名前';m.constructions.AT_Source_window_win1.shgc=.33;
+ctx.window.applyArchitrendToBoundaryModel(m,{...data,uWall:.3,uWin:1.8},{...context,fresh:false});
+assert.equal(m.constructions.AT_Source_wall.resistance,7);assert.equal(m.rooms[0].people,3);assert.equal(m.rooms[0].name,'手で直した名前');assert.equal(m.constructions.AT_Source_window_win1.shgc,.33);
+const ambiguous=model();ambiguous.openings[0].vertices[2][0]=2;
+ctx.window.applyArchitrendToBoundaryModel(ambiguous,{...data,uWin:null,windows:[{id:'A',width:1,height:1,floor:'1',eta:.4,u:2},{id:'B',width:1,height:1,floor:'1',eta:.6,u:3}]},context);
+assert.equal(ambiguous.openings[0].construction,'window');assert.equal(ambiguous.architrendImport.unmatchedWindows.length,1);
+const mismatch=model();ctx.window.applyArchitrendToBoundaryModel(mismatch,{...data,validation:{windows:{crossOk:false}}},context);assert.equal(mismatch.surfaces[0].construction,'wall');
+const csvOnly=model();ctx.window.applyArchitrendToBoundaryModel(csvOnly,{windows:[{id:'A',floor:'1',width:1,height:1,u:2,uSource:'CSV概算',eta:null}],rooms:[]},context);assert.equal(csvOnly.constructions.AT_Source_window_win1.shgc,.5);
+console.log('PASS: U/R conversion, window per-property data, room transfer, no invented VT, floor/linear-U protection, ambiguity, mismatch, manual edits, repeat import');

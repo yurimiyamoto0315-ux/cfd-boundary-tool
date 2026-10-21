@@ -1,5 +1,14 @@
 // ========================= 保存 / 読込 =========================
-const STORE_KEY = 'cfdBoundaryToolState_v2';
+const STORE_KEY = 'cfdBoundaryToolState_v3';
+(function migrateV2(){
+  try{
+    ['', '_manual', '_architrend', '_energyplus'].forEach(suffix=>{
+      if(localStorage.getItem(STORE_KEY+suffix)) return;
+      const raw=localStorage.getItem('cfdBoundaryToolState_v2'+suffix);
+      if(raw){ const value=JSON.parse(raw); value.schemaVersion=3; localStorage.setItem(STORE_KEY+suffix,JSON.stringify(value)); }
+    });
+  }catch(err){}
+})();
 function modeStoreKey(mode){ return STORE_KEY+'_'+(mode||'manual'); }
 let saveTimer=null;
 function saveStateNow(){

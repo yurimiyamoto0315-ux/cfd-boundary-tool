@@ -6,7 +6,9 @@ const AT_STAIR_WIDTH_MAX = 0.80;
 const AT_STAIR_LANDING = 0.80;
 
 function atIsStairRoom(r){
-  const n=String((r && r.name)||'').replace(/\s+/g,'');
+  if(!r || r.stairOff) return false;
+  if(r.stairManual) return true;
+  const n=String(r.name||'').replace(/\s+/g,'');
   return n==='階段' || n.indexOf('階段')===0;
 }
 function atStairCentroid(ring){
@@ -136,7 +138,7 @@ function atStairClampToBounds(p, b){
   };
 }
 function atStairClampPoint(p, r, mesh){
-  const m=mesh || (typeof atMesh!=='undefined' ? atMesh : null);
+  const m=mesh || (typeof reviewMesh==='function' ? reviewMesh() : (typeof atMesh!=='undefined' ? atMesh : null));
   return atStairClampToBounds(p, atStairEditBounds(r, m));
 }
 function atStairEdgeSeg(a, b){
@@ -564,7 +566,7 @@ function atPlanStairsForMesh(mesh){
 }
 function atStairRebuildRoom(r, mesh){
   if(!r) return;
-  const m=mesh || (typeof atMesh!=='undefined' ? atMesh : null);
+  const m=mesh || (typeof reviewMesh==='function' ? reviewMesh() : (typeof atMesh!=='undefined' ? atMesh : null));
   if(!atIsStairRoom(r)){ r.stair=null; return; }
   if(!r.stairPath || r.stairPath.length<2) r.stairPath=atStairSeedPath(r);
   r.stair=atStairFromPath(r, m);
@@ -617,6 +619,23 @@ function atStairResetPath(r){
   r.stairPathEdited=false;
   atStairRebuildRoom(r);
 }
+function atStairCreateRoom(r){
+  if(!r) return null;
+  r.stairOff=false;
+  r.stairManual=true;
+  if(!r.stairPath || r.stairPath.length<2) r.stairPath=atStairSeedPath(r);
+  r.stairPathEdited=true;
+  atStairRebuildRoom(r);
+  return r.stair;
+}
+function atStairClearRoom(r){
+  if(!r) return;
+  r.stairManual=false;
+  r.stairOff=true;
+  r.stairPath=null;
+  r.stairPathEdited=false;
+  r.stair=null;
+}
 function atStairMoveVertex(r, index, p){
   if(!r || !r.stairPath || !r.stairPath[index] || !p) return;
   const path=r.stairPath;
@@ -656,6 +675,8 @@ if(typeof module!=='undefined' && module.exports){
     atStairAddCorner:atStairAddCorner,
     atStairInsertAt:atStairInsertAt,
     atStairResetPath:atStairResetPath,
+    atStairCreateRoom:atStairCreateRoom,
+    atStairClearRoom:atStairClearRoom,
     atStairMoveVertex:atStairMoveVertex,
     atStairMakeOrtho:atStairMakeOrtho
   };

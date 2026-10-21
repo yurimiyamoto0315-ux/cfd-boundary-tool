@@ -1,3 +1,17 @@
+const epRoomView = {floor:'1', selected:'', plan:false, yaw:-0.45, tilt:0.85,
+  zoom:1, northDeg:0, catalog:[], pending:null, undo:[], drag:null, restored:false};
+function reviewMesh(){
+  if(typeof appMode!=='undefined' && appMode==='energyplus' && typeof epViewMesh!=='undefined' && epViewMesh && epViewMesh.meshFaces) return epViewMesh;
+  return (typeof atMesh!=='undefined') ? atMesh : null;
+}
+function reviewView(){
+  if(typeof appMode!=='undefined' && appMode==='energyplus') return epRoomView;
+  return atRoomView;
+}
+function reviewHost(){
+  const id=(typeof appMode!=='undefined' && appMode==='energyplus') ? 'epRoomViewer' : 'atRoomViewer';
+  return document.getElementById(id);
+}
 // Room identity is editable independently of the inferred 3DS footprint.
 // No network dependency: orthographic 3D projection of the imported mesh in SVG.
 const atRoomView = {floor:'1', selected:'', plan:false, yaw:-0.45, tilt:0.85,
@@ -5,34 +19,36 @@ const atRoomView = {floor:'1', selected:'', plan:false, yaw:-0.45, tilt:0.85,
 const AT_ROOM_COLORS = ['#70b4a4','#e4b76c','#8faed1','#ce91a3','#a8b878','#b09ac7','#79bfc9','#d4a284'];
 
 function atSetRoomCatalog(rooms){
-  if(rooms && rooms.length) atRoomView.catalog=JSON.parse(JSON.stringify(rooms));
+  if(rooms && rooms.length) reviewView().catalog=JSON.parse(JSON.stringify(rooms));
 }
 function atRoomReviewState(){
-  if(!atMesh || !atMesh.reviewHash) return atRoomView.pending;
-  return {version:3, hash:atMesh.reviewHash, fileName:atMesh.fileName,
-    northDeg:atRoomView.northDeg, rooms:JSON.parse(JSON.stringify(atMesh.rooms)), catalog:atRoomView.catalog,
+  if(!reviewMesh() || !reviewMesh().reviewHash) return reviewView().pending;
+  return {version:3, hash:reviewMesh().reviewHash, fileName:reviewMesh().fileName,
+    northDeg:reviewView().northDeg, rooms:JSON.parse(JSON.stringify(reviewMesh().rooms)), catalog:reviewView().catalog,
     parts:typeof atPartReviewData==='function'?atPartReviewData():null};
 }
 function atRestoreRoomReviewState(state){
-  atRoomView.pending=state && (state.version===1 || state.version===2 || state.version===3) ? state : null;
-  if(atRoomView.pending) atRoomView.catalog=atRoomView.pending.catalog||[];
-  if(atRoomView.pending && isFinite(atRoomView.pending.northDeg)) atRoomView.northDeg=atRoomView.pending.northDeg;
+  reviewView().pending=state && (state.version===1 || state.version===2 || state.version===3) ? state : null;
+  if(reviewView().pending) reviewView().catalog=reviewView().pending.catalog||[];
+  if(reviewView().pending && isFinite(reviewView().pending.northDeg)) reviewView().northDeg=reviewView().pending.northDeg;
   atRestoreRoomAssignments();
 }
 function atRestoreRoomAssignments(){
-  const s=atRoomView.pending;
-  if(!atMesh || !s || !atMesh.reviewHash || s.hash!==atMesh.reviewHash) return false;
+  const s=reviewView().pending;
+  if(!reviewMesh() || !s || !reviewMesh().reviewHash || s.hash!==reviewMesh().reviewHash) return false;
   const valid=Array.isArray(s.rooms) && s.rooms.every(r=>
     typeof r.key==='string' && Number.isFinite(r.floor) && Number.isFinite(r.z) &&
     Number.isFinite(r.zTop) && Number.isFinite(r.area) && Array.isArray(r.ring) &&
     r.ring.length>=3 && r.ring.every(p=>Number.isFinite(p.x) && Number.isFinite(p.y)));
   if(!valid) return false;
-  atMesh.rooms=JSON.parse(JSON.stringify(s.rooms));
+  reviewMesh().rooms=JSON.parse(JSON.stringify(s.rooms));
+  if(typeof atNormalizeRoomStories==='function' && reviewMesh()===atMesh)
+    reviewMesh().rooms=atNormalizeRoomStories(reviewMesh().rooms,reviewMesh().meshFaces);
   if(typeof atPartRestoreReview==='function') atPartRestoreReview(s.parts);
-  if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
-  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
-  atMesh.gainVolumes=null;
-  if(isFinite(s.northDeg)) atRoomView.northDeg=s.northDeg;
+  if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(reviewMesh());
+  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(reviewMesh());
+  reviewMesh().gainVolumes=null;
+  if(isFinite(s.northDeg)) reviewView().northDeg=s.northDeg;
   atApplyNorthToMesh();
   atUpdateRoomVolume();
   atRenderRoomViewer();
@@ -40,25 +56,25 @@ function atRestoreRoomAssignments(){
 }
 async function atRoomModelLoaded(buffer){
   const digest=await crypto.subtle.digest('SHA-256',buffer);
-  atMesh.reviewHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-  atRoomView.undo=[];
-  atRoomView.selected='';
-  atRoomView.zoom=1;
-  atRoomView.restored=atRestoreRoomAssignments();
-  if(!atRoomView.restored){
+  reviewMesh().reviewHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  reviewView().undo=[];
+  reviewView().selected='';
+  reviewView().zoom=1;
+  reviewView().restored=atRestoreRoomAssignments();
+  if(!reviewView().restored){
     if(typeof atPartRestoreReview==='function') atPartRestoreReview(null);
-    atRoomView.northDeg=0;
+    reviewView().northDeg=0;
     atApplyNorthToMesh();
-    if(!atLastParse) atRoomView.catalog=[];
+    if(!atLastParse) reviewView().catalog=[];
   }
   atUpdateRoomVolume();
 }
 function atRoomTitle(r){ return r.name || '未割当'; }
-function atRoomNumber(r){ return atMesh.rooms.indexOf(r)+1; }
+function atRoomNumber(r){ return reviewMesh().rooms.indexOf(r)+1; }
 function atRoomColor(r){ return AT_ROOM_COLORS[(atRoomNumber(r)-1)%AT_ROOM_COLORS.length]; }
 function atUpdateRoomVolume(){
-  if(!atMesh || typeof atMeshLivingVolume!=='function') return 0;
-  const total=atMeshLivingVolume(atMesh);
+  if(!reviewMesh() || typeof atMeshLivingVolume!=='function') return 0;
+  const total=atMeshLivingVolume(reviewMesh());
   const el=document.getElementById('roomVol');
   const tag=document.getElementById('roomVolTag');
   const info=document.getElementById('roomVolAutoInfo');
@@ -81,27 +97,29 @@ function atClearRoomVolumeAuto(){
   if(info) info.textContent='';
 }
 function atApplyNorthToMesh(){
-  if(!atMesh) return;
+  if(!reviewMesh()) return;
   const counts={};
-  (atMesh.meshFaces||[]).forEach(f=>{
+  (reviewMesh().meshFaces||[]).forEach(f=>{
     if(/^wall_/.test(f.sslKey) && isFinite(f.modelToolAz)){
-      const orient=at3dsOrientFromToolAz(at3dsWrap180(f.modelToolAz-atRoomView.northDeg));
-      f.sslKey='wall_'+orient;
+      const orient=at3dsOrientFromToolAz(at3dsWrap180(f.modelToolAz-reviewView().northDeg));
+      const shade=String(f.sslKey).match(/#\d+$/);
+      f.sslKey='wall_'+orient+(shade?shade[0]:'');
       f.nameJa='外壁'+orient;
     }
     if(f.atOriginalKey==='window' && typeof atParts!=='undefined' && atParts.overrides && atParts.overrides[String(f.atFaceId)]==='door' && isFinite(f.modelToolAz)){
-      const orient=at3dsOrientFromToolAz(at3dsWrap180(f.modelToolAz-atRoomView.northDeg));
+      const orient=at3dsOrientFromToolAz(at3dsWrap180(f.modelToolAz-reviewView().northDeg));
       f.sslKey='extdoor_'+orient;
       f.nameJa='ドア';
       f.atReplacedByPart=false;
     }
     counts[f.nameJa]=(counts[f.nameJa]||0)+1;
   });
-  if(atMesh.stats) atMesh.stats.counts=counts;
+  if(reviewMesh().stats) reviewMesh().stats.counts=counts;
 }
 function atUpdateNorthAffectedWindows(){
-  if(!atMesh || typeof atAssignWindowsToRooms!=='function') return;
-  const wins=atAssignWindowsToRooms(atMesh.meshFaces,atMesh.rooms,atMesh.stats);
+  if(typeof appMode!=='undefined' && appMode==='energyplus' && typeof epSyncWindowAzimuths==='function') epSyncWindowAzimuths();
+  if(!reviewMesh() || typeof atAssignWindowsToRooms!=='function') return;
+  const wins=atAssignWindowsToRooms(reviewMesh().meshFaces,reviewMesh().rooms,reviewMesh().stats);
   atNorthExcludedCount=0;
   wins.forEach((w,i)=>{
     const row=document.querySelector('.win-row[data-at-mesh-window-index="'+i+'"]');
@@ -118,13 +136,13 @@ function atUpdateNorthAffectedWindows(){
 function atSetNorthAngle(value){
   const raw=Number(value);
   if(!isFinite(raw)) return;
-  atRoomView.northDeg=at3dsWrap180(raw);
+  reviewView().northDeg=at3dsWrap180(raw);
   atApplyNorthToMesh();
   atUpdateNorthAffectedWindows();
   const num=document.getElementById('atNorthDeg');
   const range=document.getElementById('atNorthRange');
-  if(num) num.value=String(Math.round(atRoomView.northDeg*10)/10);
-  if(range) range.value=String(atRoomView.northDeg);
+  if(num) num.value=String(Math.round(reviewView().northDeg*10)/10);
+  if(range) range.value=String(reviewView().northDeg);
   atDrawRoomScene();
   if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
   runAll();
@@ -141,9 +159,10 @@ function atWindowRowData(row){
   return w;
 }
 function atSyncMeshWindowsToRooms(){
-  if(!atMesh || typeof atAssignWindowsToRooms!=='function') return;
-  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
-  const meshWins=atAssignWindowsToRooms(atMesh.meshFaces,atMesh.rooms,atMesh.stats);
+  if(typeof appMode!=='undefined' && appMode==='energyplus') return;
+  if(!reviewMesh() || typeof atAssignWindowsToRooms!=='function') return;
+  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(reviewMesh());
+  const meshWins=atAssignWindowsToRooms(reviewMesh().meshFaces,reviewMesh().rooms,reviewMesh().stats);
   const rows=new Map();
   document.querySelectorAll('.win-row[data-at-mesh-window-index]').forEach(row=>{
     const id=row.dataset.atFaceId||((row.dataset.atMeshWindowIndex!==undefined&&row.dataset.atMeshWindowIndex!=='')
@@ -162,7 +181,7 @@ function atSyncMeshWindowsToRooms(){
   meshWins.forEach((mw,i)=>{
     const index=String(i);
     const faceId=String(mw.face.atFaceId);
-    const room=(atMesh.rooms||[]).find(r=>r.key===mw.roomKey);
+    const room=(reviewMesh().rooms||[]).find(r=>r.key===mw.roomKey);
     if(room && (room.keep || room.habitable) && !atRoomCard(room.key)){
       atAddRoomCardFromMesh(room);
     }
@@ -194,15 +213,16 @@ function atSyncMeshWindowsToRooms(){
   renderUnassignedWindows();
 }
 function atSnapshotRoomEdit(){
-  atRoomView.undo.push({rooms:JSON.parse(JSON.stringify(atMesh.rooms)), state:gatherState()});
-  if(atRoomView.undo.length>30) atRoomView.undo.shift();
+  reviewView().undo.push({rooms:JSON.parse(JSON.stringify(reviewMesh().rooms)), state:gatherState()});
+  if(reviewView().undo.length>30) reviewView().undo.shift();
 }
 function atSyncEditedRoom(r){
-  if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(atMesh);
-  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(atMesh);
+  if(typeof atPlanStairsForMesh==='function') atPlanStairsForMesh(reviewMesh());
+  if(typeof atApplyRoomGainFlags==='function') atApplyRoomGainFlags(reviewMesh());
   let card=atRoomCard(r.key);
-  if(r.keep && !card){ atAddRoomCardFromMesh(r); card=atRoomCard(r.key); }
-  if(card && !r.keep){
+  if(r.epZone && typeof epWriteRoomToCard==='function') epWriteRoomToCard(r);
+  if(r.keep && !card && !(r.epZone && typeof appMode!=='undefined' && appMode==='energyplus')){ atAddRoomCardFromMesh(r); card=atRoomCard(r.key); }
+  if(card && !r.keep && !(r.epZone && typeof appMode!=='undefined' && appMode==='energyplus')){
     card.querySelectorAll('.win-row').forEach(row=>{
       atUnassignedWindows.push(atWindowRowData(row));
     });
@@ -212,8 +232,8 @@ function atSyncEditedRoom(r){
     card.querySelector('.roomName').value=r.name;
     if(typeof atSyncRoomCardKind==='function') atSyncRoomCardKind(card, r);
   }
-  atAssignableRooms=atMesh.rooms.filter(r=>r.keep || r.habitable).map(r=>Object.assign({},r));
-  atMesh.gainVolumes=atBuildGainVolumes(atMesh);
+  atAssignableRooms=reviewMesh().rooms.filter(r=>r.keep || r.habitable).map(r=>Object.assign({},r));
+  reviewMesh().gainVolumes=atBuildGainVolumes(reviewMesh());
 }
 function atFinishRoomEdit(){
   atSyncMeshWindowsToRooms();
@@ -223,7 +243,7 @@ function atFinishRoomEdit(){
   atRenderRoomViewer();
 }
 function atAssignPdfRoom(r,index){
-  const p=atRoomView.catalog[index];
+  const p=reviewView().catalog[index];
   r.pdfIndex=p ? index : null;
   r.pdfArea=p ? p.area : null;
   r.pdfType=p ? p.type : '';
@@ -233,16 +253,20 @@ function atAssignPdfRoom(r,index){
   r.reviewed=false;
 }
 function atCommitRoomEdit(){
-  const r=atMesh.rooms.find(r=>r.key===atRoomView.selected);
+  const r=reviewMesh().rooms.find(r=>r.key===reviewView().selected);
   if(!r) return;
   const name=document.getElementById('atRoomNameEdit').value.trim();
   const message=document.getElementById('atRoomEditMessage');
-  if(!name){ message.textContent='部屋名を入力するか、PDFの部屋を選んでください。'; return; }
-  const index=Number(document.getElementById('atRoomPdfChoice').value);
+  if(!name){
+    message.textContent=reviewView().catalog.length?'部屋名を入力するか、PDFの部屋を選んでください。':'部屋名を入力してください。';
+    return;
+  }
+  const choiceEl=document.getElementById('atRoomPdfChoice');
+  const index=choiceEl?Number(choiceEl.value):-1;
   const habitable=document.getElementById('atRoomHeatTarget').checked;
   atSnapshotRoomEdit();
   // Selecting an occupied PDF identity swaps it, so the same PDF row is never silently duplicated.
-  const other=index>=0 && atMesh.rooms.find(q=>q!==r && q.pdfIndex===index);
+  const other=index>=0 && reviewMesh().rooms.find(q=>q!==r && q.pdfIndex===index);
   if(other){
     atAssignPdfRoom(other,Number.isInteger(r.pdfIndex) ? r.pdfIndex : -1);
     atSyncEditedRoom(other);
@@ -255,18 +279,18 @@ function atCommitRoomEdit(){
   atFinishRoomEdit();
 }
 function atUndoRoomEdit(){
-  const prev=atRoomView.undo.pop();
+  const prev=reviewView().undo.pop();
   if(!prev) return;
-  atMesh.rooms=prev.rooms;
+  reviewMesh().rooms=prev.rooms;
   applyState(prev.state);
   atUnassignedWindows=prev.state.atUnassigned||[];
   atAssignableRooms=prev.state.atRoomCandidates||[];
   renderUnassignedWindows();
-  atMesh.gainVolumes=atBuildGainVolumes(atMesh);
+  reviewMesh().gainVolumes=atBuildGainVolumes(reviewMesh());
   atFinishRoomEdit();
 }
 function atSelectViewerRoom(key){
-  atRoomView.selected=key;
+  reviewView().selected=key;
   atRenderRoomViewer();
 }
 function atStairEditorHtml(r){
@@ -276,120 +300,138 @@ function atStairEditorHtml(r){
   const rise=r.stair ? (r.stair.toZ-r.stair.fromZ).toFixed(2) : '—';
   const going=r.stair && r.stair.going ? r.stair.going.toFixed(2) : '—';
   return `<div class="at-rv-stair">
-      <p class="small">頂点は水平・垂直だけ動きます。階段下など隣の区画へ線を延ばせます。踏面と蹴上げは壁間の厚みなしパネルです。</p>
-      <div class="at-rv-room-geometry"><span>到達高さ <b>${rise} m</b></span><span>踏面 ${n} / 蹴上 ${nR} / 進み <b>${going} m</b></span></div>
+      <p class="small">到達 ${rise} m · 踏面 ${n} / 蹴上 ${nR} / 進み ${going} m。頂点は水平・垂直です。</p>
       ${note}
-      <div class="at-rv-stair-actions">
-        <button type="button" data-action="stair-add">折れを足す</button>
-        <button type="button" data-action="stair-flip">方向を反転</button>
-        <button type="button" data-action="stair-reset">直線に戻す</button>
-      </div>
     </div>`;
 }
 function atStairEditAction(kind){
-  const r=atMesh && (atMesh.rooms||[]).find(q=>q.key===atRoomView.selected);
+  const r=reviewMesh() && (reviewMesh().rooms||[]).find(q=>q.key===reviewView().selected);
   if(!r || typeof atIsStairRoom!=='function' || !atIsStairRoom(r)) return;
   atSnapshotRoomEdit();
   if(kind==='add' && typeof atStairAddCorner==='function') atStairAddCorner(r);
   else if(kind==='flip' && typeof atStairFlipPath==='function') atStairFlipPath(r);
   else if(kind==='reset' && typeof atStairResetPath==='function') atStairResetPath(r);
+  else if(kind==='clear' && typeof atStairClearRoom==='function') atStairClearRoom(r);
   saveStateDebounced();
   atRenderRoomViewer();
 }
+function atStairCreateAction(){
+  const r=reviewMesh() && (reviewMesh().rooms||[]).find(q=>q.key===reviewView().selected);
+  if(!r || typeof atStairCreateRoom!=='function') return;
+  atSnapshotRoomEdit();
+  atStairCreateRoom(r);
+  reviewView().plan=true;
+  if(typeof saveStateDebounced==='function') saveStateDebounced();
+  atRenderRoomViewer();
+}
 function atRenderRoomViewer(){
-  const host=document.getElementById('atRoomViewer');
+  const host=typeof reviewHost==='function' ? reviewHost() : document.getElementById('atRoomViewer');
   if(!host) return;
-  host.hidden=!atMesh;
-  if(!atMesh) return;
-  const rooms=atMesh.rooms||[];
+  const other=document.getElementById(host.id==='epRoomViewer' ? 'atRoomViewer' : 'epRoomViewer');
+  if(other && other!==host){ other.innerHTML=''; other.hidden=true; }
+  host.hidden=!reviewMesh();
+  if(!reviewMesh()) return;
+  const rooms=reviewMesh().rooms||[];
   document.querySelectorAll('[data-at-rename-key]').forEach(el=>{
     const r=rooms.find(r=>r.key===el.dataset.atRenameKey);
     if(r) el.value=r.name||'';
   });
   const floors=Array.from(new Set(rooms.map(r=>String(r.floor)))).sort((a,b)=>Number(a)-Number(b));
-  if(atRoomView.floor!=='all' && !floors.includes(atRoomView.floor)) atRoomView.floor=floors[0]||'1';
-  const visible=rooms.filter(r=>atRoomView.floor==='all' || String(r.floor)===atRoomView.floor);
-  if(!visible.some(r=>r.key===atRoomView.selected)) atRoomView.selected=visible[0]?.key||'';
-  const selected=rooms.find(r=>r.key===atRoomView.selected);
+  if(reviewView().floor!=='all' && !floors.includes(reviewView().floor)) reviewView().floor=floors[0]||'1';
+  const visible=rooms.filter(r=>reviewView().floor==='all' || String(r.floor)===reviewView().floor);
+  if(!visible.some(r=>r.key===reviewView().selected)) reviewView().selected=visible[0]?.key||'';
+  const selected=rooms.find(r=>r.key===reviewView().selected);
   const checked=rooms.filter(r=>r.reviewed).length;
-  const livingVolume=typeof atMeshLivingVolume==='function'?atMeshLivingVolume(atMesh):0;
+  const livingVolume=typeof atMeshLivingVolume==='function'?atMeshLivingVolume(reviewMesh()):0;
   const esc=escapeHtml;
+  const stairIs=selected && typeof atIsStairRoom==='function' && atIsStairRoom(selected);
+  const stairTools=stairIs
+    ? `<button type="button" data-action="stair-add">折れを足す</button><button type="button" data-action="stair-flip">階段を反転</button><button type="button" data-action="stair-reset">直線に戻す</button><button type="button" data-action="stair-clear">階段をやめる</button>`
+    : `<button type="button" data-action="stair-create" ${selected?'':'disabled'}>この区画に階段</button>`;
   host.innerHTML=`
-    <div class="at-rv-heading"><div><span class="at-rv-eyebrow">部屋の確認</span><h3>部屋の位置と名前を確認</h3></div>
-      <div class="at-rv-metrics"><span class="at-rv-progress">確認済み ${checked} / ${rooms.length} 区画</span><span class="at-rv-volume">居室体積 ${livingVolume.toFixed(1)} m³</span></div></div>
-    <p class="small">色の付いた床または一覧を選択 → 部屋名を修正 → 確定。破線は未確認です。収納・トイレ・未割当も表示します。階段は真上から中心線を引き、踏面と蹴上げが壁間に隙間なく並びます。</p>
-    <div class="at-rv-toolbar" role="group" aria-label="表示する階">
-      ${floors.map(f=>`<button type="button" data-floor="${esc(f)}" aria-pressed="${atRoomView.floor===f}">${esc(f)}F</button>`).join('')}
-      <button type="button" data-floor="all" aria-pressed="${atRoomView.floor==='all'}">全階</button>
-      <span class="at-rv-divider"></span>
-      <button type="button" data-view="plan" aria-pressed="${atRoomView.plan}">真上から</button>
-      <button type="button" data-view="3d" aria-pressed="${!atRoomView.plan}">3D</button>
-      <button type="button" data-action="reset">視点を戻す</button>
-      <button type="button" data-action="undo" ${atRoomView.undo.length?'':'disabled'}>元に戻す</button>
+    <div class="at-rv-command">
+      <div class="at-rv-command-row">
+        <div class="at-rv-toolbar" role="group" aria-label="表示する階">
+          ${floors.map(f=>`<button type="button" data-floor="${esc(f)}" aria-pressed="${reviewView().floor===f}">${esc(f)}F</button>`).join('')}
+          <button type="button" data-floor="all" aria-pressed="${reviewView().floor==='all'}">全階</button>
+          <span class="at-rv-divider"></span>
+          <button type="button" data-view="plan" aria-pressed="${reviewView().plan}">真上から</button>
+          <button type="button" data-view="3d" aria-pressed="${!reviewView().plan}">3D</button>
+          <button type="button" data-action="reset">視点を戻す</button>
+          <button type="button" data-action="undo" ${reviewView().undo.length?'':'disabled'}>元に戻す</button>
+        </div>
+        <div class="at-rv-metrics"><span class="at-rv-progress">確認済み ${checked}/${rooms.length}</span><span class="at-rv-volume">居室 ${livingVolume.toFixed(1)} m³</span></div>
+        <div class="at-rv-orientation">
+          <div class="at-rv-compass-mini" aria-hidden="true"><span style="transform:rotate(${reviewView().northDeg}deg)">↑</span></div>
+          <label for="atNorthDeg">北</label>
+          <input id="atNorthRange" type="range" min="-180" max="180" step="1" value="${reviewView().northDeg}" aria-label="北方向角。平面図の上を0°、時計回りを正。外壁SAT・窓の直達日射・3DS/SSLの方位へ反映します。" title="平面図の上を0°、時計回りを正。外壁SAT・窓の直達日射・3DS/SSLの方位へ反映します。">
+          <div class="at-rv-angle"><input id="atNorthDeg" type="number" min="-180" max="180" step="1" value="${reviewView().northDeg}"><span>°</span></div>
+          <button type="button" data-action="north-zero">0°</button>
+        </div>
+      </div>
+      <div class="at-rv-command-row at-rv-place">
+        ${typeof atPartToolbarHtml==='function'?atPartToolbarHtml():''}
+        <span class="at-rv-divider"></span>
+        ${stairTools}
+      </div>
     </div>
-    <div class="at-rv-orientation">
-      <div class="at-rv-compass-mini" aria-hidden="true"><span style="transform:rotate(${atRoomView.northDeg}deg)">↑</span></div>
-      <div><label for="atNorthDeg">北方向角</label><p class="small">平面図の上を0°、時計回りを正。外壁SAT・窓の直達日射・3DS/SSLの方位へ反映します。</p></div>
-      <input id="atNorthRange" type="range" min="-180" max="180" step="1" value="${atRoomView.northDeg}" aria-label="北方向角スライダー">
-      <div class="at-rv-angle"><input id="atNorthDeg" type="number" min="-180" max="180" step="1" value="${atRoomView.northDeg}"><span>°</span></div>
-      <button type="button" data-action="north-zero">0°に戻す</button>
-    </div>
-    ${typeof atPartToolbarHtml==='function'?atPartToolbarHtml():''}
     <div class="at-rv-workspace"><div class="at-rv-stage">
       <svg id="atRoomScene" viewBox="0 0 900 570" role="group" aria-label="3DSの部屋配置。各部屋は右の一覧からも選べます。"></svg>
-      <div class="at-rv-help">${selected && atIsStairRoom && atIsStairRoom(selected)
-        ? (atRoomView.plan?'頂点は水平・垂直。線をダブルクリックで折れを足す':'頂点は水平・垂直。真上からが見やすいです')
-        : (atRoomView.plan?'真上から表示':'ドラッグで回転')} · ホイールで拡大／縮小 · 床をクリックで選択</div>
-      <div class="at-rv-model-note">読み込んだ3DSの解析メッシュ · 壁は低く切断表示 · 部屋形状は自動推定</div>
+      <div class="at-rv-help">${stairIs
+        ? (reviewView().plan?'階段の頂点は水平・垂直。線をダブルクリックで折れを足す':'階段は真上からが見やすいです')
+        : (reviewView().plan?'真上から。壁をクリックでドアを配置':'ドラッグで回転')} · ホイールで拡大 · 床をクリックで部屋を選択 · 破線は未確認</div>
     </div><aside class="at-rv-side" aria-label="部屋の編集">
       <div id="atRoomEditor">${selected ? `
-        <div class="at-rv-selection">区画 ${atRoomNumber(selected)} <span>${selected.floor}F · ${selected.area.toFixed(2)} m²</span></div>
-        <div class="at-rv-room-geometry"><span>認識階高 <b>${atRoomHeight(selected).toFixed(2)} m</b></span><span>自動体積 <b>${atRoomVolume(selected).toFixed(1)} m³</b></span></div>
-        <label for="atRoomPdfChoice">PDFの部屋を割り当て</label>
-        <select id="atRoomPdfChoice"><option value="-1">自由入力・PDFと未対応</option>${atRoomView.catalog.map((p,i)=>{
+        <div class="at-rv-selection">区画 ${atRoomNumber(selected)} <span>${selected.floor}F · ${selected.area.toFixed(2)} m² · 階高 ${atRoomHeight(selected).toFixed(2)} m · ${atRoomVolume(selected).toFixed(1)} m³</span></div>
+        ${reviewView().catalog.length ? `<label for="atRoomPdfChoice">PDFの部屋</label>
+        <select id="atRoomPdfChoice"><option value="-1">自由入力・PDFと未対応</option>${reviewView().catalog.map((p,i)=>{
           const assigned=rooms.find(r=>r.pdfIndex===i && r!==selected);
           return `<option value="${i}" ${selected.pdfIndex===i?'selected':''}>${esc(p.floor||'?')}F / ${esc(p.name)} / ${Number(p.area||0).toFixed(2)} m²${assigned?'（区画'+atRoomNumber(assigned)+'と入替）':''}</option>`;
-        }).join('')}</select>
-        <label for="atRoomNameEdit">表示・出力する部屋名</label>
+        }).join('')}</select>` : ''}
+        <label for="atRoomNameEdit">部屋名</label>
         <input id="atRoomNameEdit" type="text" maxlength="100" value="${esc(selected.name)}" placeholder="例：LDK、洋室1、収納">
-        <label class="at-rv-check"><input id="atRoomHeatTarget" type="checkbox" ${selected.habitable?'checked':''}>居室として人体・機器発熱を入れる</label>
-        <p class="small">窓がある部屋は、チェックを外しても直達日射を内部発熱に残します。居室だけ換気体積と人体・機器を足します。</p>
+        <label class="at-rv-check" title="窓がある部屋は、チェックを外しても直達日射を内部発熱に残します。居室だけ換気体積と人体・機器を足します。"><input id="atRoomHeatTarget" type="checkbox" ${selected.habitable?'checked':''}>居室として発熱を入れる</label>
         <button type="button" class="at-rv-confirm" data-action="commit">この内容で確定</button>
-        <p id="atRoomEditMessage" class="small" aria-live="polite">${selected.reviewed?'確認済み。手動の割当を保持します。':'自動候補です。平面図と位置を確認してください。'}</p>
-        ${selected.pdfArea!=null?`<p class="small">PDF面積 ${Number(selected.pdfArea).toFixed(2)} m² ／ 差 ${Math.abs(selected.area-selected.pdfArea).toFixed(2)} m²</p>`:''}
-        ${typeof atIsStairRoom==='function' && atIsStairRoom(selected) ? atStairEditorHtml(selected) : ''}
+        <p id="atRoomEditMessage" class="small" aria-live="polite">${selected.reviewed?'確認済み。手動の割当を保持します。':'自動候補です。平面図と位置を確認してください。'}${selected.pdfArea!=null?` PDF ${Number(selected.pdfArea).toFixed(2)} m² ／ 差 ${Math.abs(selected.area-selected.pdfArea).toFixed(2)} m²`:''}</p>
+        ${stairIs ? atStairEditorHtml(selected) : ''}
       `:'<p>床から部屋を認識できませんでした。床・内壁を含む3DSを選択してください。</p>'}</div>
-      <div class="at-rv-list" aria-label="表示中の部屋">${visible.map(r=>`
-        <button type="button" data-room="${esc(r.key)}" aria-pressed="${r===selected}" class="at-rv-room">
-          <i style="background:${atRoomColor(r)}"></i><span><b>${atRoomNumber(r)}. ${esc(atRoomTitle(r))}</b><small>${r.floor}F · ${r.area.toFixed(2)} m² · ${atRoomVolume(r).toFixed(1)} m³ · ${r.reviewed?'確認済み':'未確認'}${r.habitable?' · 居室':(r.keep?' · 日射のみ':' · 発熱なし')}</small></span>
-        </button>`).join('')}</div>
-      ${typeof atPartSideHtml==='function'?atPartSideHtml():''}
+      <div class="at-rv-lists">
+        <div class="at-rv-list" aria-label="表示中の部屋">${visible.map(r=>`
+          <button type="button" data-room="${esc(r.key)}" aria-pressed="${r===selected}" class="at-rv-room">
+            <i style="background:${atRoomColor(r)}"></i><span><b>${atRoomNumber(r)}. ${esc(atRoomTitle(r))}</b><small>${r.floor}F · ${r.area.toFixed(2)} m² · ${atRoomVolume(r).toFixed(1)} m³ · ${r.reviewed?'確認済み':'未確認'}${r.habitable?' · 居室':(r.keep?' · 日射のみ':' · 発熱なし')}</small></span>
+          </button>`).join('')}</div>
+        ${typeof atPartSideHtml==='function'?atPartSideHtml():''}
+      </div>
     </aside></div>
     <div class="at-rv-footer" id="atRoomReviewStatus" aria-live="polite"></div>`;
-  const unused=atRoomView.catalog.filter((p,i)=>!rooms.some(r=>r.pdfIndex===i));
-  document.getElementById('atRoomReviewStatus').textContent=
-    (atRoomView.restored?'同じ3DSの保存済み割当を復元しました。 ':'')+
-    '北方向 '+atRoomView.northDeg.toFixed(0)+'°。修正は自動保存・設定JSONに含まれます。再開時は同じ3DSを選択してください。'+
+  const unused=reviewView().catalog.filter((p,i)=>!rooms.some(r=>r.pdfIndex===i));
+  const statusEl=document.getElementById('atRoomReviewStatus');
+  statusEl.textContent=
+    (reviewView().restored?'同じ3DSの保存済み割当を復元しました。 ':'')+
+    '北方向 '+reviewView().northDeg.toFixed(0)+'°。修正は自動保存・設定JSONに含まれます。再開時は同じ3DSを選択してください。'+
     (unused.length?' 未対応のPDF部屋: '+unused.map(p=>(p.floor||'?')+'F '+p.name).join('、'):'');
+  statusEl.title=statusEl.textContent;
   host.onclick=e=>{
-    if(atRoomView.suppressClick){ atRoomView.suppressClick=false; return; }
+    if(reviewView().suppressClick){ reviewView().suppressClick=false; return; }
     const btn=e.target.closest('button');
     if(!btn) return;
     if(typeof atPartHandleButton==='function' && atPartHandleButton(btn)) return;
-    if(btn.dataset.floor){ atRoomView.floor=btn.dataset.floor; atRoomView.zoom=1; atRenderRoomViewer(); }
+    if(btn.dataset.floor){ reviewView().floor=btn.dataset.floor; reviewView().zoom=1; atRenderRoomViewer(); }
     else if(btn.dataset.room) atSelectViewerRoom(btn.dataset.room);
-    else if(btn.dataset.view){ atRoomView.plan=btn.dataset.view==='plan'; atRenderRoomViewer(); }
+    else if(btn.dataset.view){ reviewView().plan=btn.dataset.view==='plan'; atRenderRoomViewer(); }
     else if(btn.dataset.action==='commit') atCommitRoomEdit();
     else if(btn.dataset.action==='undo') atUndoRoomEdit();
     else if(btn.dataset.action==='north-zero') atSetNorthAngle(0);
-    else if(btn.dataset.action==='reset'){ atRoomView.yaw=-0.45; atRoomView.tilt=0.85; atRoomView.zoom=1; atDrawRoomScene(); }
+    else if(btn.dataset.action==='reset'){ reviewView().yaw=-0.45; reviewView().tilt=0.85; reviewView().zoom=1; atDrawRoomScene(); }
+    else if(btn.dataset.action==='stair-create') atStairCreateAction();
     else if(btn.dataset.action==='stair-add') atStairEditAction('add');
     else if(btn.dataset.action==='stair-flip') atStairEditAction('flip');
     else if(btn.dataset.action==='stair-reset') atStairEditAction('reset');
+    else if(btn.dataset.action==='stair-clear') atStairEditAction('clear');
   };
   const choice=document.getElementById('atRoomPdfChoice');
   if(choice) choice.onchange=()=>{
-    const p=atRoomView.catalog[Number(choice.value)];
+    const p=reviewView().catalog[Number(choice.value)];
     if(p){
       document.getElementById('atRoomNameEdit').value=p.name;
       document.getElementById('atRoomHeatTarget').checked=isArchitrendLivingRoom(p);
@@ -403,6 +445,10 @@ function atRenderRoomViewer(){
   if(northRange) northRange.oninput=()=>atSetNorthAngle(northRange.value);
   const doorKind=document.getElementById('atDoorPartKind');
   if(doorKind) doorKind.onchange=()=>{atParts.doorKind=doorKind.value;atRenderRoomViewer();};
+  const doorWidth=document.getElementById('atPartDoorWidth');
+  if(doorWidth) doorWidth.onchange=()=>atPartSetDoorWidth(atParts.selected, doorWidth.value);
+  const doorOpen=document.getElementById('atPartDoorOpen');
+  if(doorOpen) doorOpen.onchange=()=>atPartSetDoorOpen(atParts.selected, doorOpen.checked);
   const selectedKind=document.getElementById('atSelectedDoorKind');
   if(selectedKind) selectedKind.onchange=()=>atPartSetKind(atParts.selected,selectedKind.value);
   const partAngle=document.getElementById('atPartAngle');
@@ -435,14 +481,14 @@ function atRoomLabelPoint(r){
 }
 function atDrawRoomScene(){
   const svg=document.getElementById('atRoomScene');
-  if(!svg || !atMesh) return;
-  const rooms=atMesh.rooms.filter(r=>atRoomView.floor==='all' || String(r.floor)===atRoomView.floor);
+  if(!svg || !reviewMesh()) return;
+  const rooms=reviewMesh().rooms.filter(r=>reviewView().floor==='all' || String(r.floor)===reviewView().floor);
   if(!rooms.length){ svg.innerHTML=''; return; }
   const raw=p=>{
-    if(atRoomView.plan) return {x:p.x,y:-p.y,d:p.z};
-    const c=Math.cos(atRoomView.yaw),s=Math.sin(atRoomView.yaw);
+    if(reviewView().plan) return {x:p.x,y:-p.y,d:p.z};
+    const c=Math.cos(reviewView().yaw),s=Math.sin(reviewView().yaw);
     const x=p.x*c-p.y*s,y=p.x*s+p.y*c;
-    return {x:x,y:-y*Math.sin(atRoomView.tilt)-p.z*Math.cos(atRoomView.tilt),d:y*Math.cos(atRoomView.tilt)-p.z*Math.sin(atRoomView.tilt)};
+    return {x:x,y:-y*Math.sin(reviewView().tilt)-p.z*Math.cos(reviewView().tilt),d:y*Math.cos(reviewView().tilt)-p.z*Math.sin(reviewView().tilt)};
   };
   const corners=rooms.flatMap(r=>{
     const z1=r.z;
@@ -452,9 +498,9 @@ function atDrawRoomScene(){
   });
   const minx=Math.min(...corners.map(p=>p.x)),maxx=Math.max(...corners.map(p=>p.x));
   const miny=Math.min(...corners.map(p=>p.y)),maxy=Math.max(...corners.map(p=>p.y));
-  const scale=Math.min(790/Math.max(1,maxx-minx),440/Math.max(1,maxy-miny))*atRoomView.zoom;
+  const scale=Math.min(790/Math.max(1,maxx-minx),440/Math.max(1,maxy-miny))*reviewView().zoom;
   const midX=(minx+maxx)/2, midY=(miny+maxy)/2;
-  atRoomView.proj={scale, midX, midY, yaw:atRoomView.yaw, tilt:atRoomView.tilt, plan:atRoomView.plan};
+  reviewView().proj={scale, midX, midY, yaw:reviewView().yaw, tilt:reviewView().tilt, plan:reviewView().plan};
   const project=p=>{ const q=raw(p); return {x:450+(q.x-midX)*scale,y:275+(q.y-midY)*scale,d:q.d}; };
   const points=vs=>vs.map(p=>{const q=project(p); return q.x.toFixed(1)+','+q.y.toFixed(1);}).join(' ');
   const depths=vs=>vs.reduce((n,p)=>n+raw(p).d,0)/vs.length;
@@ -464,7 +510,7 @@ function atDrawRoomScene(){
   stories.forEach(floor=>{
     const rs=rooms.filter(r=>r.floor===floor), z=Math.min(...rs.map(r=>r.z));
     const parts=[];
-    (atMesh.meshFaces||[]).forEach(f=>{
+    (reviewMesh().meshFaces||[]).forEach(f=>{
       const isWin=f.sslKey==='window';
       const isExt=/^extdoor_/.test(f.sslKey||'');
       if(!atIsPartition(f) && !isWin && !isExt) return;
@@ -474,13 +520,17 @@ function atDrawRoomScene(){
         let cut=atClipRoomFace(vs,z-0.04,true);
         cut=atClipRoomFace(cut,z+0.7,false);
         if(cut.length<3) return;
-        const fill=isWin?'#b8d9e5':isExt?'#e07a3d':'#e5e9e7';
+        let fill=isWin?'#b8d9e5':isExt?'#e07a3d':'#e5e9e7';
+        if(!isWin && !isExt && /^wall_/.test(f.sslKey||'') && typeof appMode!=='undefined' && appMode==='energyplus' && typeof idfMeshPaletteForFace==='function'){
+          const pal=idfMeshPaletteForFace(f);
+          if(pal) fill='rgb('+pal.r+','+pal.g+','+pal.b+')';
+        }
         parts.push({d:depths(cut),html:`<polygon points="${points(cut)}" fill="${fill}" stroke="#738780" stroke-width="0.65" opacity="0.7"/>`});
       });
     });
     rs.forEach(r=>{
       const vs=r.ring.map(p=>({...p,z:r.z+0.035}));
-      const selected=r.key===atRoomView.selected;
+      const selected=r.key===reviewView().selected;
       parts.push({d:depths(vs),html:`<polygon data-scene-room="${escapeHtml(r.key)}" points="${points(vs)}" fill="${atRoomColor(r)}" fill-opacity="${selected?0.94:0.68}" stroke="${selected?'#153f35':'#456357'}" stroke-width="${selected?3:1.3}" ${r.reviewed?'':'stroke-dasharray="6 4"'}><title>${escapeHtml(r.floor+'F '+atRoomTitle(r))}</title></polygon>`});
     });
     parts.sort((a,b)=>b.d-a.d);
@@ -505,7 +555,7 @@ function atDrawRoomScene(){
   const by0=Math.min(...allPts.map(p=>p.y)), by1=Math.max(...allPts.map(p=>p.y));
   const center={x:(bx0+bx1)/2,y:(by0+by1)/2,z:Math.max(...rooms.map(r=>r.zTop))+0.25};
   const arrowLen=Math.max(bx1-bx0,by1-by0)*0.18;
-  const nr=atRoomView.northDeg*Math.PI/180;
+  const nr=reviewView().northDeg*Math.PI/180;
   const tip={x:center.x+Math.sin(nr)*arrowLen,y:center.y+Math.cos(nr)*arrowLen,z:center.z};
   const pc=project(center), pt=project(tip);
   const compass=`<defs>
@@ -538,7 +588,7 @@ function atStairSceneHtml(rooms, project){
       html+=`<polygon class="at-rv-stair-tread" points="${pts(vs)}" fill="${t.kind==='landing'?'#d0d0d0':'#b4b4b4'}" fill-opacity="0.82" stroke="#6e6e6e" stroke-width="0.7"/>`;
     });
   });
-  const sel=(rooms||[]).find(r=>r.key===atRoomView.selected);
+  const sel=(rooms||[]).find(r=>r.key===reviewView().selected);
   const path=sel && sel.stairPath;
   if(sel && path && path.length>=2){
     const z0=sel.z+0.05, z1=(sel.stair && sel.stair.toZ)!=null ? sel.stair.toZ : sel.zTop;
@@ -564,7 +614,7 @@ function atSceneSvgPoint(e, svg){
   return {x:(e.clientX-r.left)/r.width*900, y:(e.clientY-r.top)/r.height*570};
 }
 function atSceneUnprojectXY(sx, sy, z){
-  const p=atRoomView.proj;
+  const p=reviewView().proj;
   if(!p || !(p.scale>0)) return {x:0, y:0};
   const qx=(sx-450)/p.scale+p.midX;
   const qy=(sy-275)/p.scale+p.midY;
@@ -577,23 +627,24 @@ function atSceneUnprojectXY(sx, sy, z){
 }
 function atBindRoomScene(){
   const svg=document.getElementById('atRoomScene');
+  if(!svg) return;
   svg.onpointerdown=e=>{
     if(e.button!==0) return;
     if(typeof atPartPointerDown==='function' && atPartPointerDown(e,svg)) return;
     const vertex=e.target.closest('[data-stair-vertex]');
-    atRoomView.drag={x:e.clientX,y:e.clientY,yaw:atRoomView.yaw,tilt:atRoomView.tilt,moved:false,
+    reviewView().drag={x:e.clientX,y:e.clientY,yaw:reviewView().yaw,tilt:reviewView().tilt,moved:false,
       key:e.target.closest('[data-scene-room]')?.dataset.sceneRoom,
       vertex:vertex?Number(vertex.dataset.stairVertex):-1,
       roomKey:vertex?vertex.dataset.stairRoom:''};
-    if(atRoomView.drag.vertex>=0) atSnapshotRoomEdit();
+    if(reviewView().drag.vertex>=0) atSnapshotRoomEdit();
     svg.setPointerCapture(e.pointerId);
   };
   svg.onpointermove=e=>{
     if(typeof atPartPointerMove==='function' && atPartPointerMove(e,svg)) return;
-    const d=atRoomView.drag; if(!d) return;
+    const d=reviewView().drag; if(!d) return;
     if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5) d.moved=true;
     if(d.vertex>=0){
-      const r=(atMesh.rooms||[]).find(q=>q.key===d.roomKey);
+      const r=(reviewMesh().rooms||[]).find(q=>q.key===d.roomKey);
       if(!r) return;
       const sp=atSceneSvgPoint(e, svg);
       const world=atSceneUnprojectXY(sp.x, sp.y, r.z);
@@ -601,25 +652,25 @@ function atBindRoomScene(){
       atDrawRoomScene();
       return;
     }
-    if(d.moved && !atRoomView.plan){
-      atRoomView.yaw=d.yaw+(e.clientX-d.x)*0.007;
-      atRoomView.tilt=Math.max(0.25,Math.min(1.5,d.tilt+(e.clientY-d.y)*0.005));
+    if(d.moved && !reviewView().plan){
+      reviewView().yaw=d.yaw+(e.clientX-d.x)*0.007;
+      reviewView().tilt=Math.max(0.25,Math.min(1.5,d.tilt+(e.clientY-d.y)*0.005));
       atDrawRoomScene();
     }
   };
   svg.onpointerup=e=>{
     if(typeof atPartPointerUp==='function' && atPartPointerUp(e,svg)) return;
-    const d=atRoomView.drag; atRoomView.drag=null;
+    const d=reviewView().drag; reviewView().drag=null;
     if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
     if(d && d.vertex>=0){
-      atRoomView.suppressClick=true;
+      reviewView().suppressClick=true;
       if(typeof saveStateDebounced==='function') saveStateDebounced();
       atRenderRoomViewer();
       return;
     }
-    if(d && !d.moved && d.key && d.key!==atRoomView.selected) atSelectViewerRoom(d.key);
+    if(d && !d.moved && d.key && d.key!==reviewView().selected) atSelectViewerRoom(d.key);
   };
-  svg.onpointercancel=()=>{ atRoomView.drag=null; if(typeof atParts!=='undefined') atParts.drag=null; };
+  svg.onpointercancel=()=>{ reviewView().drag=null; if(typeof atParts!=='undefined') atParts.drag=null; };
   svg.onkeydown=e=>{
     const dir=e.target.closest('[data-part-dir]');
     const del=e.target.closest('[data-part-delete]');
@@ -634,19 +685,19 @@ function atBindRoomScene(){
   };
   svg.ondblclick=e=>{
     e.preventDefault();
-    const r=(atMesh.rooms||[]).find(q=>q.key===atRoomView.selected);
+    const r=(reviewMesh().rooms||[]).find(q=>q.key===reviewView().selected);
     if(!r || typeof atIsStairRoom!=='function' || !atIsStairRoom(r)) return;
     if(e.target.closest('[data-stair-vertex]')) return;
     const sp=atSceneSvgPoint(e, svg);
     const world=atSceneUnprojectXY(sp.x, sp.y, r.z);
     atSnapshotRoomEdit();
     if(typeof atStairInsertAt==='function') atStairInsertAt(r, world);
-    atRoomView.suppressClick=true;
+    reviewView().suppressClick=true;
     if(typeof saveStateDebounced==='function') saveStateDebounced();
     atRenderRoomViewer();
   };
   svg.addEventListener('wheel',e=>{
-    e.preventDefault(); atRoomView.zoom=Math.max(0.5,Math.min(3,atRoomView.zoom*Math.exp(-e.deltaY*0.001)));
+    e.preventDefault(); reviewView().zoom=Math.max(0.5,Math.min(3,reviewView().zoom*Math.exp(-e.deltaY*0.001)));
     atDrawRoomScene();
   },{passive:false});
 }
@@ -655,7 +706,7 @@ function atBindRoomScene(){
 document.addEventListener('change',function(e){
   if(appMode!=='architrend' || !e.target.matches('.roomName')) return;
   const card=e.target.closest('.room-card');
-  const r=atMesh?.rooms.find(r=>r.key===card?.dataset.atRoomKey);
+  const r=reviewMesh()?.rooms.find(r=>r.key===card?.dataset.atRoomKey);
   if(!r) return;
   const value=e.target.value;
   e.target.value=r.name;

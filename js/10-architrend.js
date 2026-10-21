@@ -19,7 +19,7 @@ const AT_MANUAL_IDS = AT_BLANK_IDS.filter(id=>id!=='acMax'&&id!=='uDoor').concat
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    'vendor/pdf.worker-3.11.174.js';
 }
 
 function selectMode(next){
@@ -68,6 +68,9 @@ function setModeUI(mode){
     if(box) box.style.display = 'none';
     if(list) list.innerHTML = '';
   }
+  if(mode!=='energyplus' && typeof epHideRoomViewer==='function') epHideRoomViewer();
+  if(mode==='energyplus' && typeof epSyncViewerMesh==='function') epSyncViewerMesh();
+  else if(mode==='architrend' && typeof atRenderRoomViewer==='function' && typeof atMesh!=='undefined' && atMesh) atRenderRoomViewer();
 }
 
 function blankForArchitrend(){
@@ -195,6 +198,9 @@ function parseArchiTrendCsv(text){
       attachment:String(row[idx.attachment]||'').trim(),
       az:(orient in AT_AZ)?AT_AZ[orient]:null,
       eta:null, tilt:90, roofLike:false,
+      u:idx.loss>=0 && csvNumber(row[idx.area])>0 && csvNumber(row[idx.loss])>0
+        ? csvNumber(row[idx.loss])/csvNumber(row[idx.area]) : null,
+      uSource:'CSV 貫流熱損失÷面積（丸めを含む概算）',
       sourceLabel:'CSV'
     });
   });
@@ -211,6 +217,15 @@ function parseArchiTrendCsv(text){
     area:csvNumber(row[idx.area]), perimeter:csvNumber(row[idx.perimeter]),
     heatLoss:csvNumber(row[idx.loss]), spec:String(row[idx.spec]||'').trim()
   }));
+  // Only outside-air rows have Q=U*A. Foundation Q/perimeter is a linear
+  // transmittance and must never be copied into a surface U-factor.
+  for(const [part,key] of [['屋根','uRoof'],['外壁','uWall'],['床','uFloor']]){
+    const group=result.csvEnvelopeRows.filter(r=>r.part===part&&r.area>0&&r.heatLoss>0);
+    if(group.length&&new Set(group.map(r=>r.spec)).size===1){
+      result[key]=group.reduce((n,r)=>n+r.heatLoss,0)/group.reduce((n,r)=>n+r.area,0);
+      result.sources[key]='CSV 貫流熱損失÷面積（丸めを含む概算）';
+    }
+  }
 
   const areaSum=result.windows.reduce((sum,w)=>sum+(w.area||0),0);
   const gainSum=result.windows.reduce((sum,w)=>sum+(w.gainCooling||0),0);
@@ -247,6 +262,9 @@ function mergeArchitrendSources(csvParsed,pdfParsed){
   }
 
   if(csvParsed){
+    for(const key of ['uRoof','uWall','uFloor'])if(!(result[key]>0)&&csvResult[key]>0){
+      result[key]=csvResult[key];result.sources[key]=csvResult.sources[key];
+    }
     result.envArea=csvResult.envArea;
     result.sources.envArea=csvResult.envArea!==null?'CSV':null;
     result.csvEnvelopeRows=csvResult.csvEnvelopeRows||[];
@@ -281,7 +299,7 @@ function mergeArchitrendSources(csvParsed,pdfParsed){
     });
   }
   if(!csvParsed) warnings.push('CSV未指定です。窓情報はPDF解析結果を使用します');
-  if(!pdfParsed) warnings.push('PDF未指定のため、UA・U値・居室・窓ηは取得できません');
+  if(!pdfParsed) warnings.push('PDF未指定です。外皮U値はCSVの貫流熱損失からの概算、居室・窓ηは未取得です');
   if(result.ua===null) warnings.push('UAは空欄です');
   if([result.uRoof,result.uWall,result.uFloor,result.uFound,result.uWin].some(v=>v===null)){
     warnings.push('PDFから確定できない部位U値は空欄です');
@@ -1431,6 +1449,7 @@ function rebuildArchitrendPreview(){
   if(!merged) return;
   atLastParse=merged;
   renderArchitrendReview(merged,false);
+  window.dispatchEvent(new CustomEvent('architrend-data-ready'));
 }
 
 async function readCsvFile(file){

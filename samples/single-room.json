@@ -1,0 +1,444 @@
+{
+  "schemaVersion": 1,
+  "source": "rhino",
+  "units": "m",
+  "north": 0,
+  "rooms": [
+    {
+      "id": "room1",
+      "name": "検証室",
+      "conditioned": true,
+      "people": 2,
+      "equipmentW": 100,
+      "ventilationACH": 0.5
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "room1-floor",
+      "roomId": "room1",
+      "type": "Floor",
+      "boundary": "Ground",
+      "construction": "floor",
+      "vertices": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0
+        ],
+        [
+          5,
+          4,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "id": "room1-roof",
+      "roomId": "room1",
+      "type": "Roof",
+      "boundary": "Outdoors",
+      "construction": "roof",
+      "vertices": [
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          5,
+          0,
+          3
+        ],
+        [
+          5,
+          4,
+          3
+        ],
+        [
+          0,
+          4,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "room1-south",
+      "roomId": "room1",
+      "type": "Wall",
+      "boundary": "Outdoors",
+      "construction": "wall",
+      "vertices": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "room1-east",
+      "roomId": "room1",
+      "type": "Wall",
+      "boundary": "Outdoors",
+      "construction": "wall",
+      "vertices": [
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          5,
+          4,
+          0
+        ],
+        [
+          5,
+          4,
+          3
+        ],
+        [
+          5,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "room1-north",
+      "roomId": "room1",
+      "type": "Wall",
+      "boundary": "Outdoors",
+      "construction": "wall",
+      "vertices": [
+        [
+          5,
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          3
+        ],
+        [
+          5,
+          4,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "room1-west",
+      "roomId": "room1",
+      "type": "Wall",
+      "boundary": "Outdoors",
+      "construction": "wall",
+      "vertices": [
+        [
+          0,
+          4,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          4,
+          3
+        ]
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "id": "window1",
+      "surfaceId": "room1-south",
+      "type": "Window",
+      "construction": "window",
+      "vertices": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          3,
+          0,
+          1
+        ],
+        [
+          3,
+          0,
+          2
+        ],
+        [
+          1,
+          0,
+          2
+        ]
+      ]
+    }
+  ],
+  "shades": [],
+  "settings": {
+    "heating": 20,
+    "cooling": 27,
+    "groundTemperature": 18,
+    "peopleSchedule": [
+      0.8,
+      0.8,
+      0.8,
+      0.8,
+      0.8,
+      0.8,
+      0.8,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      0.3,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "equipmentSchedule": [
+      0.25,
+      0.25,
+      0.25,
+      0.25,
+      0.25,
+      0.25,
+      0.25,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "ventilationSchedule": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "hvacSchedule": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "reviewed": true
+  },
+  "constructions": {
+    "wall": {
+      "label": "仮定：木造断熱壁",
+      "layers": [
+        {
+          "thickness": 0.012,
+          "conductivity": 0.14,
+          "density": 600,
+          "specificHeat": 1600
+        },
+        {
+          "thickness": 0.1,
+          "conductivity": 0.04,
+          "density": 24,
+          "specificHeat": 840
+        },
+        {
+          "thickness": 0.0125,
+          "conductivity": 0.22,
+          "density": 800,
+          "specificHeat": 1090
+        }
+      ]
+    },
+    "roof": {
+      "label": "仮定：断熱屋根",
+      "layers": [
+        {
+          "thickness": 0.012,
+          "conductivity": 0.14,
+          "density": 600,
+          "specificHeat": 1600
+        },
+        {
+          "thickness": 0.2,
+          "conductivity": 0.04,
+          "density": 24,
+          "specificHeat": 840
+        },
+        {
+          "thickness": 0.0125,
+          "conductivity": 0.22,
+          "density": 800,
+          "specificHeat": 1090
+        }
+      ]
+    },
+    "floor": {
+      "label": "仮定：断熱床",
+      "layers": [
+        {
+          "thickness": 0.1,
+          "conductivity": 0.04,
+          "density": 24,
+          "specificHeat": 840
+        },
+        {
+          "thickness": 0.024,
+          "conductivity": 0.14,
+          "density": 600,
+          "specificHeat": 1600
+        }
+      ]
+    },
+    "partition": {
+      "label": "仮定：対称間仕切り",
+      "cfdMaterial": "2杉(1)",
+      "cfdThickness": 0.03,
+      "layers": [
+        {
+          "thickness": 0.0125,
+          "conductivity": 0.22,
+          "density": 800,
+          "specificHeat": 1090
+        },
+        {
+          "thickness": 0.08,
+          "conductivity": 0.04,
+          "density": 24,
+          "specificHeat": 840
+        },
+        {
+          "thickness": 0.0125,
+          "conductivity": 0.22,
+          "density": 800,
+          "specificHeat": 1090
+        }
+      ]
+    },
+    "window": {
+      "label": "仮定：複層窓",
+      "cfdMaterial": "1ガラス板(Low-E複層)",
+      "cfdThickness": 0.006,
+      "u": 2.3,
+      "shgc": 0.5,
+      "visibleTransmittance": 0.6
+    },
+    "door": {
+      "label": "仮定：木製ドア",
+      "cfdMaterial": "2杉(1)",
+      "cfdThickness": 0.04,
+      "layers": [
+        {
+          "thickness": 0.04,
+          "conductivity": 0.14,
+          "density": 600,
+          "specificHeat": 1600
+        }
+      ]
+    }
+  }
+}

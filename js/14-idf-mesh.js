@@ -30,6 +30,7 @@ const IDF_MESH_PALETTE = {
   extdoor_北西: {r:100, g:25, b:5, mat:'EDOOR_NW'},
   doorgap_top: {r:98, g:164, b:70, mat:'DOOR_TOP'},
   doorgap_uc: {r:0, g:128, b:128, mat:'DOOR_UC'},
+  dooropen: {r:255, g:0, b:170, mat:'DOOR_OPEN'},
   ac_body: {r:128, g:128, b:128, mat:'AC_BODY'},
   ac_supply: {r:0, g:60, b:255, mat:'AC_SUPPLY'},
   ac_return: {r:29, g:109, b:53, mat:'AC_RETURN'},
@@ -151,7 +152,9 @@ function idfMeshNamedMesh(objNameBytes, verts, tris, matName){
   return idfMeshChunk(0x4000, idfMeshConcat([objNameBytes, triObj]));
 }
 function idfMeshNamedTri(objNameBytes, verts, matName){
-  return idfMeshNamedMesh(objNameBytes, verts, idfMeshTriangulate(verts.length), matName);
+  const ears=idfMeshEarClip3(verts);
+  const tris=ears.length ? ears : idfMeshTriangulate(verts.length);
+  return idfMeshNamedMesh(objNameBytes, verts, tris, matName);
 }
 function idfMeshDot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
 function idfMeshLen(v){ return Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z); }
@@ -240,6 +243,62 @@ function idfMeshEarClip2(ring){
   if(idx.length===3) tris.push([idx[0], idx[1], idx[2]]);
   return tris;
 }
+function idfMeshNewell(verts){
+  let nx=0, ny=0, nz=0;
+  for(let i=0;i<(verts||[]).length;i++){
+    const a=verts[i], b=verts[(i+1)%verts.length];
+    nx+=(a.y-b.y)*(a.z+b.z);
+    ny+=(a.z-b.z)*(a.x+b.x);
+    nz+=(a.x-b.x)*(a.y+b.y);
+  }
+  return {x:nx, y:ny, z:nz};
+}
+function idfMeshCross(a, b, c){
+  const ux=b.x-a.x, uy=b.y-a.y, uz=b.z-a.z;
+  const vx=c.x-a.x, vy=c.y-a.y, vz=c.z-a.z;
+  return {x:uy*vz-uz*vy, y:uz*vx-ux*vz, z:ux*vy-uy*vx};
+}
+function idfMeshEarClip3(verts){
+  if(!verts || verts.length<3) return [];
+  const nrm=idfMeshNewell(verts);
+  const nl=Math.hypot(nrm.x, nrm.y, nrm.z);
+  if(!(nl>0)) return [];
+  const nn={x:nrm.x/nl, y:nrm.y/nl, z:nrm.z/nl};
+  const ax=Math.abs(nn.x)<0.9 ? {x:1, y:0, z:0} : {x:0, y:1, z:0};
+  let ux=nn.y*ax.z-nn.z*ax.y, uy=nn.z*ax.x-nn.x*ax.z, uz=nn.x*ax.y-nn.y*ax.x;
+  const ul=Math.hypot(ux, uy, uz)||1;
+  ux/=ul; uy/=ul; uz/=ul;
+  const vx=nn.y*uz-nn.z*uy, vy=nn.z*ux-nn.x*uz, vz=nn.x*uy-nn.y*ux;
+  const o=verts[0];
+  const ring=verts.map(function(p){
+    return {
+      x:(p.x-o.x)*ux+(p.y-o.y)*uy+(p.z-o.z)*uz,
+      y:(p.x-o.x)*vx+(p.y-o.y)*vy+(p.z-o.z)*vz
+    };
+  });
+  let area=0;
+  for(let i=0;i<ring.length;i++){
+    const p=ring[i], q=ring[(i+1)%ring.length];
+    area+=p.x*q.y-q.x*p.y;
+  }
+  const order=ring.map(function(_, i){ return i; });
+  if(area<0){ ring.reverse(); order.reverse(); }
+  const raw=idfMeshEarClip2(ring);
+  let scale=0;
+  verts.forEach(function(p){ scale=Math.max(scale, Math.abs(p.x), Math.abs(p.y), Math.abs(p.z)); });
+  const minArea=scale>50 ? 1 : 1e-6;
+  const tris=[];
+  raw.forEach(function(t){
+    let a=order[t[0]], b=order[t[1]], c=order[t[2]];
+    if(area<0){ const tmp=b; b=c; c=tmp; }
+    let cr=idfMeshCross(verts[a], verts[b], verts[c]);
+    let mag=Math.hypot(cr.x, cr.y, cr.z);
+    if(!(mag/2>minArea)) return;
+    if(cr.x*nrm.x+cr.y*nrm.y+cr.z*nrm.z<0){ const tmp=b; b=c; c=tmp; }
+    tris.push([a, b, c]);
+  });
+  return tris;
+}
 function idfMeshPrismMesh(bot, top){
   const n=bot.length;
   if(n<3) return null;
@@ -295,7 +354,12 @@ function idfMeshWeldSolidFromFacesMm(facesMm){
   (facesMm||[]).forEach(function(face){
     const idx=(face.verts||[]).map(add);
     if(idx.length<3) return;
-    for(let i=1;i<=idx.length-2;i++) tris.push([idx[0], idx[i], idx[i+1]]);
+    const ears=idfMeshEarClip3(face.verts);
+    const local=ears.length ? ears : idfMeshTriangulate(idx.length);
+    local.forEach(function(t){
+      if(idx[t[0]]==null || idx[t[1]]==null || idx[t[2]]==null) return;
+      tris.push([idx[t[0]], idx[t[1]], idx[t[2]]]);
+    });
   });
   if(verts.length<4 || !tris.length) return null;
   let vol=idfMeshSignedVolMm3(verts, tris);
@@ -567,7 +631,705 @@ function idfMeshReady(){
   return !!cfdMeshSource();
 }
 
+var epShadeGroups = [];
+var epShadePalette = {};
+const EP_SHADE_MAT = {北:'N',北東:'NE',東:'E',南東:'SE',南:'S',南西:'SW',西:'W',北西:'NW'};
+function epShadeCheb(a, b){
+  return Math.max(Math.abs(a.r-b.r), Math.abs(a.g-b.g), Math.abs(a.b-b.b));
+}
+function epShadeReservedColors(){
+  const cols=[];
+  Object.keys(IDF_MESH_PALETTE).forEach(function(k){
+    const p=IDF_MESH_PALETTE[k];
+    if(p) cols.push({r:p.r, g:p.g, b:p.b});
+  });
+  if(typeof WINDOW_U_COLOR_PALETTE!=='undefined'){
+    WINDOW_U_COLOR_PALETTE.forEach(function(c){ cols.push({r:c.r, g:c.g, b:c.b}); });
+  }
+  if(typeof SSL_FIXED_COLORS!=='undefined'){
+    SSL_FIXED_COLORS.forEach(function(e){
+      const n=parseInt(String(e.hex||'').replace('#',''), 16);
+      if(!isFinite(n)) return;
+      cols.push({r:(n>>16)&255, g:(n>>8)&255, b:n&255});
+    });
+  }
+  Object.keys(epShadePalette).forEach(function(k){
+    const p=epShadePalette[k];
+    if(p) cols.push({r:p.r, g:p.g, b:p.b});
+  });
+  return cols;
+}
+function epShadeVariantColor(base, index, reserved){
+  const minDist=28;
+  function ok(c){
+    if(c.r>235 && c.g>60 && c.b>60) return false;
+    for(let i=0;i<reserved.length;i++){
+      if(epShadeCheb(c, reserved[i])<minDist) return false;
+    }
+    return true;
+  }
+  for(let k=0;k<80;k++){
+    const ang=((index*53+k*37)%360)*Math.PI/180;
+    const rad=70+(k%5)*16;
+    const c={
+      r:Math.max(0, Math.min(255, Math.round(base.r+rad*Math.cos(ang)))),
+      g:Math.max(0, Math.min(255, Math.round(base.g+rad*Math.sin(ang)))),
+      b:Math.max(0, Math.min(255, Math.round(base.b+((index*41+k*23)%160)-80)))
+    };
+    if(ok(c)) return c;
+  }
+  for(let n=0;n<200;n++){
+    const c={r:(n*47+index*13)%220, g:(n*29+80)%200, b:(n*61+40)%210};
+    if(ok(c)) return c;
+  }
+  return {r:(index*20)%200, g:30, b:40};
+}
+function assignEpShadeColors(groups){
+  epShadeGroups=groups||[];
+  epShadePalette={};
+  const reserved=epShadeReservedColors();
+  epShadeGroups.forEach(function(g){
+    if(!g) return;
+    const base=IDF_MESH_PALETTE['wall_'+g.orient]||IDF_MESH_PALETTE.innerwall;
+    if(g.index<=1){
+      g.color={r:base.r, g:base.g, b:base.b, mat:base.mat};
+      return;
+    }
+    const col=epShadeVariantColor(base, g.index, reserved);
+    const pal={r:col.r, g:col.g, b:col.b, mat:'WALL_'+(EP_SHADE_MAT[g.orient]||'X')+g.index};
+    epShadePalette[g.sslKey]=pal;
+    g.color=pal;
+    reserved.push(pal);
+  });
+}
+let epShadePieces = {};
+let epShadeParentT = {};
+const EP_SHADE_STEP = 0.1;
+
+function epShadeClearSplit(){
+  epShadePieces = {};
+  epShadeParentT = {};
+}
+function epSunVector(alt, az){
+  const c = Math.cos(alt);
+  return {x:-Math.sin(az)*c, y:-Math.cos(az)*c, z:Math.sin(alt)};
+}
+function epVsub(a,b){ return {x:a.x-b.x, y:a.y-b.y, z:a.z-b.z}; }
+function epVdot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
+function epVcross(a,b){ return {x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x}; }
+function epVnorm(a){
+  const m=Math.hypot(a.x,a.y,a.z);
+  if(!(m>0)) return {x:0,y:0,z:0};
+  return {x:a.x/m, y:a.y/m, z:a.z/m};
+}
+function epPolyConvex(verts){
+  const g=newell(verts);
+  if(!(g.mag>0)) return false;
+  const n={x:g.nx/g.mag, y:g.ny/g.mag, z:g.nz/g.mag};
+  let sign=0;
+  for(let i=0;i<verts.length;i++){
+    const a=verts[i], b=verts[(i+1)%verts.length], c=verts[(i+2)%verts.length];
+    const s=epVdot(epVcross(epVsub(b,a), epVsub(c,b)), n);
+    if(Math.abs(s)<1e-8) continue;
+    const sg=s>0?1:-1;
+    if(!sign) sign=sg;
+    else if(sg!==sign) return false;
+  }
+  return true;
+}
+function epRayTri(o, d, a, b, c){
+  const EPS=1e-8;
+  const ab=epVsub(b,a), ac=epVsub(c,a);
+  const pvec=epVcross(d, ac);
+  const det=epVdot(ab, pvec);
+  if(Math.abs(det)<EPS) return null;
+  const inv=1/det;
+  const tvec=epVsub(o, a);
+  const u=epVdot(tvec, pvec)*inv;
+  if(u<0 || u>1) return null;
+  const qvec=epVcross(tvec, ab);
+  const v=epVdot(d, qvec)*inv;
+  if(v<0 || u+v>1) return null;
+  const t=epVdot(ac, qvec)*inv;
+  if(t<1e-4) return null;
+  return t;
+}
+function epShadeCasterTris(exceptKey){
+  const tris=[];
+  function addPoly(verts, key){
+    if(!verts || verts.length<3 || (key && key===exceptKey)) return;
+    if(!epPolyConvex(verts)) return;
+    for(let i=1;i<verts.length-1;i++) tris.push([verts[0], verts[i], verts[i+1]]);
+  }
+  const parse=(typeof epParse!=='undefined') ? epParse : null;
+  if(!parse) return tris;
+  (parse.shading||[]).forEach(function(s){ addPoly(s.verts, ''); });
+  const faces=parse.meshBase || parse.meshFaces || [];
+  faces.forEach(function(f){
+    if(!f || f.shadePiece) return;
+    const k=String(f.baseSslKey||f.sslKey||'');
+    if(k.indexOf('wall_')!==0 && k!=='roof' && k!=='floor_out') return;
+    addPoly(f.verts, typeof idfNameKey==='function' ? idfNameKey(f.idfName) : '');
+  });
+  return tris;
+}
+function epWallFrame(verts){
+  const g=newell(verts);
+  if(!(g.mag>0)) return null;
+  const n=epVnorm({x:g.nx, y:g.ny, z:g.nz});
+  let u=epVcross({x:0,y:0,z:1}, n);
+  if(Math.hypot(u.x,u.y,u.z)<0.2) u=epVcross({x:1,y:0,z:0}, n);
+  u=epVnorm(u);
+  const v=epVnorm(epVcross(n, u));
+  return {n:n, u:u, v:v, p0:verts[0]};
+}
+function epToUV(p, f){
+  const d=epVsub(p, f.p0);
+  return {u:epVdot(d, f.u), v:epVdot(d, f.v)};
+}
+function epFromUV(u, v, f){
+  return {
+    x:f.p0.x+f.u.x*u+f.v.x*v,
+    y:f.p0.y+f.u.y*u+f.v.y*v,
+    z:f.p0.z+f.u.z*u+f.v.z*v
+  };
+}
+function epPointInPolyUV(x, y, poly){
+  let inside=false;
+  for(let i=0, j=poly.length-1; i<poly.length; j=i++){
+    const xi=poly[i].u, yi=poly[i].v, xj=poly[j].u, yj=poly[j].v;
+    const hit=((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi);
+    if(hit) inside=!inside;
+  }
+  return inside;
+}
+function epAreaUV(poly){
+  let a=0;
+  for(let i=0;i<(poly||[]).length;i++){
+    const p=poly[i], q=poly[(i+1)%poly.length];
+    a+=p.u*q.v-q.u*p.v;
+  }
+  return a/2;
+}
+function epEnsureCCW(poly){
+  const src=(poly||[]).map(function(p){ return {u:p.u, v:p.v}; });
+  if(epAreaUV(src)<0) src.reverse();
+  return src;
+}
+function epCrossUV(a, b, p){
+  return (b.u-a.u)*(p.v-a.v)-(b.v-a.v)*(p.u-a.u);
+}
+function epCleanUV(poly){
+  const out=[];
+  (poly||[]).forEach(function(p){
+    const q=out[out.length-1];
+    if(q && Math.hypot(q.u-p.u, q.v-p.v)<1e-7) return;
+    out.push({u:p.u, v:p.v});
+  });
+  if(out.length>2 && Math.hypot(out[0].u-out[out.length-1].u, out[0].v-out[out.length-1].v)<1e-7) out.pop();
+  return out;
+}
+function epInsideLeft(p, a, b){
+  return epCrossUV(a, b, p)>=-1e-8;
+}
+function epSegHitUV(s, e, a, b){
+  const den=(e.u-s.u)*(b.v-a.v)-(e.v-s.v)*(b.u-a.u);
+  if(Math.abs(den)<1e-12) return null;
+  const t=((a.u-s.u)*(b.v-a.v)-(a.v-s.v)*(b.u-a.u))/den;
+  const u=((a.u-s.u)*(e.v-s.v)-(a.v-s.v)*(e.u-s.u))/den;
+  if(t<-1e-6 || t>1+1e-6 || u<-1e-6 || u>1+1e-6) return null;
+  return {u:s.u+(e.u-s.u)*t, v:s.v+(e.v-s.v)*t, t:t};
+}
+function epSH(subject, clip){
+  let out=epCleanUV(subject);
+  const win=epEnsureCCW(clip);
+  for(let i=0;i<win.length && out.length;i++){
+    const a=win[i], b=win[(i+1)%win.length];
+    const inp=out;
+    out=[];
+    for(let j=0;j<inp.length;j++){
+      const s=inp[j], e=inp[(j+1)%inp.length];
+      const sin=epInsideLeft(s, a, b), ein=epInsideLeft(e, a, b);
+      if(ein){
+        if(!sin){
+          const h=epSegHitUV(s, e, a, b);
+          if(h) out.push({u:h.u, v:h.v});
+        }
+        out.push({u:e.u, v:e.v});
+      }else if(sin){
+        const h=epSegHitUV(s, e, a, b);
+        if(h) out.push({u:h.u, v:h.v});
+      }
+    }
+    out=epCleanUV(out);
+  }
+  return out;
+}
+function epStrictInConvex(p, poly){
+  for(let i=0;i<poly.length;i++){
+    if(epCrossUV(poly[i], poly[(i+1)%poly.length], p)<=1e-8) return false;
+  }
+  return true;
+}
+function epOnOrInConvex(p, poly){
+  for(let i=0;i<poly.length;i++){
+    if(epCrossUV(poly[i], poly[(i+1)%poly.length], p)<-1e-6) return false;
+  }
+  return true;
+}
+function epRelConvex(p, poly){
+  let m=Infinity;
+  for(let i=0;i<poly.length;i++){
+    const c=epCrossUV(poly[i], poly[(i+1)%poly.length], p);
+    if(c<m) m=c;
+  }
+  return m;
+}
+function epOnSegUV(p, a, b){
+  const du=b.u-a.u, dv=b.v-a.v;
+  const len=du*du+dv*dv;
+  if(len<1e-16) return Math.hypot(p.u-a.u, p.v-a.v)<1e-6;
+  const t=((p.u-a.u)*du+(p.v-a.v)*dv)/len;
+  if(t<-1e-5 || t>1+1e-5) return false;
+  return Math.hypot(p.u-(a.u+du*t), p.v-(a.v+dv*t))<1e-5;
+}
+function epDiffConvex(subject, cutter){
+  subject=epCleanUV(epEnsureCCW(subject));
+  cutter=epCleanUV(epEnsureCCW(cutter));
+  if(subject.length<3 || cutter.length<3) return subject.length>=3 ? [subject] : [];
+  const inter=epCleanUV(epSH(subject, cutter));
+  const ai=Math.abs(epAreaUV(inter)), as=Math.abs(epAreaUV(subject));
+  if(!(ai>1e-8)) return [subject];
+  if(ai>as-1e-6) return [];
+  function outside(p){ return epRelConvex(p, cutter)<-1e-7; }
+  function edgeIndex(p){
+    let best=-1, bestD=1e-5;
+    for(let e=0;e<subject.length;e++){
+      const a=subject[e], b=subject[(e+1)%subject.length];
+      if(!epOnSegUV(p, a, b)) continue;
+      const d=Math.hypot(p.u-a.u, p.v-a.v);
+      if(d>bestD){ best=e; bestD=d; }
+    }
+    return best;
+  }
+  let start=-1;
+  for(let i=0;i<subject.length;i++) if(outside(subject[i])){ start=i; break; }
+  if(start<0) return null;
+  const poly=[];
+  let i=start, guard=0;
+  while(guard++<subject.length+4){
+    const j=(i+1)%subject.length;
+    const s=subject[i], e=subject[j];
+    poly.push(s);
+    if(outside(s) && !outside(e)){
+      let hit=null, ek=-1, best=2;
+      for(let k=0;k<cutter.length;k++){
+        const h=epSegHitUV(s, e, cutter[k], cutter[(k+1)%cutter.length]);
+        if(h && h.t>1e-5 && h.t<1-1e-5 && h.t<best){ hit=h; ek=k; best=h.t; }
+      }
+      if(!hit) return null;
+      poly.push({u:hit.u, v:hit.v});
+      let from={u:hit.u, v:hit.v};
+      let k=ek;
+      let rejoined=false;
+      for(let step=0; step<cutter.length+1; step++){
+        const v1=cutter[k];
+        const ea=edgeIndex(v1);
+        if(ea>=0 && Math.hypot(v1.u-from.u, v1.v-from.v)>1e-5){
+          poly.push({u:v1.u, v:v1.v});
+          const next=(ea+1)%subject.length;
+          if(next===start){ rejoined=true; i=start; break; }
+          i=next;
+          rejoined=true;
+          break;
+        }
+        let exit=null, ex=-1, bt=2;
+        for(let e2=0;e2<subject.length;e2++){
+          const h2=epSegHitUV(from, v1, subject[e2], subject[(e2+1)%subject.length]);
+          if(h2 && h2.t>1e-4 && h2.t<1-1e-4 && h2.t<bt){ exit=h2; ex=e2; bt=h2.t; }
+        }
+        if(exit){
+          poly.push({u:exit.u, v:exit.v});
+          const next=(ex+1)%subject.length;
+          if(next===start){ rejoined=true; i=start; break; }
+          i=next;
+          rejoined=true;
+          break;
+        }
+        if(!epOnOrInConvex(v1, subject)) return null;
+        poly.push(v1);
+        from=v1;
+        k=(k-1+cutter.length)%cutter.length;
+      }
+      if(!rejoined) return null;
+      if(i===start) break;
+      continue;
+    }
+    if(j===start) break;
+    i=j;
+  }
+  const cleaned=epCleanUV(poly);
+  const got=Math.abs(epAreaUV(cleaned));
+  if(cleaned.length<3 || !(got>1e-8)) return null;
+  if(Math.abs(got-(as-ai))>Math.max(1e-3, as*0.12)) return null;
+  return [epEnsureCCW(cleaned)];
+}
+function epTriangulateUV(poly){
+  const ccw=epEnsureCCW(poly);
+  if(ccw.length<3) return [];
+  if(ccw.length===3) return [ccw];
+  const ring=ccw.map(function(p){ return {x:p.u, y:p.v}; });
+  const ears=idfMeshEarClip2(ring);
+  if(!ears.length) return [ccw];
+  return ears.map(function(t){ return [ccw[t[0]], ccw[t[1]], ccw[t[2]]]; });
+}
+function epClipFront(raw, eps){
+  const out=[];
+  for(let i=0;i<raw.length;i++){
+    const s=raw[i], e=raw[(i+1)%raw.length];
+    const sin=s.t>=eps-1e-8, ein=e.t>=eps-1e-8;
+    function at(t){
+      const u=(t-s.t)/((e.t-s.t)||1e-12);
+      return {V:{x:s.V.x+(e.V.x-s.V.x)*u, y:s.V.y+(e.V.y-s.V.y)*u, z:s.V.z+(e.V.z-s.V.z)*u}, t:t};
+    }
+    if(sin && ein) out.push(e);
+    else if(sin && !ein) out.push(at(eps));
+    else if(!sin && ein){ out.push(at(eps)); out.push(e); }
+  }
+  return out;
+}
+function epProjectCaster(tri, frame, sun){
+  const denom=epVdot(sun, frame.n);
+  if(!(denom>1e-6)) return null;
+  const raw=tri.map(function(V){
+    return {V:V, t:epVdot(epVsub(V, frame.p0), frame.n)/denom};
+  });
+  if(!raw.some(function(r){ return r.t>0.01; })) return null;
+  if(raw.some(function(r){ return r.t>80; })) return null;
+  const clipped=epClipFront(raw, 0);
+  if(clipped.length<3) return null;
+  const uv=clipped.map(function(r){
+    const t=Math.max(0, r.t);
+    return epToUV({x:r.V.x-sun.x*t, y:r.V.y-sun.y*t, z:r.V.z-sun.z*t}, frame);
+  });
+  const ccw=epEnsureCCW(uv);
+  if(!(Math.abs(epAreaUV(ccw))>1e-4)) return null;
+  return ccw;
+}
+function epPartitionWall(wallUV, shadows){
+  const wallCCW=epEnsureCCW(wallUV);
+  const ring=wallCCW.map(function(p){ return {x:p.u, y:p.v}; });
+  let ears=idfMeshEarClip2(ring);
+  if(!ears.length){
+    if(wallUV.length===3) ears=[[0,1,2]];
+    else return null;
+  }
+  const wallArea=Math.abs(epAreaUV(epEnsureCCW(wallUV)));
+  const sun=[], shade=[];
+  let failed=false;
+  ears.forEach(function(t){
+    if(failed) return;
+    let parts=[epEnsureCCW([wallCCW[t[0]], wallCCW[t[1]], wallCCW[t[2]]])];
+    (shadows||[]).forEach(function(shadow){
+      if(failed) return;
+      const next=[];
+      parts.forEach(function(poly){
+        epTriangulateUV(poly).forEach(function(tri){
+          if(failed) return;
+          const clip=epEnsureCCW(tri);
+          const inter=epCleanUV(epSH(shadow, clip));
+          if(inter.length>=3 && Math.abs(epAreaUV(inter))>1e-8){
+            shade.push(inter);
+            const diff=epDiffConvex(clip, inter);
+            if(!diff){ failed=true; return; }
+            diff.forEach(function(d){
+              if(d.length>=3 && Math.abs(epAreaUV(d))>1e-8) next.push(epEnsureCCW(d));
+            });
+          }else next.push(clip);
+        });
+      });
+      parts=next;
+    });
+    parts.forEach(function(p){ if(p.length>=3) sun.push(p); });
+  });
+  if(failed) return null;
+  let got=0;
+  sun.concat(shade).forEach(function(p){ got+=Math.abs(epAreaUV(p)); });
+  if(!(wallArea>0) || Math.abs(got-wallArea)>Math.max(1e-3, wallArea*0.08)) return null;
+  return {sun:sun, shade:shade};
+}
+function epWallShadePolys(wallVerts, frame, sunDir, casterTris){
+  const wallUV=wallVerts.map(function(p){ return epToUV(p, frame); });
+  const shadows=[];
+  (casterTris||[]).forEach(function(tri){
+    const uv=epProjectCaster(tri, frame, sunDir);
+    if(uv) shadows.push(uv);
+  });
+  if(!shadows.length || shadows.length>240) return null;
+  const parts=epPartitionWall(wallUV, shadows);
+  if(!parts || !parts.sun.length || !parts.shade.length) return null;
+  function to3(polys){
+    return polys.map(function(poly){
+      let q=poly.map(function(p){ return epFromUV(p.u, p.v, frame); });
+      const g=newell(q);
+      if(!(g.area>1e-6)) return null;
+      if(epVdot({x:g.nx, y:g.ny, z:g.nz}, frame.n)<0) q.reverse();
+      return q;
+    }).filter(Boolean);
+  }
+  const sun=to3(parts.sun), shade=to3(parts.shade);
+  if(!sun.length || !shade.length) return null;
+  return {sun:sun, shade:shade};
+}
+function epWallShadePieces(verts, holes, tris, sunDir, step){
+  const frame=epWallFrame(verts);
+  if(!frame) return null;
+  if(epVdot(frame.n, sunDir)<=0.02) return null;
+  const uv=verts.map(function(p){ return epToUV(p, frame); });
+  let umin=Infinity, umax=-Infinity, vmin=Infinity, vmax=-Infinity;
+  uv.forEach(function(p){
+    if(p.u<umin) umin=p.u; if(p.u>umax) umax=p.u;
+    if(p.v<vmin) vmin=p.v; if(p.v>vmax) vmax=p.v;
+  });
+  const nu=Math.max(1, Math.round((umax-umin)/((step>0)?step:EP_SHADE_STEP)));
+  const nv=Math.max(1, Math.round((vmax-vmin)/((step>0)?step:EP_SHADE_STEP)));
+  if(nu*nv>8000) return null;
+  const du=(umax-umin)/nu, dv=(vmax-vmin)/nv;
+  const holeUV=(holes||[]).map(function(h){ return h.map(function(p){ return epToUV(p, frame); }); });
+  const mask=[];
+  let nSun=0, nShade=0;
+  for(let j=0;j<nv;j++){
+    mask[j]=[];
+    for(let i=0;i<nu;i++){
+      const cu=umin+(i+0.5)*du, cv=vmin+(j+0.5)*dv;
+      if(!epPointInPolyUV(cu, cv, uv)){ mask[j][i]=-1; continue; }
+      let hole=false;
+      for(let h=0;h<holeUV.length;h++){
+        if(epPointInPolyUV(cu, cv, holeUV[h])){ hole=true; break; }
+      }
+      const p=epFromUV(cu, cv, frame);
+      const o={x:p.x+frame.n.x*0.005, y:p.y+frame.n.y*0.005, z:p.z+frame.n.z*0.005};
+      let shaded=false;
+      for(let t=0;t<tris.length;t++){
+        if(epRayTri(o, sunDir, tris[t][0], tris[t][1], tris[t][2])!=null){ shaded=true; break; }
+      }
+      mask[j][i]=shaded?0:1;
+      if(hole) continue;
+      if(shaded) nShade++; else nSun++;
+    }
+  }
+  const n=nSun+nShade;
+  if(!(n>0)) return null;
+  const f=nSun/n;
+  if(f<=0.02 || f>=0.98) return null;
+  function quadsFor(kind){
+    const used=[];
+    for(let j=0;j<nv;j++){ used[j]=[]; for(let i=0;i<nu;i++) used[j][i]=false; }
+    const quads=[];
+    for(let j=0;j<nv;j++){
+      for(let i=0;i<nu;i++){
+        if(used[j][i] || mask[j][i]!==kind) continue;
+        let w=1;
+        while(i+w<nu && mask[j][i+w]===kind && !used[j][i+w]) w++;
+        let h=1;
+        while(j+h<nv){
+          let ok=true;
+          for(let k=0;k<w;k++) if(mask[j+h][i+k]!==kind || used[j+h][i+k]) ok=false;
+          if(!ok) break;
+          h++;
+        }
+        for(let yy=0;yy<h;yy++) for(let xx=0;xx<w;xx++) used[j+yy][i+xx]=true;
+        const u0=umin+i*du, u1=umin+(i+w)*du, v0=vmin+j*dv, v1=vmin+(j+h)*dv;
+        let q=[epFromUV(u0,v0,frame), epFromUV(u1,v0,frame), epFromUV(u1,v1,frame), epFromUV(u0,v1,frame)];
+        const gn=newell(q);
+        if(epVdot({x:gn.nx,y:gn.ny,z:gn.nz}, frame.n)<0) q.reverse();
+        quads.push(q);
+      }
+    }
+    return quads;
+  }
+  function clippedParts(kind){
+    const wallCCW=epEnsureCCW(uv);
+    const ring=wallCCW.map(function(p){ return {x:p.u, y:p.v}; });
+    let ears=idfMeshEarClip2(ring);
+    if(!ears.length){
+      if(wallCCW.length===3) ears=[[0,1,2]];
+      else return null;
+    }
+    const used=[];
+    for(let j=0;j<nv;j++){ used[j]=[]; for(let i=0;i<nu;i++) used[j][i]=false; }
+    const polys=[];
+    for(let j=0;j<nv;j++){
+      for(let i=0;i<nu;i++){
+        if(used[j][i] || mask[j][i]!==kind) continue;
+        let w=1;
+        while(i+w<nu && mask[j][i+w]===kind && !used[j][i+w]) w++;
+        let h=1;
+        while(j+h<nv){
+          let ok=true;
+          for(let k=0;k<w;k++) if(mask[j+h][i+k]!==kind || used[j+h][i+k]) ok=false;
+          if(!ok) break;
+          h++;
+        }
+        for(let yy=0;yy<h;yy++) for(let xx=0;xx<w;xx++) used[j+yy][i+xx]=true;
+        const cell=epEnsureCCW([
+          {u:umin+i*du, v:vmin+j*dv},
+          {u:umin+(i+w)*du, v:vmin+j*dv},
+          {u:umin+(i+w)*du, v:vmin+(j+h)*dv},
+          {u:umin+i*du, v:vmin+(j+h)*dv}
+        ]);
+        ears.forEach(function(t){
+          const tri=epEnsureCCW([wallCCW[t[0]], wallCCW[t[1]], wallCCW[t[2]]]);
+          const hit=epCleanUV(epSH(cell, tri));
+          if(hit.length>=3 && Math.abs(epAreaUV(hit))>1e-8) polys.push(hit);
+        });
+      }
+    }
+    return polys.map(function(poly){
+      let q=poly.map(function(p){ return epFromUV(p.u, p.v, frame); });
+      const g=newell(q);
+      if(!(g.area>1e-8)) return null;
+      if(epVdot({x:g.nx, y:g.ny, z:g.nz}, frame.n)<0) q.reverse();
+      return q;
+    }).filter(Boolean);
+  }
+  const sunClip=clippedParts(1), shadeClip=clippedParts(0);
+  if(sunClip && shadeClip && sunClip.length && shadeClip.length) return {f:f, sun:sunClip, shade:shadeClip};
+  return {f:f, sun:quadsFor(1), shade:quadsFor(0)};
+}
+function epShadeLocalTemps(rec, f, opts){
+  const alpha=(opts.alpha>0)?opts.alpha:0.7;
+  const ho=(opts.ho>0)?opts.ho:23;
+  const idn=(opts.idn>0)?opts.idn:0;
+  const isky=(opts.isky>0)?opts.isky:0;
+  const rho=(opts.rho>=0)?opts.rho:0.2;
+  const face=(typeof epParse!=='undefined' && epParse) ? (epParse.meshBase||epParse.meshFaces||[]).filter(function(fc){
+    return fc && !fc.shadePiece && typeof idfNameKey==='function' && idfNameKey(fc.idfName)===idfNameKey(rec.name);
+  })[0] : null;
+  if(!face) return null;
+  const frame=epWallFrame(face.verts);
+  if(!frame) return null;
+  const sun=epSunVector(opts.sunAlt, opts.sunAz);
+  const cosInc=Math.max(0, epVdot(frame.n, sun));
+  const ib=idn*cosInc;
+  const skyF=(1+frame.n.z)/2, gndF=(1-frame.n.z)/2;
+  const sinAlt=Math.sin(opts.sunAlt);
+  const idiff=isky*skyF + (idn*sinAlt+isky)*rho*gndF;
+  if(!(ib>1) || !(idiff>1) || !isFinite(rec.isol)) return null;
+  const k=ib/idiff;
+  const id=rec.isol/(1+f*k);
+  const iSun=id*(1+k), iShade=id;
+  const eta=(rec.eta>0)?rec.eta:1;
+  const uRatio=(rec.uCfd>0 && rec.uIso>0)?rec.uIso/rec.uCfd:1;
+  const scale=uRatio*eta*alpha/ho;
+  return {
+    tSun:rec.tSurf+scale*(iSun-rec.isol),
+    tShade:rec.tSurf+scale*(iShade-rec.isol),
+    satSun:rec.satRaw+(alpha/ho)*(iSun-rec.isol),
+    satShade:rec.satRaw+(alpha/ho)*(iShade-rec.isol),
+    iSun:iSun, iShade:iShade
+  };
+}
+function epRefineShadeRecs(recs, opts, indoor){
+  epShadeClearSplit();
+  if(!recs || !opts || !(opts.sunAlt>0) || typeof epParse==='undefined' || !epParse) return recs||[];
+  if(!epParse.meshBase) epParse.meshBase=(epParse.meshFaces||[]).filter(function(f){ return f && !f.shadePiece; });
+  const sun=epSunVector(opts.sunAlt, opts.sunAz);
+  const out=[];
+  (recs||[]).forEach(function(s){
+    if(!s || s.isRoof){ out.push(s); return; }
+    const key=idfNameKey(s.name);
+    const face=(epParse.meshBase||[]).filter(function(f){ return f && idfNameKey(f.idfName)===key; })[0];
+    if(!face || String(face.sslKey||'').indexOf('wall_')!==0){ out.push(s); return; }
+    const holes=[];
+    (epParse.meshBase||[]).forEach(function(f){
+      if(!f || (f.kind!=='window' && f.kind!=='door')) return;
+      if(idfNameKey(f.parent)!==key) return;
+      holes.push(f.verts);
+    });
+    const tris=epShadeCasterTris(key);
+    const pieces=epWallShadePieces(face.verts, holes, tris, sun, EP_SHADE_STEP);
+    if(!pieces || !pieces.sun.length || !pieces.shade.length){ out.push(s); return; }
+    const temps=epShadeLocalTemps(s, pieces.f, opts);
+    const step=(typeof EP_SHADE_DT==='number' && EP_SHADE_DT>0)?EP_SHADE_DT:0.1;
+    if(!temps || !(Math.abs(temps.tSun-temps.tShade)>step)){ out.push(s); return; }
+    epShadeParentT[key]=s.tSurf;
+    function pushPart(part, tSurf, satRaw, isol, area, quads){
+      const name=s.name+'//'+part;
+      const uRatio=(s.uCfd>0 && s.uIso>0)?s.uCfd/s.uIso:1;
+      const rec=Object.assign({}, s, {
+        name:name, area:area, tSurf:tSurf, satRaw:satRaw, isol:isol,
+        etd:isFinite(indoor)?(tSurf-indoor)*uRatio:s.etd
+      });
+      epShadePieces[key]=epShadePieces[key]||{};
+      epShadePieces[key][part]={name:name, quads:quads};
+      out.push(rec);
+    }
+    pushPart('sun', temps.tSun, temps.satSun, temps.iSun, s.area*pieces.f, pieces.sun);
+    pushPart('shade', temps.tShade, temps.satShade, temps.iShade, s.area*(1-pieces.f), pieces.shade);
+  });
+  return out;
+}
+function applyEpShadeToMesh(groups){
+  if(typeof epParse==='undefined' || !epParse || !epParse.meshFaces) return;
+  if(!groups || !groups.length) epShadeClearSplit();
+  if(!epParse.meshBase) epParse.meshBase=epParse.meshFaces.filter(function(f){ return f && !f.shadePiece; });
+  const byName={};
+  (groups||[]).forEach(function(g){
+    (g.names||[]).forEach(function(n){
+      if(typeof idfNameKey==='function') byName[idfNameKey(n)]=g.sslKey;
+    });
+  });
+  const next=[];
+  epParse.meshBase.forEach(function(f){
+    if(!f) return;
+    const spec=f.idfName && epShadePieces[idfNameKey(f.idfName)];
+    if(spec && (spec.sun || spec.shade)){
+      ['sun','shade'].forEach(function(part){
+        const p=spec[part];
+        if(!p) return;
+        const ssl=byName[idfNameKey(p.name)] || f.sslKey;
+        (p.quads||[]).forEach(function(verts, qi){
+          next.push({
+            sslKey:ssl, baseSslKey:f.baseSslKey||f.sslKey, nameJa:f.nameJa, idfName:p.name,
+            zone:f.zone, kind:f.kind, verts:verts, shadePiece:true,
+            modelToolAz:f.modelToolAz, parent:f.parent, u:f.u,
+            atFaceId:(f.atFaceId||('ep-'+p.name))+'-'+part+'-'+qi,
+            tris:idfMeshEarClip3(verts)
+          });
+        });
+      });
+      return;
+    }
+    const copy={
+      sslKey:f.sslKey, baseSslKey:f.baseSslKey||f.sslKey, nameJa:f.nameJa, idfName:f.idfName,
+      zone:f.zone, kind:f.kind, verts:f.verts, parent:f.parent, u:f.u,
+      atFaceId:f.atFaceId, modelToolAz:f.modelToolAz, tris:f.tris
+    };
+    if(String(copy.baseSslKey||'').indexOf('wall_')===0){
+      const hit=copy.idfName && byName[idfNameKey(copy.idfName)];
+      copy.sslKey=hit||copy.baseSslKey;
+    }
+    next.push(copy);
+  });
+  epParse.meshFaces=next;
+  if(typeof epSyncViewerMesh==='function') epSyncViewerMesh();
+}
+function epShadeForSurface(name){
+  if(typeof idfNameKey!=='function') return null;
+  const key=idfNameKey(name);
+  for(let i=0;i<epShadeGroups.length;i++){
+    const g=epShadeGroups[i];
+    const names=g && g.names || [];
+    for(let j=0;j<names.length;j++){
+      if(idfNameKey(names[j])===key) return g;
+    }
+  }
+  return null;
+}
+
 function idfMeshPaletteForFace(face){
+  if(face && face.sslKey && epShadePalette[face.sslKey]) return epShadePalette[face.sslKey];
   if(face && (face.kind==='window' || face.sslKey==='window')){
     const src = (typeof cfdMeshSource==='function') ? cfdMeshSource() : null;
     if(src && src.kind==='at'){
@@ -744,15 +1506,22 @@ function renderIdfMeshDomain(){
   host.innerHTML=html;
 }
 
+function idfMeshStairRoomSource(){
+  if(typeof appMode!=='undefined' && appMode==='energyplus' && typeof epViewMesh!=='undefined' && epViewMesh && (epViewMesh.rooms||[]).some(function(r){ return r && r.stair; })) return epViewMesh;
+  if(typeof atMesh!=='undefined' && atMesh) return atMesh;
+  return null;
+}
 function idfMeshStairMeshes(){
   const out=[];
-  if(typeof atMesh==='undefined' || !atMesh) return out;
+  const src=idfMeshStairRoomSource();
+  if(!src) return out;
   function panelMesh(vertsM){
     const verts=(vertsM||[]).map(function(v){ return {x:v.x*1000, y:v.y*1000, z:v.z*1000}; });
     if(verts.length<3) return null;
-    return {verts:verts, tris:idfMeshTriangulate(verts.length)};
+    const ears=typeof idfMeshEarClip3==='function' ? idfMeshEarClip3(verts) : [];
+    return {verts:verts, tris:ears.length ? ears : idfMeshTriangulate(verts.length)};
   }
-  (atMesh.rooms||[]).forEach(function(r){
+  (src.rooms||[]).forEach(function(r){
     const panels=(r.stair && r.stair.panels)||[];
     if(panels.length){
       panels.forEach(function(p){
@@ -862,13 +1631,13 @@ function buildIdfMeshExport(){
     });
   });
   idfMeshAppendStairs(usedMats, objects, rows, seq, origin);
-  if(src.kind==='at' && typeof atPartMeshesMm==='function'){
+  if((src.kind==='at' || src.kind==='ep') && typeof atPartMeshesMm==='function'){
     atPartMeshesMm().forEach(function(mesh){
       const pal=IDF_MESH_PALETTE[mesh.key];
       if(!pal||!mesh.verts.length||!mesh.tris.length||mesh.kind==='ac') return;
       usedMats[pal.mat]=pal;
       const code=mesh.kind==='ac'?'AC':'DR';
-      const suffix={ac_body:'B',ac_supply:'S',ac_return:'R',doorbody:'B',doorgap_top:'T',doorgap_uc:'U'}[mesh.key];
+      const suffix={ac_body:'B',ac_supply:'S',ac_return:'R',doorbody:'B',doorgap_top:'T',doorgap_uc:'U',dooropen:'O'}[mesh.key];
       const name=code+String(Number(String(mesh.id).replace(/\D/g,''))||0).padStart(3,'0')+suffix;
       const named=idfMeshNameZ(name);
       objects.push(idfMeshNamedMesh(named.bytes,idfMeshShiftVerts(mesh.verts,origin),mesh.tris,pal.mat));
@@ -971,10 +1740,10 @@ function refreshIdfMeshUi(){
   if(btn) btn.disabled = !ready;
   if(typeof appMode!=='undefined' && appMode==='architrend'){
     if(banner) banner.textContent = 'Architrend の 3DS があれば、方位色分けした CFD モデル種をここから出せます。内壁・天井つきの3DSにも対応します。厚みは付けません。';
-    if(guide) guide.textContent = 'Architrend の 3DS から色分け 3DS を作ります。単位は m です。3Dビューワーで置いたドアとエアコンの吹出・吸込は家モデルへ、エアコン本体は埋メファイルへ障害物ソリッドとして出します。内部発熱は *_cfd_gain.3ds に分けて出します。';
+    if(guide) guide.textContent = 'Architrend の 3DS から色分け 3DS を作ります。単位は m です。3Dビューワーで置いたドアは家モデルへ出します。完全開口は床からその階の天井まで、開口率100%の面です。内部発熱は *_cfd_gain.3ds に分けて出します。';
   }else if(typeof appMode!=='undefined' && appMode==='energyplus'){
     if(banner) banner.textContent = 'IDF があれば、色分け済みの CFD モデル種をここから出せます。内部発熱は *_cfd_gain.3ds に分けて出します。厚みは付けません。';
-    if(guide) guide.textContent = 'EnergyPlus の IDF 頂点から、厚みなしの色分け 3DS を作ります。居室に加えて床下（基礎外周）と小屋裏（屋根・妻壁）も出します。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds として別ファイルです。SSL で部屋ごとの発熱・発湿を自動割当します。居室に接する面は居室側だけ残し、二重にはしません。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。';
+    if(guide) guide.textContent = 'EnergyPlus の IDF 頂点から、厚みなしの色分け 3DS を作ります。同じ方位の外壁でも、SQL の面日射から求めた外気温の差が 0.1℃を超える部分は別色にします。庇がある壁は、解析時刻の日影で日なたと日陰に分けます。居室に加えて床下（基礎外周）と小屋裏（屋根・妻壁）も出します。内部発熱の発生エリア（薄い赤）は *_cfd_gain.3ds として別ファイルです。SSL で部屋ごとの発熱・発湿を自動割当します。居室に接する面は居室側だけ残し、二重にはしません。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。';
   }else{
     if(banner) banner.textContent = 'EnergyPlus の IDF、または Architrend の 3DS を読むと、色分け済みの CFD モデル種を出せます。厚みは付けません。';
     if(guide) guide.textContent = 'EnergyPlus モードでは IDF 頂点から、Architrend モードでは 3DS から、厚みなしの色分け 3DS を作ります。FlowDesigner に取り込んだあと、次の SSL 一括反映で境界条件を流し込みます。';
@@ -1008,6 +1777,20 @@ function refreshIdfMeshUi(){
       windowUColorGroupsFromUs(us).forEach(function(g){
         const rgb='rgb('+g.color.r+','+g.color.g+','+g.color.b+')';
         html += '<tr><td>'+g.u+'</td><td class="l"><span style="display:inline-block;width:28px;height:12px;border:1px solid #C9C9C9;background:'+rgb+';vertical-align:middle;margin-right:6px;"></span>'+
+          g.color.r+' '+g.color.g+' '+g.color.b+'</td></tr>';
+      });
+      html += '</table>';
+    }
+    const splits=(typeof epShadeGroups!=='undefined' ? epShadeGroups : []).filter(function(g){ return g && g.index>1; });
+    if(splits.length){
+      html += '<p class="small" style="margin:8px 0 4px;">同じ方位でも CFD 外気温の差が 0.1℃を超える外壁は、別色で出します。庇の日なたと日陰も別色です。SSL はその色にその外気温を入れます。</p><table><tr><th>外壁</th><th>外気温 ℃</th><th>面数</th><th>色</th></tr>';
+      epShadeGroups.slice().sort(function(a,b){
+        return String(a.orient).localeCompare(String(b.orient),'ja') || a.index-b.index;
+      }).forEach(function(g){
+        if(!g.color) return;
+        const label=g.index<=1 ? g.orient : (g.orient+'#'+g.index);
+        const rgb='rgb('+g.color.r+','+g.color.g+','+g.color.b+')';
+        html += '<tr><td class="l">'+label+'</td><td>'+(isFinite(g.tCfd)?g.tCfd.toFixed(2):'—')+'</td><td>'+(g.n||'')+'</td><td class="l"><span style="display:inline-block;width:28px;height:12px;border:1px solid #C9C9C9;background:'+rgb+';vertical-align:middle;margin-right:6px;"></span>'+
           g.color.r+' '+g.color.g+' '+g.color.b+'</td></tr>';
       });
       html += '</table>';

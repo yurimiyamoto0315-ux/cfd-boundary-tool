@@ -842,6 +842,7 @@ function parseEnergyPlusIdf(text){
   const zones = [];
   const surfaces = [];
   const fenestrations = [];
+  const shading = [];
   const zoneLists = {};
   const peopleObjs = [];
   let northAxis = 0;
@@ -907,6 +908,10 @@ function parseEnergyPlusIdf(text){
       surfaces.push(parseBuildingSurface(fields));
     }else if(cls==='FENESTRATIONSURFACE:DETAILED'){
       fenestrations.push(parseFenestration(fields));
+    }else if(cls==='SHADING:BUILDING:DETAILED' || cls==='SHADING:SITE:DETAILED'){
+      const nSh = parseInt(fields[3], 10);
+      const shVerts = Number.isFinite(nSh) ? readVerts(fields, 4, nSh) : [];
+      if(shVerts.length>=3) shading.push({name: fields[1], verts: shVerts});
     }
   });
 
@@ -1044,6 +1049,9 @@ function parseEnergyPlusIdf(text){
   const zoneByName = {};
   zones.forEach(z=>{ zoneByName[z.name]=z; });
   const relative = epCoordIsRelative(coordSys);
+  const toolAzByName={};
+  opaque.forEach(function(o){ if(o && o.name && isFinite(o.toolAz)) toolAzByName[o.name]=o.toolAz; });
+  windows.forEach(function(w){ if(w && w.name && isFinite(w.toolAz)) toolAzByName[w.name]=w.toolAz; });
   const meshFaces = [];
   surfaces.forEach(s=>{
     const zone = zoneByName[s.zone] || idfGet(zoneByName, s.zone);
@@ -1059,7 +1067,9 @@ function parseEnergyPlusIdf(text){
     const cls = classifyIdfMeshSurface(s, nearestOrientation(toolAzFromNorth(azN)), zone);
     meshFaces.push({
       sslKey: cls.sslKey, nameJa: cls.nameJa, idfName: s.name, zone: s.zone,
-      kind: 'opaque', verts: world
+      kind: 'opaque', verts: world, baseSslKey: cls.sslKey,
+      atFaceId: 'ep-'+meshFaces.length,
+      modelToolAz: isFinite(toolAzByName[s.name]) ? toolAzByName[s.name] : toolAzFromNorth(azN)
     });
   });
   fenestrations.forEach(f=>{
@@ -1073,18 +1083,22 @@ function parseEnergyPlusIdf(text){
     const world = epVertsToWorld(f.verts, zoneByName[zoneName] || idfGet(zoneByName, zoneName), northAxis, relative);
     if(world.length<3) return;
     const meta = idfGet(consMeta, f.construction) || {};
+    const wTool = toolAzByName[f.name];
     meshFaces.push({
       sslKey: isDoor ? 'doorbody' : 'window',
       nameJa: isDoor ? 'ドア' : '窓',
-      idfName: f.name, zone: zoneName,
+      idfName: f.name, zone: zoneName, parent: f.parent,
       kind: isDoor ? 'door' : 'window', verts: world,
-      u: (meta.u>0) ? meta.u : null
+      u: (meta.u>0) ? meta.u : null,
+      atFaceId: 'ep-'+meshFaces.length,
+      baseSslKey: isDoor ? 'doorbody' : 'window',
+      modelToolAz: isFinite(wTool) ? wTool : null
     });
   });
 
   const parsed = {
     northAxis, coordSys, relative, zones, habitable, excluded, opaque, windows: habWindows,
-    openings: habOpenings, meshFaces, warnings, consLayers,
+    openings: habOpenings, meshFaces, shading, warnings, consLayers,
     zoneCount: zones.length, habitableCount: habitable.length,
     fenestrationCount: fenestrations.length, windowCount: habWindows.length,
     meshFaceCount: meshFaces.length
@@ -1295,6 +1309,7 @@ function blankForEnergyPlus(){
   if(epwInput) epwInput.value = '';
   applySharedToolDefaults();
   if(typeof syncUWinFromTable==='function' && !hasInput('uWin')) syncUWinFromTable();
+  if(typeof epHideRoomViewer==='function') epHideRoomViewer();
 }
 
 function renderEpPanel(){
@@ -1302,11 +1317,12 @@ function renderEpPanel(){
   const review = document.getElementById('epReview');
   const warnEl = document.getElementById('epWarnList');
   if(!summary) return;
-  if(!epParse && !epSqlName && !epSqlPeak){
+    if(!epParse && !epSqlName && !epSqlPeak){
     summary.innerHTML = '<p class="small" style="margin:0;">IDF を指定すると、床下・小屋裏を除いた居室ゾーンの外壁・窓・床の外皮面積と UA、最大在室人数を入れます。SQL を追加すると冷房ピーク時刻を入れます。</p>';
     review.innerHTML = '';
     warnEl.style.display = 'none';
     warnEl.innerHTML = '';
+    if(typeof epHideRoomViewer==='function') epHideRoomViewer();
     setEpFileEcho();
     return;
   }
@@ -1374,6 +1390,7 @@ function renderEpPanel(){
     warnEl.innerHTML = '';
   }
   setEpFileEcho();
+  if(epParse && typeof epSyncViewerMesh==='function') epSyncViewerMesh();
 }
 
 function escapeEp(s){
@@ -1627,15 +1644,23 @@ function renderEpWallHeat(satByOri, roofSat, taNow){
 
   const grouped = {};
   rows.forEach(r=>{
-    const key = r.zone+'|'+r.part+'|'+(r.part==='外壁'?r.orient:'—');
-    if(!grouped[key]) grouped[key] = {zone:r.zone, part:r.part, orient:r.part==='外壁'?r.orient:'—', area:0, ua:0};
+    const parentT = (r.part==='外壁' && typeof epShadeParentT!=='undefined' && epShadeParentT)
+      ? epShadeParentT[idfNameKey(r.name)] : undefined;
+    const shade = (r.part==='外壁' && !isFinite(parentT) && typeof epShadeForSurface==='function') ? epShadeForSurface(r.name) : null;
+    const orientLabel = r.part==='外壁'
+      ? (r.orient + (shade && shade.index>1 ? '#'+shade.index : ''))
+      : '—';
+    const key = r.zone+'|'+r.part+'|'+orientLabel;
+    if(!grouped[key]) grouped[key] = {zone:r.zone, part:r.part, orient:orientLabel, area:0, ua:0, tShade:NaN};
     grouped[key].area += r.net;
     if(r.u>0) grouped[key].ua += r.u*r.net;
+    if(isFinite(parentT)) grouped[key].tShade = parentT;
+    else if(shade && isFinite(shade.tCfd)) grouped[key].tShade = shade.tCfd;
   });
   const list = Object.values(grouped).map(g=>{
     const u = g.area>0 && g.ua>0 ? g.ua/g.area : null;
     let tBound = NaN;
-    if(g.part==='外壁') tBound = satByOri && satByOri[g.orient];
+    if(g.part==='外壁') tBound = isFinite(g.tShade) ? g.tShade : (satByOri && satByOri[String(g.orient).replace(/#\d+$/,'')]);
     else if(g.part==='屋根') tBound = roofSat;
     else tBound = taNow;
     let q = null;
@@ -1667,7 +1692,7 @@ function renderEpWallHeat(satByOri, roofSat, taNow){
   html += '<tr style="font-weight:600; background:#F4F4F4;"><td colspan="3">居室 外壁合計</td><td>'+aWall.toFixed(2)+'</td><td></td><td></td><td>'+(hasQ?qWall.toFixed(0):'—')+'</td></tr>';
   html += '<tr style="font-weight:600; background:#F4F4F4;"><td colspan="3">居室 屋根合計</td><td>'+aRoof.toFixed(2)+'</td><td></td><td></td><td>'+(hasQ?qRoof.toFixed(0):'—')+'</td></tr>';
   html += '</table>';
-  html += '<p class="small" style="margin:8px 0 0;">q = U × 開口控除後面積 × (境界温度 − 目標室温)。外壁の境界温度は方位別 SAT、屋根は屋根 SAT、外気床は外気温です。床下・小屋裏ゾーンは含めていません。この W は Step 2 の発生エリアには足しません (CFD の壁パネルと二重になるため)。</p>';
+  html += '<p class="small" style="margin:8px 0 0;">q = U × 開口控除後面積 × (境界温度 − 目標室温)。外壁の境界温度は、同じ方位でも CFD 外気温の差が 0.1℃を超える部分を分けた SAT です。庇で分割した壁は、その面の面積加重平均を使います。屋根は屋根 SAT、外気床は外気温です。床下・小屋裏ゾーンは含めていません。この W は Step 2 の発生エリアには足しません (CFD の壁パネルと二重になるため)。</p>';
   if(!canQ){
     html += '<div class="warn" style="margin-top:8px;">緯度経度・外気温・目標室温が入ると貫流 W が計算されます。面積と U は IDF だけで出ています。</div>';
   }

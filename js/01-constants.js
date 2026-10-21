@@ -162,6 +162,7 @@ const SSL_FIXED_COLORS = [
   {hex:'#8c5a32', key:'doorbody'},
   {hex:'#62a446', key:'doorgap_top'},
   {hex:'#008080', key:'doorgap_uc'},
+  {hex:'#ff00aa', key:'dooropen'},
   {hex:'#3d3d3d', key:'fill_solid'},
   {hex:'#967648', key:'stair_solid'}
 ];
@@ -174,7 +175,7 @@ const SSL_PRIORITY = {
   window:30, doorbody:30,
   extdoor_北:30, extdoor_北東:30, extdoor_東:30, extdoor_南東:30,
   extdoor_南:30, extdoor_南西:30, extdoor_西:30, extdoor_北西:30,
-  doorgap_top:50, doorgap_uc:50, ac_body:50,
+  doorgap_top:50, doorgap_uc:50, dooropen:50, ac_body:50,
   ac_supply:90, ac_return:90
 };
 const SSL_PRIORITY_PARAM_ID = 90001;
