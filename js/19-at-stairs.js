@@ -6,7 +6,9 @@ const AT_STAIR_WIDTH_MAX = 0.80;
 const AT_STAIR_LANDING = 0.80;
 
 function atIsStairRoom(r){
-  const n=String((r && r.name)||'').replace(/\s+/g,'');
+  if(!r || r.stairOff) return false;
+  if(r.stairManual) return true;
+  const n=String(r.name||'').replace(/\s+/g,'');
   return n==='階段' || n.indexOf('階段')===0;
 }
 function atStairCentroid(ring){
@@ -93,7 +95,21 @@ function atStairClipLineToRing(origin, dir, ring){
     if(!uniq.length || Math.hypot(h.x-uniq[uniq.length-1].x, h.y-uniq[uniq.length-1].y)>0.02) uniq.push(h);
   });
   if(uniq.length<2) return null;
-  return [uniq[0], uniq[uniq.length-1]];
+  // A concave merged room may intersect the line in several disjoint spans.
+  // Joining the outermost hits would seed a path through a notch/outside room.
+  const spans=[];
+  for(let i=1;i<uniq.length;i++){
+    const lo=uniq[i-1], hi=uniq[i], mid={x:(lo.x+hi.x)/2,y:(lo.y+hi.y)/2};
+    let inside=false;
+    if(typeof atPointInRing==='function') inside=atPointInRing(mid.x,mid.y,ring);
+    else for(let j=0,k=ring.length-1;j<ring.length;k=j++){
+      const p=ring[j],q=ring[k];
+      if((p.y>mid.y)!==(q.y>mid.y)&&mid.x<(q.x-p.x)*(mid.y-p.y)/(q.y-p.y)+p.x)inside=!inside;
+    }
+    if(inside)spans.push({lo:lo,hi:hi,contains:lo.t<=0.5&&hi.t>=0.5,length:Math.hypot(hi.x-lo.x,hi.y-lo.y)});
+  }
+  spans.sort((p,q)=>Number(q.contains)-Number(p.contains)||q.length-p.length);
+  return spans.length ? [spans[0].lo,spans[0].hi] : null;
 }
 function atStairClosestOnRing(p, ring){
   if(!(ring||[]).length) return p;
@@ -136,7 +152,7 @@ function atStairClampToBounds(p, b){
   };
 }
 function atStairClampPoint(p, r, mesh){
-  const m=mesh || (typeof atMesh!=='undefined' ? atMesh : null);
+  const m=mesh || (typeof reviewMesh==='function' ? reviewMesh() : (typeof atMesh!=='undefined' ? atMesh : null));
   return atStairClampToBounds(p, atStairEditBounds(r, m));
 }
 function atStairEdgeSeg(a, b){
@@ -552,22 +568,75 @@ function atStairFromPath(r, mesh){
     runLine:path, note:note, nRisers:nRisers, riser:riser, going:going, landings:landZones
   };
 }
+function atStairPathSignature(path){
+  const points=[];
+  (path||[]).forEach(function(p){
+    if(!p || !Number.isFinite(p.x) || !Number.isFinite(p.y))return;
+    const q={x:Math.round(p.x*1e6)/1e6,y:Math.round(p.y*1e6)/1e6};
+    if(points.length && points[points.length-1].x===q.x && points[points.length-1].y===q.y)return;
+    points.push(q);
+    while(points.length>=3){
+      const a=points[points.length-3],b=points[points.length-2],c=points[points.length-1];
+      const cross=(b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x);
+      const forward=(b.x-a.x)*(c.x-b.x)+(b.y-a.y)*(c.y-b.y);
+      if(Math.abs(cross)>1e-9 || forward<0)break;
+      points.splice(points.length-2,1);
+    }
+  });
+  return JSON.stringify(points);
+}
+function atStairMergedPanelsOutside(r){
+  if(typeof atPointInRing!=='function' || !(r.ring||[]).length)return true;
+  function inside(p){
+    if(!p || !Number.isFinite(p.x) || !Number.isFinite(p.y))return false;
+    if(atPointInRing(p.x,p.y,r.ring))return true;
+    const nearest=atStairClosestOnRing(p,r.ring);
+    return Math.hypot(p.x-nearest.x,p.y-nearest.y)<=1e-5;
+  }
+  return ((r.stair&&r.stair.panels)||[]).some(function(panel){
+    const verts=panel.verts||[];
+    if(!verts.length)return true;
+    for(let i=0;i<verts.length;i++){
+      const a=verts[i],b=verts[(i+1)%verts.length];
+      if(!inside(a) || !inside({x:(a.x+b.x)/2,y:(a.y+b.y)/2}))return true;
+    }
+    return !inside({x:verts.reduce((s,p)=>s+p.x,0)/verts.length,y:verts.reduce((s,p)=>s+p.y,0)/verts.length});
+  });
+}
+function atStairTrackMergedSeed(r,automaticSeed){
+  if(!r || !r.manualMerged)return;
+  if(!r.stair){
+    delete r.stairAutoNeedsReview;delete r.stairAutoSeedSignature;
+    return;
+  }
+  const signature=atStairPathSignature(r.stairPath);
+  if(automaticSeed){
+    r.stairAutoSeedSignature=signature;
+    r.stairAutoNeedsReview=atStairMergedPanelsOutside(r);
+  }else if(typeof r.stairAutoSeedSignature==='string'){
+    r.stairAutoNeedsReview=signature===r.stairAutoSeedSignature&&atStairMergedPanelsOutside(r);
+  }
+}
 function atPlanStairsForMesh(mesh){
   if(!mesh) return;
   (mesh.rooms||[]).forEach(function(r){
-    if(!atIsStairRoom(r)){ r.stair=null; return; }
-    if(!r.stairPathEdited || !r.stairPath || r.stairPath.length<2){
+    if(!atIsStairRoom(r)){ r.stair=null;atStairTrackMergedSeed(r,false);return; }
+    const automaticSeed=!r.stairPathEdited || !r.stairPath || r.stairPath.length<2;
+    if(automaticSeed){
       r.stairPath=atStairSeedPath(r);
     }
     r.stair=atStairFromPath(r, mesh);
+    atStairTrackMergedSeed(r,automaticSeed);
   });
 }
 function atStairRebuildRoom(r, mesh){
   if(!r) return;
-  const m=mesh || (typeof atMesh!=='undefined' ? atMesh : null);
-  if(!atIsStairRoom(r)){ r.stair=null; return; }
+  const m=mesh || (typeof reviewMesh==='function' ? reviewMesh() : (typeof atMesh!=='undefined' ? atMesh : null));
+  if(!atIsStairRoom(r)){ r.stair=null;atStairTrackMergedSeed(r,false);return; }
+  const automaticSeed=r.stairPathEdited===false || !r.stairPath || r.stairPath.length<2;
   if(!r.stairPath || r.stairPath.length<2) r.stairPath=atStairSeedPath(r);
   r.stair=atStairFromPath(r, m);
+  atStairTrackMergedSeed(r,automaticSeed);
 }
 function atStairFlipPath(r){
   if(!r || !r.stairPath || r.stairPath.length<2) return;
@@ -617,6 +686,26 @@ function atStairResetPath(r){
   r.stairPathEdited=false;
   atStairRebuildRoom(r);
 }
+function atStairCreateRoom(r){
+  if(!r) return null;
+  r.stairOff=false;
+  r.stairManual=true;
+  const automaticSeed=!r.stairPath || r.stairPath.length<2;
+  if(automaticSeed) r.stairPath=atStairSeedPath(r);
+  r.stairPathEdited=true;
+  atStairRebuildRoom(r);
+  if(automaticSeed)atStairTrackMergedSeed(r,true);
+  return r.stair;
+}
+function atStairClearRoom(r){
+  if(!r) return;
+  r.stairManual=false;
+  r.stairOff=true;
+  r.stairPath=null;
+  r.stairPathEdited=false;
+  r.stair=null;
+  atStairTrackMergedSeed(r,false);
+}
 function atStairMoveVertex(r, index, p){
   if(!r || !r.stairPath || !r.stairPath[index] || !p) return;
   const path=r.stairPath;
@@ -656,6 +745,8 @@ if(typeof module!=='undefined' && module.exports){
     atStairAddCorner:atStairAddCorner,
     atStairInsertAt:atStairInsertAt,
     atStairResetPath:atStairResetPath,
+    atStairCreateRoom:atStairCreateRoom,
+    atStairClearRoom:atStairClearRoom,
     atStairMoveVertex:atStairMoveVertex,
     atStairMakeOrtho:atStairMakeOrtho
   };

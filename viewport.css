@@ -1,0 +1,76 @@
+/* Reserve both fixed bars. The complete room viewer fits in the space between them. */
+body.journey-mode .at-room-viewer {
+  height:calc(100dvh - var(--chrome-h) - var(--journey-dock-height) - 48px);
+  min-height:0;
+  overflow:hidden;
+  scroll-margin-block:0;
+}
+body.journey-mode .at-room-viewer :is(input,select,button,[tabindex]) {
+  scroll-margin-block:8px;
+}
+/* A long toolbar scrolls sideways instead of consuming the model's height. */
+body.journey-mode .at-rv-command-row {
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  scrollbar-width:thin;
+}
+body.journey-mode .at-rv-command-row > * { flex-shrink:0; }
+body.journey-mode .at-rv-toolbar,
+body.journey-mode .at-part-toolbar,
+body.journey-mode .at-rv-metrics { flex-wrap:nowrap; }
+body.journey-mode .at-rv-toolbar,
+body.journey-mode .at-part-toolbar { min-width:max-content; }
+body.journey-mode .at-rv-orientation { flex:0 0 auto;min-width:420px; }
+body.journey-mode .at-rv-orientation label { white-space:nowrap; }
+body.journey-mode .at-rv-orientation input[type="range"] { flex:0 0 120px; }
+/* One scrolling editor keeps confirmation and floor/opening settings reachable. */
+body.journey-mode .at-room-viewer .at-rv-side {
+  display:block;
+  height:auto;
+  min-height:0;
+  overflow:auto;
+  scroll-padding-block:8px;
+}
+body.journey-mode #atRoomEditor { height:auto;min-height:0;max-height:none;overflow:visible; }
+body.journey-mode .at-room-viewer .at-rv-lists { display:block;min-height:0; }
+body.journey-mode .at-rv-lists > * { overflow:visible; }
+body.journey-mode .at-rv-footer { white-space:normal;overflow-wrap:anywhere; }
+/* The merge dialog retains its own scrolling content inside the editor. */
+body.journey-mode .is-merge-popup #atRoomEditor { height:auto;max-height:none;overflow:visible; }
+
+@media(max-height:800px) {
+  /* Give smaller laptop windows more room without scaling down the working content. */
+  body.journey-mode.has-brand-header { --header-h:76px;--chrome-h:76px; }
+  body.journey-mode.has-brand-header .app-header { padding-top:6px; }
+  body.journey-mode.has-brand-header :is(.header-name,.header-utils,.header-save-group) { height:44px;min-height:44px; }
+  body.journey-mode.has-brand-header .header-brand-mark { width:32px;height:30px;flex-basis:32px; }
+  body.journey-mode.has-brand-header :is(.header-utils button,.journey-context,.header-save-group button) { min-height:36px;padding-block:4px; }
+  body.journey-mode.has-brand-header .header-status { top:53px; }
+  body.journey-mode.has-brand-header .nav-toggle { margin-top:2px; }
+  body.journey-mode #sidenav button { min-height:60px;padding-block:6px 4px; }
+  html:has(body.journey-mode.has-brand-header) { scroll-padding-top:88px; }
+}
+@media(max-height:650px) {
+  body.journey-mode #sidenav button { min-height:48px; }
+  body.journey-mode #sidenav small { display:none; }
+}
+@media(max-width:850px) {
+  /* Stack model and editor in one scrolling workspace, with no fixed 640/1000px sidebar. */
+  body.journey-mode .at-rv-workspace { display:block;overflow:auto;scroll-padding-block:8px; }
+  body.journey-mode .at-rv-stage { height:clamp(180px,40dvh,360px); }
+  body.journey-mode #atRoomScene { height:100%; }
+  body.journey-mode .at-room-viewer .at-rv-side { overflow:visible; }
+}
+@media(max-height:560px) {
+  /* At very short heights (including an on-screen keyboard), allow document scrolling. */
+  body.journey-mode.has-brand-header .app-chrome { position:relative; }
+  body.journey-mode.has-brand-header #main { margin-top:0;min-height:0; }
+  body.journey-mode #journeyFooter { position:relative;inset:auto;width:100%;max-width:100%;min-width:0;margin-top:16px;flex-shrink:0; }
+  body.journey-mode #main { padding-bottom:16px; }
+  body.journey-mode .at-room-viewer { height:auto;min-height:0;overflow:visible; }
+  body.journey-mode .at-rv-workspace { flex:none; }
+  body.journey-mode .at-rv-stage { height:300px; }
+  body.journey-mode .at-room-viewer .at-rv-side { max-height:360px;overflow:auto; }
+  html:has(body.journey-mode) { scroll-padding-block:12px; }
+  body.journey-mode :is(input,select,button,[tabindex]) { scroll-margin-block:8px; }
+}

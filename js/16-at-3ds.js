@@ -2,10 +2,11 @@
 // マテリアル（透明度・向き）で窓・屋根・壁・床を確定し、内壁・天井つきにも対応する。
 // マテリアルが無いファイルは従来の幾何判定にフォールバックする。
 // 軒の出は壁の外形座標へ寄せて切る。床のZは壁の継ぎ目へ寄せて 36mm 段差を閉じる。
-// 階間床が元データに無いときだけ 1F 外形を 2F へ複製する。
-// 両面ポリゴンは建物重心から外向きだけ残す。単位は mm（小さければ m とみなして換算）。
+// 階間床の補完は片持床や上下の壁の接合高さに根拠があるときだけ行う。
+// 両面ポリゴンは建物重心から外向きだけ残す。単位は形状寸法から確認する。
 
 var atMesh = null;
+let at3dsLoadSerial = 0;
 
 const AT3DS_NAMEJA = {
   wall_北: '外壁北', wall_北東: '外壁北東', wall_東: '外壁東', wall_南東: '外壁南東',
@@ -104,6 +105,11 @@ function at3dsParseBuffer(buffer){
   if(bytes.length<6 || dv.getUint16(0, true)!==0x4D4D){
     throw new Error('3DSではありません（MAINチャンクがありません）');
   }
+  if(dv.getUint32(2, true)>bytes.length){
+    const error=new Error('3DSファイルが途中で切れています。元のモデルから再出力してください。');
+    error.code='AT3DS_TRUNCATED';
+    throw error;
+  }
   const mainEnd = Math.min(dv.getUint32(2, true), bytes.length);
   const objects = [];
   const materials = {};
@@ -171,14 +177,47 @@ function at3dsParseBuffer(buffer){
   objects.materials = materials;
   return objects;
 }
-function at3dsScaleToMm(objects){
-  let maxAbs = 0;
-  objects.forEach(function(o){
-    o.verts.forEach(function(v){
-      maxAbs = Math.max(maxAbs, Math.abs(v.x), Math.abs(v.y), Math.abs(v.z));
+function at3dsDetectUnit(objects, requested){
+  const unit=requested||'auto';
+  if(!['auto','m','mm'].includes(unit)){
+    const error=new Error('3DSの単位は「自動」「m」「mm」から選んでください。');
+    error.code='AT3DS_INVALID_UNIT';
+    throw error;
+  }
+  const min={x:Infinity,y:Infinity,z:Infinity}, max={x:-Infinity,y:-Infinity,z:-Infinity};
+  let count=0;
+  (objects||[]).forEach(function(o){
+    (o.verts||[]).forEach(function(v){
+      ['x','y','z'].forEach(function(k){
+        if(!Number.isFinite(v[k])){
+          const error=new Error('3DSに無効な座標があります。元のモデルから再出力してください。');
+          error.code='AT3DS_INVALID_COORDINATES';
+          throw error;
+        }
+        min[k]=Math.min(min[k],v[k]); max[k]=Math.max(max[k],v[k]);
+      });
+      count++;
     });
   });
-  if(maxAbs>200) return 'mm';
+  const spans=count ? {x:max.x-min.x,y:max.y-min.y,z:max.z-min.z} : {x:0,y:0,z:0};
+  const longest=Math.max(spans.x,spans.y,spans.z);
+  // Absolute world coordinates do not describe the model's units. Ambiguous
+  // residential sizes require an explicit choice instead of a silent scale.
+  const inferred=longest>=1 && longest<=100 ? 'm' : longest>=1000 && longest<=200000 ? 'mm' : null;
+  const info={unit:unit==='auto'?inferred:unit,source:unit==='auto'?'dimensions':'explicit',spans:spans,requiresConfirmation:unit==='auto'&&!inferred};
+  if(info.requiresConfirmation){
+    const error=new Error('モデル寸法だけでは単位を確認できません。3DSの単位で「m」または「mm」を選んで、もう一度読み込んでください。');
+    error.code='AT3DS_UNIT_CONFIRMATION_REQUIRED';
+    error.unitInfo=info;
+    throw error;
+  }
+  return info;
+}
+function at3dsScaleToMm(objects, options){
+  const requested=typeof options==='string'?options:options&&options.unit;
+  const info=at3dsDetectUnit(objects,requested);
+  objects.unitInfo=info;
+  if(info.unit==='mm') return 'mm';
   objects.forEach(function(o){
     o.verts.forEach(function(v){ v.x*=1000; v.y*=1000; v.z*=1000; });
   });
@@ -432,6 +471,8 @@ function at3dsHasMaterials(objects){
     return (o.faceMat||[]).some(function(n){ return n; });
   });
 }
+// A 1:10 roof has |nz|≈0.995. It is sloped, despite appearing nearly horizontal.
+// Keep only numerically level planes in the floor/ceiling material bucket.
 function at3dsMatKind(faces, meta){
   const area=faces.reduce(function(s,f){ return s+f.area; }, 0) || 1;
   let vert=0, horiz=0, slope=0;
@@ -439,7 +480,7 @@ function at3dsMatKind(faces, meta){
   faces.forEach(function(f){
     const nz=Math.abs(f.n.z);
     if(nz<0.15) vert+=f.area;
-    else if(nz>0.98) horiz+=f.area;
+    else if(nz>0.999999) horiz+=f.area;
     else slope+=f.area;
     zmin=Math.min(zmin,f.zmin); zmax=Math.max(zmax,f.zmax);
     maxFace=Math.max(maxFace, f.area);
@@ -595,54 +636,172 @@ function at3dsSnapFacesMm(faces, nearTol, wallTol){
   });
   return faces;
 }
-function at3dsAddInterior2F(faces){
+function at3dsFloorLevels(faces, z1, options){
+  const levels=[];
+  function add(z, source){
+    if(!(z>z1+1500) || levels.some(function(l){ return Math.abs(l.z-z)<150; })) return;
+    levels.push({z:z,source:source});
+  }
+  (faces||[]).forEach(function(f){
+    if(!(f.sslKey==='floor_out' || f.cantilever || f.nameJa==='2F床' || f.nameJa==='内床')) return;
+    const zs=(f.vertsMm||[]).map(function(v){ return v.z; });
+    if(!zs.length || Math.max.apply(null,zs)-Math.min.apply(null,zs)>60) return;
+    add(at3dsMedian(zs),f.nameJa==='内床'?'source-floor':'cantilever-floor');
+  });
+  const joints={};
+  (faces||[]).filter(function(f){ return at3dsIsWallKey(f.sslKey); }).forEach(function(f){
+    const zs=(f.vertsMm||[]).map(function(v){ return v.z; });
+    if(!zs.length) return;
+    const lo=Math.min.apply(null,zs), hi=Math.max.apply(null,zs);
+    if(hi-lo<1500) return;
+    [[lo,'bottom'],[hi,'top']].forEach(function(pair){
+      const z=Math.round(pair[0]/100)*100;
+      if(!(z>z1+1500)) return;
+      if(!joints[z]) joints[z]={bottom:new Set(),top:new Set(),values:[]};
+      joints[z][pair[1]].add(f.sslKey);
+      joints[z].values.push(pair[0]);
+    });
+  });
+  Object.keys(joints).map(Number).sort(function(a,b){ return a-b; }).forEach(function(z){
+    const joint=joints[z];
+    function hasCrossingWalls(keys){
+      const axes=[];
+      keys.forEach(function(key){
+        const orient=key.slice(5),card=AT3DS_CARD.find(function(c){ return c.name===orient; });
+        if(!card) return;
+        const axis=((card.az%180)+180)%180;
+        if(!axes.some(function(a){ return Math.min(Math.abs(a-axis),180-Math.abs(a-axis))<20; })) axes.push(axis);
+      });
+      return axes.length>=2;
+    }
+    // Two opposing gable walls above the eaves are an attic, not evidence of
+    // another storey. The upper and lower walls must span different axes.
+    if(hasCrossingWalls(joint.top) && hasCrossingWalls(joint.bottom)) add(at3dsMedian(joint.values),'wall-junction');
+  });
+  if(options && Number.isFinite(options.upperFloorZMm)) add(options.upperFloorZMm,'explicit-level');
+  return levels.sort(function(a,b){ return a.z-b.z; });
+}
+function at3dsUpperFloorBounds(faces,z){
+  const points=[],height=z+800;
+  (faces||[]).filter(f=>at3dsIsWallKey(f.sslKey)).forEach(function(f){
+    const verts=f.vertsMm||[],tris=f.tris&&f.tris.length?f.tris:Array.from({length:Math.max(0,verts.length-2)},(_,i)=>[0,i+1,i+2]);
+    tris.forEach(t=>{for(let i=0;i<3;i++){
+      const a=verts[t[i]],b=verts[t[(i+1)%3]];if(!a||!b)continue;
+      if(Math.abs(a.z-height)<1e-6)points.push(a);
+      if((a.z<height&&b.z>height)||(b.z<height&&a.z>height)){
+        const u=(height-a.z)/(b.z-a.z);points.push({x:a.x+u*(b.x-a.x),y:a.y+u*(b.y-a.y)});
+      }
+    }});
+  });
+  if(!points.length)return null;
+  const bounds={minx:Math.min(...points.map(p=>p.x)),maxx:Math.max(...points.map(p=>p.x)),miny:Math.min(...points.map(p=>p.y)),maxy:Math.max(...points.map(p=>p.y))};
+  return bounds.maxx-bounds.minx>300&&bounds.maxy-bounds.miny>300?bounds:null;
+}
+function at3dsClipFloorTriangle(points,bounds){
+  let polygon=points.map(p=>({x:p.x,y:p.y,z:p.z}));
+  if(!bounds)return polygon;
+  for(const [axis,value,sign] of [['x',bounds.minx,1],['x',bounds.maxx,-1],['y',bounds.miny,1],['y',bounds.maxy,-1]]){
+    const next=[];for(let i=0;i<polygon.length;i++){
+      const a=polygon[i],b=polygon[(i+1)%polygon.length],insideA=(a[axis]-value)*sign>=-1e-6,insideB=(b[axis]-value)*sign>=-1e-6;
+      if(insideA)next.push(a);
+      if(insideA!==insideB){const u=(value-a[axis])/(b[axis]-a[axis]);next.push({x:a.x+u*(b.x-a.x),y:a.y+u*(b.y-a.y),z:a.z+u*(b.z-a.z)});}
+    }polygon=next;if(!polygon.length)break;
+  }
+  return polygon;
+}
+function at3dsAddInterior2F(faces, options){
   const floors1=(faces||[]).filter(function(f){
     return f.sslKey==='floor1' && !f.cantilever && f.nameJa!=='2F床';
   });
-  const cants=(faces||[]).filter(function(f){
-    return f.sslKey==='floor_out' || f.cantilever || f.nameJa==='2F床';
-  });
+  if(options && Number(options.storyCount)===1) return 0;
   if(!floors1.length) return 0;
   const zs1=[];
   floors1.forEach(function(f){ (f.vertsMm||[]).forEach(function(v){ zs1.push(v.z); }); });
   const z1=at3dsMedian(zs1);
   if(z1==null) return 0;
-  let z2=null;
-  if(cants.length){
-    const zs2=[];
-    cants.forEach(function(f){ (f.vertsMm||[]).forEach(function(v){ zs2.push(v.z); }); });
-    z2=at3dsMedian(zs2);
-  }
-  if(!(z2>z1+1500)){
-    let zRoof=-Infinity;
-    faces.forEach(function(f){
-      if(f.sslKey!=='roof') return;
-      (f.vertsMm||[]).forEach(function(v){ if(v.z>zRoof) zRoof=v.z; });
-    });
-    if(zRoof-z1>4000) z2=z1+2840;
-  }
-  if(!(z2>z1+1500)) return 0;
+  let levels=at3dsFloorLevels(faces,z1,options);
+  if(options && Number(options.storyCount)>1) levels=levels.slice(0,Number(options.storyCount)-1);
   let n=0;
-  floors1.forEach(function(f){
-    const vertsMm=(f.vertsMm||[]).map(function(v){ return {x:v.x, y:v.y, z:z2}; });
-    if(vertsMm.length<3) return;
+  levels.forEach(function(level,li){
+    if(faces.some(f=>f.generatedFloor&&Math.abs(at3dsMedian((f.vertsMm||[]).map(v=>v.z))-level.z)<150))return;
+    const next=levels[li+1]?.z??Infinity;
+    // Upper-storey ceiling tiles describe that storey's layout. Ground-floor
+    // tiles do not: projecting them individually duplicates the ground plan.
+    const ceilings=(faces||[]).filter(function(f){
+      if(f.generatedFloor||f.nameJa!=='天井'||f.sslKey!=='innerwall')return false;
+      const zs=(f.vertsMm||[]).map(v=>v.z),z=at3dsMedian(zs);
+      return zs.length>=3&&Math.max(...zs)-Math.min(...zs)<60&&z>level.z+1200&&z<next-100;
+    });
+    const top=ceilings.length?Math.min(...ceilings.map(f=>at3dsMedian(f.vertsMm.map(v=>v.z)))):null;
+    const ceilingKeys=new Set();
+    const source=ceilings.filter(f=>{
+      if(Math.abs(at3dsMedian(f.vertsMm.map(v=>v.z))-top)>=100)return false;
+      const key=[...new Set(f.vertsMm.map(v=>[Math.round(v.x*1000),Math.round(v.y*1000)].join(',')))].sort().join(';');
+      if(ceilingKeys.has(key))return false;ceilingKeys.add(key);return true;
+    });
+    // When ceiling evidence is missing retain only a compound footprint as a
+    // provisional candidate. Internal ground-floor edges are not room edges.
+    const candidates=source.length?source:[{idfName:'',vertsMm:[],tris:[]}],bounds=at3dsUpperFloorBounds(faces,level.z);
+    if(!source.length)floors1.forEach(function(f){
+      const tris=f.tris&&f.tris.length?f.tris:Array.from({length:Math.max(0,(f.vertsMm||[]).length-2)},(_,i)=>[0,i+1,i+2]);
+      tris.forEach(t=>{
+        const clipped=at3dsClipFloorTriangle(t.map(i=>f.vertsMm[i]),bounds),base=candidates[0].vertsMm.length;
+        if(clipped.length<3)return;candidates[0].vertsMm.push(...clipped);
+        for(let i=1;i<clipped.length-1;i++)candidates[0].tris.push([base,base+i,base+i+1]);
+      });
+    });
+    const known=(faces||[]).filter(f=>!f.generatedFloor&&(f.sslKey==='floor_out'||f.nameJa==='内床')&&Math.abs(at3dsMedian((f.vertsMm||[]).map(v=>v.z))-level.z)<150);
+    candidates.forEach(function(f){
+    const vertsMm=(f.vertsMm||[]).map(function(v){ return {x:v.x, y:v.y, z:level.z}; });
+    if(vertsMm.length<3)return;
+    if(known.length&&typeof atSplitPlate==='function'){
+      const converted=face=>({verts:at3dsToMeters(face.vertsMm||[]),tris:face.tris});
+      const candidate={verts:at3dsToMeters(vertsMm),tris:f.tris,floorExcludeFaces:known.map(converted)};
+      if(!atSplitPlate(candidate,[]).length)return;
+    }
     faces.push({
       sslKey:'innerwall',
       nameJa:'内床',
       idfName:f.idfName||'',
       zone:'',
       cantilever:false,
+      generatedFloor:true,
+      floorEvidence:level.source,
+      floorProjectionSource:source.length?'storey-ceiling':'footprint-unconfirmed',
+      _atProjectionCeilingSource:source.length?f:null,
+      floorExcludeFaces:known,
       vertsMm:vertsMm,
       tris:f.tris ? f.tris.slice() : null
     });
     n++;
-  });
+  }); });
   return n;
 }
 function at3dsHasUpperFloors(faces){
   return (faces||[]).some(function(f){ return f.nameJa==='内床'; });
 }
-function at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts){
+// Material is a useful hint, but one material can cover roofs and storey slabs.
+// Retain an existing level plane as a floor only at a proven wall junction,
+// inside a closed envelope belonging to the storey above. No shape is filled.
+function at3dsNativeFloorEvidence(outward, floorZ, objects, options){
+  const evidence=new Map();
+  if(!Number.isFinite(floorZ)||Number(options?.storyCount)===1)return evidence;
+  const mats=objects?.materials||{},walls=(outward||[]).filter(f=>Math.abs(f.n.z)<.15&&f.h>=1500&&(mats[f.mat||'']?.transp||0)<50);
+  const proxies=walls.map(f=>({sslKey:'wall_'+at3dsOrientName(f.n),vertsMm:f.pts}));
+  let levels=at3dsFloorLevels(proxies,floorZ,options);
+  if(Number(options?.storyCount)>1)levels=levels.slice(0,Number(options.storyCount)-1);
+  for(const level of levels){
+    const above=walls.filter(f=>f.zmin<=level.z+800&&f.zmax>=level.z+800),grid=at3dsBuildGrid(above);
+    if(!grid)continue;
+    for(const f of outward){
+      if(Math.abs(f.n.z)<=.999999||Math.abs(f.c.z-level.z)>20)continue;
+      const points=(f.pts||[]).concat((f.tris||[]).map(t=>t.c));
+      if(points.length&&points.every(p=>grid.inside(p.x,p.y)))evidence.set(f,level.source);
+    }
+  }
+  return evidence;
+}
+function at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts, nativeFloorEvidence){
   let droppedEave=0, droppedMid=0;
   const vfaces=outward.filter(function(f){ return Math.abs(f.n.z)<0.15; });
   const clusters={};
@@ -657,6 +816,10 @@ function at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts){
     g.forEach(function(f){ f._planeMax=pmax; });
   });
   outward.forEach(function(f){
+    if(nativeFloorEvidence?.has(f)){
+      at3dsPushFace(faces,counts,f,'innerwall','内床');
+      return;
+    }
     const nz=Math.abs(f.n.z);
     const frac=grid ? grid.clipFrac(f.pts) : 1;
     const frac1=grid1f ? grid1f.clipFrac(f.pts) : 0;
@@ -664,7 +827,7 @@ function at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts){
     let nameJa=null;
     let cantilever=false;
     if(nz>=0.15){
-      if(nz>0.98){
+      if(nz>0.999999){
         if(floorZ!=null && f.c.z<=floorZ+150) sslKey='floor1';
         else if(f.n.z>0 && frac>=0.5 && frac1<0.85){
           sslKey='floor_out';
@@ -693,7 +856,7 @@ function at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts){
   });
   return {droppedEave:droppedEave, droppedMid:droppedMid};
 }
-function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces, counts){
+function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces, counts, nativeFloorEvidence){
   const mats=objects.materials||{};
   const byMat={};
   outward.forEach(function(f){
@@ -707,6 +870,10 @@ function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces,
   });
   let droppedEave=0, droppedMid=0;
   outward.forEach(function(f){
+    if(nativeFloorEvidence?.has(f)){
+      at3dsPushFace(faces,counts,f,'innerwall','内床');
+      return;
+    }
     const kind=kindOf[f.mat||'']||'wall';
     const nz=Math.abs(f.n.z);
     const frac=grid ? grid.clipFrac(f.pts) : 1;
@@ -720,7 +887,7 @@ function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces,
       at3dsPushFace(faces, counts, f, 'found', '基礎');
       return;
     }
-    if(kind==='roof' || (kind==='attic' && nz>0.15 && nz<=0.98 && (mats[f.mat||'']||{}).transp>=50)){
+    if(kind==='roof' || (kind==='attic' && nz>0.15 && nz<=0.999999 && (mats[f.mat||'']||{}).transp>=50)){
       at3dsPushFace(faces, counts, f, 'roof', '屋根');
       return;
     }
@@ -732,11 +899,11 @@ function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces,
       }
       return;
     }
-    if(kind==='horiz' && nz<=0.98){
+    if(kind==='horiz' && nz<=0.999999){
       at3dsPushFace(faces, counts, f, 'attic', '小屋裏');
       return;
     }
-    if(nz>0.98 || kind==='horiz'){
+    if(nz>0.999999 || kind==='horiz'){
       if(floorZ!=null && f.c.z<=floorZ+150){
         at3dsPushFace(faces, counts, f, 'floor1', '1F床');
         return;
@@ -752,7 +919,7 @@ function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces,
       at3dsPushFace(faces, counts, f, 'innerwall', '天井');
       return;
     }
-    if(kind==='attic' || (nz>=0.15 && nz<=0.98)){
+    if(kind==='attic' || (nz>=0.15 && nz<=0.999999)){
       if(frac<0.35){ droppedEave++; return; }
       at3dsPushFace(faces, counts, f, 'attic', '小屋裏');
       return;
@@ -761,20 +928,108 @@ function at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces,
   });
   return {droppedEave:droppedEave, droppedMid:droppedMid};
 }
-function at3dsClassify(objects){
+// A whole-building centre is useful for shell faces, but cannot establish the
+// winding of an interior/ground floor. Preserve horizontal coverage separately.
+// Difference is performed only between proven coplanar source triangles; each
+// remaining convex piece belongs to its source triangle (no outline/hull fill).
+function at3dsConserveHorizontalPlanes(merged, center){
+  const eps=1e-6, planeEps=1e-3, workMax=2000000, pieceMax=100000;
+  let work=0, bucketEntries=0, pieceCount=0, droppedInward=0, horizontalRecovered=0, horizontalDuplicates=0;
+  const accepted=[], exact=new Map(), result=new Map(), buckets=new Map(), large=[];
+  function fail(code){const e=new Error('水平面の重複を安全に整理できません。元モデルの面構成を確認してください。');e.code=code;throw e;}
+  function cells(t){return {x0:Math.floor(t.xmin/2000),x1:Math.floor(t.xmax/2000),y0:Math.floor(t.ymin/2000),y1:Math.floor(t.ymax/2000),z0:Math.floor((t.zmin-planeEps)/200),z1:Math.floor((t.zmax+planeEps)/200)};}
+  function bucketKeys(t){const c=cells(t);if(!Object.values(c).every(Number.isSafeInteger)||(c.x1-c.x0+1)*(c.y1-c.y0+1)*(c.z1-c.z0+1)>4096)return null;const keys=[];for(let x=c.x0;x<=c.x1;x++)for(let y=c.y0;y<=c.y1;y++)for(let z=c.z0;z<=c.z1;z++)keys.push(x+','+y+','+z);return keys;}
+  function add(t){
+    if(accepted.length>=pieceMax)fail('AT3DS_HORIZONTAL_DEDUP_LIMIT');
+    const index=accepted.length,keys=bucketKeys(t);accepted.push(t);
+    if(!keys){large.push(index);return;}bucketEntries+=keys.length;if(bucketEntries>workMax)fail('AT3DS_HORIZONTAL_DEDUP_LIMIT');keys.forEach(k=>{if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(index);});
+  }
+  function nearby(t){const keys=bucketKeys(t);if(!keys)return accepted;const indices=new Set(large);keys.forEach(k=>{(buckets.get(k)||[]).forEach(i=>indices.add(i));});return Array.from(indices).sort((a,b)=>a-b).map(i=>accepted[i]);}
+  function area(poly){if(poly.length<3)return 0;const a=poly[0];let sum=0;for(let i=1;i+1<poly.length;i++)sum+=(poly[i].x-a.x)*(poly[i+1].y-a.y)-(poly[i].y-a.y)*(poly[i+1].x-a.x);return Math.abs(sum)/2;}
+  function finite(poly){return poly.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z));}
+  function clean(poly){const out=[];poly.forEach(p=>{if(!out.length||Math.hypot(p.x-out[out.length-1].x,p.y-out[out.length-1].y)>eps)out.push(p);});if(out.length>1&&Math.hypot(out[0].x-out[out.length-1].x,out[0].y-out[out.length-1].y)<=eps)out.pop();return out;}
+  function half(poly,a,b,side){
+    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy),out=[];
+    if(!(len>eps))return poly.slice();
+    function distance(p){const d=side*(dx*(p.y-a.y)-dy*(p.x-a.x))/len;return Math.abs(d)<=eps?0:d;}
+    for(let i=0;i<poly.length;i++){
+      const p=poly[i],q=poly[(i+1)%poly.length],dp=distance(p),dq=distance(q),pin=dp>=0,qin=dq>=0;
+      if(pin)out.push(p);
+      if(pin!==qin){const t=dp/(dp-dq);out.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t});}
+    }
+    if(!finite(out))fail('AT3DS_HORIZONTAL_GEOMETRY_INVALID');
+    return clean(out);
+  }
+  function subtract(poly,triangle){
+    const v=triangle.verts,orientation=at3dsOrient2(v[0].x,v[0].y,v[1].x,v[1].y,v[2].x,v[2].y)>=0?1:-1;
+    let inside=poly;const outside=[];
+    for(let i=0;i<3&&inside.length>=3;i++){
+      const a=v[i],b=v[(i+1)%3],part=half(inside,a,b,-orientation);
+      if(part.length>=3&&area(part)>eps)outside.push(part);
+      inside=half(inside,a,b,orientation);
+    }
+    return outside;
+  }
+  function triangleKey(t){return t.verts.map(p=>[p.x,p.y,p.z].map(v=>Math.round(v/planeEps)).join(',')).sort().join(';');}
+  function coplanar(a,b){
+    if(a.xmax<=b.xmin+eps||b.xmax<=a.xmin+eps||a.ymax<=b.ymin+eps||b.ymax<=a.ymin+eps)return false;
+    if(Math.abs(a.n.x*b.n.x+a.n.y*b.n.y+a.n.z*b.n.z)<1-1e-10)return false;
+    const v=a.verts[0];return b.verts.every(p=>Math.abs(a.n.x*(p.x-v.x)+a.n.y*(p.y-v.y)+a.n.z*(p.z-v.z))<=planeEps);
+  }
+  function rebuild(f,tris){
+    if(tris.length===f.tris.length&&tris.every((t,i)=>t===f.tris[i]))return f;
+    const g=Object.assign({},f,{tris:tris,pts:[]}),c={x:0,y:0,z:0};let total=0;
+    ['x','y','z'].forEach(k=>{g[k+'min']=Infinity;g[k+'max']=-Infinity;});
+    tris.forEach(t=>{total+=t.area;['x','y','z'].forEach(k=>{c[k]+=t.c[k]*t.area;g[k+'min']=Math.min(g[k+'min'],t[k+'min']);g[k+'max']=Math.max(g[k+'max'],t[k+'max']);});g.pts.push.apply(g.pts,t.verts);});
+    ['x','y','z'].forEach(k=>c[k]/=total);g.area=total;g.c=c;g.h=g.zmax-g.zmin;g.wxy=Math.max(g.xmax-g.xmin,g.ymax-g.ymin);return g;
+  }
+  function horizontal(f){return Math.abs(f.n.z)>.999999&&(f.tris||[]).every(t=>Math.abs(t.n.z)>.999999);}
+  const entries=(merged||[]).map((f,index)=>({f,index,inward:f.n.x*(f.c.x-center.x)+f.n.y*(f.c.y-center.y)+f.n.z*(f.c.z-center.z)<0}));
+  entries.filter(e=>!horizontal(e.f)).forEach(e=>{if(e.inward)droppedInward++;else result.set(e.index,e.f);});
+  entries.filter(e=>horizontal(e.f)).sort((a,b)=>Number(a.inward)-Number(b.inward)||a.index-b.index).forEach(function(e){
+    const kept=[];let changed=false;
+    (e.f.tris||[]).forEach(function(t){
+      if(!finite(t.verts))fail('AT3DS_HORIZONTAL_GEOMETRY_INVALID');
+      const key=triangleKey(t),same=exact.get(key);
+      if(same&&coplanar(t,same)){changed=true;return;}
+      let pieces=[t.verts];
+      nearby(t).forEach(function(other){
+        if(!pieces.length)return;
+        if(++work>workMax)fail('AT3DS_HORIZONTAL_DEDUP_LIMIT');
+        if(!coplanar(t,other))return;
+        const next=[];pieces.forEach(poly=>{const parts=subtract(poly,other);next.push.apply(next,parts);});pieces=next;
+        if(pieces.length>pieceMax)fail('AT3DS_HORIZONTAL_DEDUP_LIMIT');
+      });
+      const rest=pieces.reduce((sum,p)=>sum+area(p),0),source=area(t.verts),tolerance=Math.max(eps,source*1e-10);
+      if(!Number.isFinite(rest)||rest>source+tolerance)fail('AT3DS_HORIZONTAL_GEOMETRY_INVALID');
+      if(source-rest<=tolerance){kept.push(t);add(t);exact.set(key,t);return;}
+      changed=true;
+      pieces.forEach(function(poly){
+        for(let i=1;i+1<poly.length;i++){
+          const vertices=[poly[0],poly[i],poly[i+1]];
+          let part=at3dsTri(vertices,[0,1,2]);if(!part||part.area<=eps)continue;
+          if(part.n.x*t.n.x+part.n.y*t.n.y+part.n.z*t.n.z<0)part=at3dsTri(vertices,[0,2,1]);
+          if(!part||!finite(part.verts)||!Number.isFinite(part.area))fail('AT3DS_HORIZONTAL_GEOMETRY_INVALID');
+          part.mat=t.mat;kept.push(part);add(part);exact.set(triangleKey(part),part);
+          if(++pieceCount>pieceMax)fail('AT3DS_HORIZONTAL_DEDUP_LIMIT');
+        }
+      });
+    });
+    if(changed)horizontalDuplicates++;
+    if(kept.length){result.set(e.index,rebuild(e.f,kept));if(e.inward)horizontalRecovered++;}
+    else if(e.inward)droppedInward++;
+  });
+  return {faces:entries.filter(e=>result.has(e.index)).map(e=>result.get(e.index)),droppedInward,horizontalRecovered,horizontalDuplicates};
+}
+function at3dsClassify(objects, options){
   const merged=[];
   objects.forEach(function(o){ at3dsMergeObject(o).forEach(function(f){ merged.push(f); }); });
   if(!merged.length) throw new Error('分類できる面がありません');
   let hx=0, hy=0, hz=0;
   merged.forEach(function(f){ hx+=f.c.x; hy+=f.c.y; hz+=f.c.z; });
   hx/=merged.length; hy/=merged.length; hz/=merged.length;
-  const outward=[];
-  let droppedInward=0;
-  merged.forEach(function(f){
-    const ox=f.c.x-hx, oy=f.c.y-hy, oz=f.c.z-hz;
-    if(f.n.x*ox + f.n.y*oy + f.n.z*oz < 0){ droppedInward++; return; }
-    outward.push(f);
-  });
+  const conserved=at3dsConserveHorizontalPlanes(merged,{x:hx,y:hy,z:hz});
+  const outward=conserved.faces, droppedInward=conserved.droppedInward;
   const useMat=at3dsHasMaterials(objects);
   const env=outward.filter(function(f){
     if(Math.abs(f.n.z)>=0.4 || f.h<=180) return false;
@@ -787,7 +1042,7 @@ function at3dsClassify(objects){
   const grid=at3dsBuildGrid(env);
   const zarea={};
   outward.forEach(function(f){
-    if(Math.abs(f.n.z)<=0.98) return;
+    if(Math.abs(f.n.z)<=0.999999) return;
     if(grid && grid.clipFrac(f.pts)<0.5) return;
     const z=Math.round(f.c.z/50)*50;
     zarea[z]=(zarea[z]||0)+f.area;
@@ -818,17 +1073,15 @@ function at3dsClassify(objects){
   const grid2=at3dsBuildGrid(walls2) || grid;
   const faces=[];
   const counts={};
+  const nativeFloorEvidence=at3dsNativeFloorEvidence(outward,floorZ,objects,options);
   const r=useMat
-    ? at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces, counts)
-    : at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts);
+    ? at3dsClassifyMats(outward, objects, grid, grid1f, grid2, floorZ, faces, counts,nativeFloorEvidence)
+    : at3dsClassifyGeom(outward, grid, grid1f, floorZ, faces, counts,nativeFloorEvidence);
   at3dsTrimRoofToWalls(faces, 400);
   at3dsSnapFacesMm(faces, 20, 60);
   at3dsSnapHorizZToWalls(faces, 60);
-  let added2f=0;
-  if(!at3dsHasUpperFloors(faces)){
-    added2f=at3dsAddInterior2F(faces);
-    if(added2f) counts['内床']=(counts['内床']||0)+added2f;
-  }
+  const added2f=at3dsAddInterior2F(faces,options);
+  if(added2f) counts['内床']=(counts['内床']||0)+added2f;
   faces.forEach(function(face){
     face.verts=at3dsToMeters(face.vertsMm);
     delete face.vertsMm;
@@ -850,6 +1103,11 @@ function at3dsClassify(objects){
     faceIds[base]=(faceIds[base]||0)+1;
     face.atFaceId=base+(faceIds[base]>1?'-'+faceIds[base]:'');
   });
+  faces.forEach(function(face){
+    const source=face._atProjectionCeilingSource;
+    if(source&&faces.includes(source)&&source.atFaceId)face.floorProjectionCeilingId=source.atFaceId;
+    delete face._atProjectionCeilingSource;
+  });
   return {
     meshFaces:faces,
     stats:{
@@ -866,23 +1124,70 @@ function at3dsClassify(objects){
     }
   };
 }
-function buildAtMeshFromBuffer(buffer, fileName){
+function at3dsModelDiagnostics(mesh, options){
+  const diagnostics=[];
+  const faces=mesh.meshFaces||[];
+  const floorLevels=[];
+  faces.forEach(function(f){
+    if(!(f.sslKey==='floor1' || f.sslKey==='floor_out' || f.nameJa==='内床' || f.nameJa==='2F床')) return;
+    const zs=(f.verts||[]).map(function(v){ return v.z; });
+    const z=at3dsMedian(zs);
+    if(z!==null && !floorLevels.some(function(level){ return Math.abs(level-z)<0.15; })) floorLevels.push(z);
+  });
+  floorLevels.sort(function(a,b){ return a-b; });
+  const expected=Number(options&&options.storyCount)||null;
+  if(!floorLevels.length) diagnostics.push({code:'AT3DS_FLOOR_NOT_FOUND',severity:'error',message:'床面を確認できません。元モデルの床と単位を確認してください。'});
+  if(expected && expected!==floorLevels.length){
+    diagnostics.push({code:'AT3DS_STORY_LEVELS_UNRESOLVED',severity:'error',message:'指定した階数と確認できた床の高さが一致しません。モデルの階間床を確認し、必要なら上階床の高さを指定してください。',expectedStories:expected,detectedStories:floorLevels.length});
+  }
+  if(!mesh.stats.usedMaterials) diagnostics.push({code:'AT3DS_GEOMETRY_CLASSIFICATION',severity:'warning',message:'材料情報がないため形状から部位を分類しています。窓・壁・床の色分けを確認してください。'});
+  if(mesh.stats.addedInterior2F) diagnostics.push({code:'AT3DS_FLOOR_RECONSTRUCTED',severity:'warning',message:'床の高さの根拠から階間床を補完しました。吹抜けや階段の開口を確認してください。',generatedFaces:mesh.stats.addedInterior2F});
+  if(!faces.some(function(f){ return at3dsIsWallKey(f.sslKey); })) diagnostics.push({code:'AT3DS_WALL_NOT_FOUND',severity:'error',message:'外壁面を確認できません。元モデルの出力範囲と材料情報を確認してください。'});
+  mesh.stats.floorLevelsM=floorLevels;
+  mesh.stats.detectedStories=floorLevels.length;
+  return diagnostics;
+}
+function buildAtMeshFromBuffer(buffer, fileName, options){
+  options=options||{};
+  if(options.storyCount!==undefined && ![1,2,3].includes(Number(options.storyCount))){
+    const error=new Error('階数は「自動」「1」「2」「3」から選んでください。');
+    error.code='AT3DS_INVALID_STORY_COUNT';
+    throw error;
+  }
   const objects=at3dsParseBuffer(buffer);
   if(!objects.length) throw new Error('メッシュオブジェクトがありません');
-  const unit=at3dsScaleToMm(objects);
-  const classified=at3dsClassify(objects);
+  const unit=at3dsScaleToMm(objects,options);
+  objects.forEach(function(o){
+    if(o.faces.some(function(f){ return f.some(function(index){ return !Number.isInteger(index) || index<0 || index>=o.verts.length; }); })){
+      const error=new Error('3DSの面に参照できない頂点があります。元モデルから再出力してください。');
+      error.code='AT3DS_INVALID_FACE';
+      throw error;
+    }
+  });
+  const classified=at3dsClassify(objects,options);
   let rooms=[];
   if(typeof atBuildRoomsFromFaces==='function'){
     rooms=atBuildRoomsFromFaces(classified.meshFaces, classified.stats)||[];
   }
-  return {
+  if(typeof atBuildRoomsFromFaces==='function'){
+    const used=new Set(rooms.flatMap(r=>r.floorFaceIds||[]));
+    classified.meshFaces=classified.meshFaces.filter(f=>!f.generatedFloor||used.has(f.atFaceId));
+    classified.stats.addedInterior2F=classified.meshFaces.filter(f=>f.generatedFloor).length;
+    classified.stats.counts['内床']=classified.meshFaces.filter(f=>f.nameJa==='内床').length;
+  }
+  const mesh={
     fileName:fileName||'architrend.3ds',
+    reviewImportOptions:{unit:options.unit||'auto',storyCount:options.storyCount||'auto',upperFloorZMm:options.upperFloorZMm??null},
     unit:unit,
+    unitInfo:objects.unitInfo,
     meshFaces:classified.meshFaces,
     stats:classified.stats,
     rooms:rooms,
     gainVolumes:null
   };
+  mesh.diagnostics=at3dsModelDiagnostics(mesh,options);
+  mesh.readiness={ready:!mesh.diagnostics.some(function(d){ return d.severity==='error'; }),blockers:mesh.diagnostics.filter(function(d){ return d.severity==='error'; }).map(function(d){ return d.code; })};
+  return mesh;
 }
 function at3dsEcho(){
   const el=document.getElementById('at3dsFileEcho');
@@ -897,20 +1202,32 @@ function at3dsEcho(){
     +(nWin?('・窓 '+nWin+' 枚'):'')
     +(nRoom?('・部屋 '+nRoom+' 室'):'')
     +(eave?('（庇 '+eave+' 面を除外）'):'')
-    +(inner2?('、室内2F床 '+inner2+' 面を補完'):'');
+    +(inner2?('、階間床 '+inner2+' 面を補完'):'')
+    +((atMesh.diagnostics||[]).length?' / '+atMesh.diagnostics.map(function(d){ return d.message; }).join(' '):'');
 }
 async function onAt3dsSelected(input){
   const file=input && input.files && input.files[0];
   if(!file) return;
+  const serial=++at3dsLoadSerial;
+  if(typeof atRoomReviewState==='function' && atMesh && atMesh.reviewHash){
+    atRoomView.pending=atRoomReviewState();
+  }
+  atMesh=null;
+  window.dispatchEvent(new CustomEvent('architrend-model-invalidated',{detail:{code:'AT3DS_LOADING'}}));
   const echo=document.getElementById('at3dsFileEcho');
   if(echo) echo.textContent='3DSを読み込み中...';
   try{
     const buf=await file.arrayBuffer();
-    if(typeof atRoomReviewState==='function' && atMesh && atMesh.reviewHash){
-      atRoomView.pending=atRoomReviewState();
-    }
-    atMesh=buildAtMeshFromBuffer(buf, file.name);
+    if(serial!==at3dsLoadSerial) return;
+    const unitSelect=document.getElementById('at3dsUnit');
+    const storiesSelect=document.getElementById('at3dsStories');
+    const upperFloorInput=document.getElementById('at3dsUpperFloorZ');
+    const options={unit:unitSelect?unitSelect.value:'auto'};
+    if(storiesSelect && storiesSelect.value!=='auto') options.storyCount=Number(storiesSelect.value);
+    if(upperFloorInput && upperFloorInput.value.trim()!=='' && Number.isFinite(Number(upperFloorInput.value))) options.upperFloorZMm=Number(upperFloorInput.value)*1000;
+    atMesh=buildAtMeshFromBuffer(buf, file.name,options);
     if(typeof atRoomModelLoaded==='function') await atRoomModelLoaded(buf);
+    if(serial!==at3dsLoadSerial) return;
     at3dsEcho();
     if(typeof atLastParse!=='undefined' && atLastParse && atLastParse.result){
       if(typeof atRoomView!=='undefined' && atRoomView.restored){
@@ -923,16 +1240,30 @@ async function onAt3dsSelected(input){
         renderArchitrendReview(atLastParse, false);
       }
     }
+    if(typeof atReconcileRestoredRoomCards==='function')atReconcileRestoredRoomCards();
     if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
     if(typeof atRenderRoomViewer==='function') atRenderRoomViewer();
+    window.dispatchEvent(new CustomEvent('architrend-model-ready',{detail:{readiness:atMesh.readiness}}));
   }catch(err){
+    if(serial!==at3dsLoadSerial) return;
     atMesh=null;
+    window.dispatchEvent(new CustomEvent('architrend-model-invalidated',{detail:{code:err&&err.code||'AT3DS_IMPORT_FAILED'}}));
     if(typeof atRenderRoomViewer==='function') atRenderRoomViewer();
     if(echo) echo.textContent='';
     alert('3DSの読み込みに失敗しました: '+(err && err.message ? err.message : err));
     if(typeof refreshIdfMeshUi==='function') refreshIdfMeshUi();
   }
 }
+function at3dsSettingsChanged(){
+  const input=document.getElementById('at3dsInput');
+  if(input && input.files && input.files[0]) return onAt3dsSelected(input);
+}
+if(typeof document!=='undefined'){
+  ['at3dsUnit','at3dsStories','at3dsUpperFloorZ'].forEach(function(id){
+    const input=document.getElementById(id);
+    if(input) input.addEventListener('change',at3dsSettingsChanged);
+  });
+}
 if(typeof module!=='undefined' && module.exports){
-  module.exports={buildAtMeshFromBuffer:buildAtMeshFromBuffer, at3dsParseBuffer:at3dsParseBuffer};
+  module.exports={buildAtMeshFromBuffer:buildAtMeshFromBuffer,at3dsParseBuffer:at3dsParseBuffer,at3dsDetectUnit:at3dsDetectUnit};
 }

@@ -1,0 +1,32 @@
+/* Basic inputs stay prominent; advanced assumptions stay readable while collapsed. */
+.setting-assumptions{margin:22px 0 0;padding:16px 0 14px;border-top:1px solid #cbd8ce;color:#304d3c;}
+.setting-assumptions-heading{display:flex;gap:10px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px;}
+.setting-assumptions-heading>b{font-size:16px;line-height:1.6;}
+.setting-assumption-state{font-size:12px;color:#4e6656;line-height:1.7;}
+.setting-assumptions dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 20px;margin:0;}
+.setting-assumptions dl>div{min-width:0;}
+.setting-assumptions dt{font-size:13px;color:#4e6656;line-height:1.7;}
+.setting-assumptions dd{margin:2px 0 0;display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;line-height:1.7;}
+.setting-assumptions dd strong{font-size:14px;font-variant-numeric:tabular-nums;font-weight:600;overflow-wrap:anywhere;}
+.setting-assumptions dd span{font-size:11px;color:#526956;white-space:normal;}
+.setting-assumptions-note{font-size:13px;line-height:1.85;color:#4b6353;margin:12px 0 0;max-width:78ch;}
+.setting-initial-note{font-size:12px;color:#596d5d;line-height:1.8;margin:6px 0 0;}
+.setting-assumptions[data-assumption-state="review"] .setting-assumption-state,.setting-value-review dd,.setting-value-review dd span{color:#8b4c10;font-weight:700;}
+.setting-value-review{background:#fff4e1;padding:4px 8px;border-radius:4px;}
+.setting-assumptions [data-open-basic-detail]{min-height:44px;margin-top:12px;padding:9px 14px;background:#fff8eb;border:1px solid #af7836;border-radius:5px;color:#754b16;font-size:14px;font-weight:700;}
+.setting-details{margin:0 0 18px;border-block:1px solid #cbd8ce;padding:0;color:#304d3c;}
+.setting-details>summary{min-height:48px;padding:12px 4px;cursor:pointer;font-size:15px;line-height:1.65;font-weight:600;overflow-wrap:anywhere;}
+.setting-details>summary:hover{background:#f2f6f0;color:#1f563c;}
+.setting-details>summary:focus-visible,.setting-assumptions button:focus-visible{outline:3px solid #a26d2c;outline-offset:3px;}
+.setting-details>summary [data-detail-review]{display:inline-block;margin-left:10px;font-size:12px;padding:2px 7px;border:1px solid #c69350;border-radius:4px;background:#fff4df;color:#835017;}
+.setting-details [data-detail-review][hidden]{display:none;}
+.setting-details[open]{padding-bottom:16px;}
+.setting-details .setting-help{font-size:14px;line-height:1.85;color:#4f6555;margin:6px 0 16px;max-width:78ch;}
+.setting-details input,.setting-details select,.setting-basic-fields input{font-size:16px;min-height:44px;}
+.setting-details label,.setting-basic-fields label{display:block;font-size:14px;color:#36533f;}
+.setting-details label input,.setting-basic-fields label input{display:block;margin-top:6px;width:100%;}
+.setting-room-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;font-size:14px;}
+.setting-room-results dd{margin:2px 0 0;font-variant-numeric:tabular-nums;font-weight:600;}
+.setting-assumptions[data-assumptions="ac"] dl{grid-template-columns:minmax(0,1fr);}
+@media(max-width:1100px){.setting-assumptions dl{grid-template-columns:repeat(2,minmax(0,1fr));}.setting-details .row3{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:650px){.setting-assumptions dl{grid-template-columns:minmax(0,1fr);gap:9px;}.setting-assumptions dl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:10px;}.setting-details .row3,.setting-details .row2,.setting-basic-fields{grid-template-columns:1fr;}.setting-assumptions [data-open-basic-detail]{width:100%;}.setting-room-results{grid-template-columns:1fr;}}

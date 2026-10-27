@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none"><style>text{font-family:"Yu Gothic",sans-serif;fill:#294c4b;font-size:14px} .label{font-size:12px;fill:#57706b}.stroke{stroke:#315c59;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}</style><rect width="480" height="300" rx="16" fill="#f0f4ec"/><title>部屋ごとに人数、照明、家電と換気を設定します</title>
+<path d="m61 126 170-66 185 70-170 75Z" fill="#e7e0cc" class="stroke"/><path d="m61 126 185 79v70L61 196Z" fill="#faf8ee" class="stroke"/><path d="m246 205 170-75v70l-170 75Z" fill="#dae9dd" class="stroke"/>
+<path d="m232 64 1 66 181 70M233 130 61 196" stroke="#88a49b" stroke-width="2"/>
+<path d="m94 133 70 28v27l-70-28Zm-1-2v-20l71 28v22" fill="#d3a779" class="stroke"/><path d="m105 117 23 8m12 5 17 7" stroke="#f7ead4" stroke-width="8"/>
+<path d="m286 159 65-28 34 14-64 29Z" fill="#99bbb2" class="stroke"/><path d="m297 167v18m74-34v18" class="stroke"/>
+<circle cx="213" cy="164" r="10" fill="#d79770"/><path d="m206 176-6 24m20-24 5 24m-19-20h15" stroke="#527f78" stroke-width="7" stroke-linecap="round"/>
+<path d="M271 35v27" class="stroke"/><path d="m255 72 16-12 16 12Z" fill="#efc36d" class="stroke"/><path d="m251 84-5 5m25-10v9m20-4 5 5" stroke="#d4ab56" stroke-width="2"/>
+<path d="M369 63h46v24h-46Z" fill="#fff" class="stroke"/><path d="m373 80 8-4 8 4 8-4 9 4" stroke="#78aaa2" stroke-width="2"/>
+<text x="37" y="42">人も、照明も、家電も</text><text x="37" y="65" font-weight="bold">部屋を暖める熱源です。</text><text x="299" y="260" class="label">風の矢印＝換気</text>
+<path d="m391 97-2 24m8-23v19m7-19-1 15" stroke="#78aaa2" stroke-width="2" stroke-dasharray="4 4"/></svg>

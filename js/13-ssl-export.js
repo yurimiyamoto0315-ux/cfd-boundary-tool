@@ -8,6 +8,8 @@
 var sslColors = [];   // [{rgb:'元のRGB文字列', css:'rgb(r,g,b)', ids:[1,2,...]}]
 var sslAssign = {};   // rgb文字列 → カテゴリキー ('wall_北'|'window'|'room:リビング'|'exclude'|'')
 var sslFileName = '';
+var sslCatDiagnostics = {errors:[], warnings:[]};
+var sslReadSelectionId = 0;
 
 // ---------- Shift-JIS エンコード ----------
 // SSL側 (VbsUtility.SetCsvTable) は FSO.OpenTextFile = ANSI(CP932) で読むため、
@@ -183,6 +185,9 @@ const SSL_CATEGORIES = [
   {key:'doorgap_uc', label:'ドア隙間 アンダーカット (開口・圧損)', params:[
     {id:99, label:'開口率', tr:['1-2','ドア隙間 (UC)','モデル高さ [m] / 開口率 [%]']}
   ]},
+  {key:'dooropen', label:'ドア完全開口 (開口・圧損)', params:[
+    {id:99, label:'開口率', fixed:'100'}
+  ]},
   {key:'ac_supply', label:'エアコン吹出 (吹出口)', params:[
     {id:31, label:'設定方法', fixed:'流量'},
     {id:33, label:'流量', flow:true},
@@ -263,55 +268,38 @@ function sslPickUniqueRowVal(rows){
   if(vals.every(function(v){ return v===vals[0]; })) return vals[0];
   return null;
 }
-function sslTrValRoom(item, assignName){
+function sslRoomGainRows(item, assignName, partial){
   const prefix='発生エリア: ';
-  const names=sslRoomLookupNames(assignName);
-  for(let i=0;i<names.length;i++){
-    const v=sslTrVal('2', prefix+names[i], item);
-    if(v!==null) return v;
-  }
+  const keys=sslRoomLookupNames(assignName).map(sslNormName).filter(Boolean);
   const rows=(typeof transferRows!=='undefined') ? transferRows : [];
-  const keys=names.map(sslNormName).filter(Boolean);
-  const idfHits=[];
-  const seenIdf={};
-  rows.forEach(function(r){
-    if(r.step!=='2' || r.item!==item) return;
+  return rows.filter(function(r){
+    if(r.step!=='2' || r.item!==item) return false;
     const t=String(r.target||'');
-    if(t.indexOf(prefix)!==0) return;
-    if(keys.indexOf(sslNormName(t.slice(prefix.length)))<0) return;
-    if(seenIdf[t]) return;
-    seenIdf[t]=true;
-    idfHits.push(r);
-  });
-  if(idfHits.length){
-    const v=sslPickUniqueRowVal(idfHits);
-    if(v!==null) return v;
-  }
-  const subHits=[];
-  const seenSub={};
-  rows.forEach(function(r){
-    if(r.step!=='2' || r.item!==item) return;
-    const t=String(r.target||'');
-    if(t.indexOf(prefix)!==0) return;
+    if(t.indexOf(prefix)!==0) return false;
     const nk=sslNormName(t.slice(prefix.length));
-    if(!nk) return;
-    const hit=keys.some(function(k){ return k && (nk.indexOf(k)>=0 || k.indexOf(nk)>=0); });
-    if(!hit || seenSub[t]) return;
-    seenSub[t]=true;
-    subHits.push(r);
+    if(!nk) return false;
+    return partial ? keys.some(k=>nk.indexOf(k)>=0 || k.indexOf(nk)>=0) : keys.indexOf(nk)>=0;
   });
-  if(subHits.length===1) return sslRowCopy(subHits[0]);
-  return null;
+}
+function sslTrValRoom(item, assignName){
+  const exact=sslRoomGainRows(item,assignName,false);
+  if(exact.length) return exact.length===1 ? sslRowCopy(exact[0]) : null;
+  const partial=sslRoomGainRows(item,assignName,true);
+  return partial.length===1 ? sslRowCopy(partial[0]) : null;
+}
+function sslDuplicateRoomMessage(){
+  return '同じ名前の部屋が複数あります。部屋名を「1F トイレ」「2F トイレ」のように区別して確定してください';
 }
 function sslFlowValue(){
   const v = sslTrVal('3','エアコン (吹出・1台あたり)','風量 [㎥/h]');
   if(v===null) return null;
-  const n = parseFloat(v);
+  const n = Number(v);
   if(!isFinite(n) || n<=0) return null;
   const unit = document.getElementById('sslFlowUnit').value;
-  return unit==='cmm' ? String(Math.round(n/60*100)/100) : String(n);
+  return unit==='cmm' ? String(Number((n/60).toPrecision(12))) : String(n);
 }
-function sslResolveParam(p, warns, catLabel, roomName){
+function sslResolveParam(p, warns, catLabel, roomName, errors){
+  errors=errors||warns;
   let v = null;
   if(p.fixed!==undefined){
     v = p.fixed;
@@ -319,58 +307,81 @@ function sslResolveParam(p, warns, catLabel, roomName){
     const item = p.roomGain==='heat' ? '発熱量 [W]' : '発湿量 [g/h]';
     v = sslTrValRoom(item, roomName || '');
     if(v===null){
-      v = '0';
-      warns.push(catLabel+': 「'+p.label+'」が未計算のため 0 で出力します (Step 2 の室名と割当を確認してください)');
+      const exact=sslRoomGainRows(item,roomName||'',false);
+      const ambiguous=exact.length>1 || !exact.length && sslRoomGainRows(item,roomName||'',true).length>1;
+      errors.push(ambiguous ? sslDuplicateRoomMessage() : catLabel+': 「'+p.label+'」が未計算です。Step 2 の室名と割当を確認してください');
     }else if(p.roomGain==='heat' && Number(v)===0){
       warns.push(catLabel+': 発熱量が 0 W です。Step 2 の入力を確認してください');
     }
   }else if(p.tr){
     v = sslTrVal(p.tr[0], p.tr[1], p.tr[2]);
-    if(v===null) warns.push(catLabel+': 「'+p.label+'」が未計算のため出力しません (該当の入力欄を確認してください)');
+    if(v===null) errors.push(catLabel+': 「'+p.label+'」が未計算です。該当の入力欄を確認してください');
   }else if(p.input){
     const el = document.getElementById(p.input);
     v = el ? String(el.value).trim() : '';
-    if(v==='') { warns.push(catLabel+': 「'+p.label+'」が空欄のため出力しません'); v = null; }
-    else if(/[",\r\n]/.test(v)){ warns.push(catLabel+': 「'+p.label+'」にカンマや引用符は使えません'); v = null; }
+    if(v==='') { errors.push(catLabel+': 「'+p.label+'」が空欄です'); v = null; }
+    else if(/[",\r\n]/.test(v)){ errors.push(catLabel+': 「'+p.label+'」にカンマや引用符は使えません'); v = null; }
   }else if(p.flow){
     v = sslFlowValue();
-    if(v===null) warns.push(catLabel+': 「'+p.label+'」(エアコン風量) が未計算のため出力しません');
+    if(v===null) errors.push(catLabel+': 「'+p.label+'」(エアコン風量) が未計算です');
+  }
+  if(v!==null && !sslValidParamValue(p.id,v)){
+    errors.push(catLabel+': 「'+p.label+'」の値が不正です');
+    return null;
   }
   return v;
+}
+function sslValidParamValue(id,value){
+  const s=String(value).trim();
+  if(!s || /[",\r\n\0]/.test(s)) return false;
+  const numeric=[3,8,24,26,27,33,36,37,44,55,57,58,59,60,63,77,78,99,5304,5305,5306,90001];
+  if(numeric.indexOf(id)<0) return true;
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(s)) return false;
+  const n=Number(s);
+  if(!Number.isFinite(n)) return false;
+  if([3,36,55,57].indexOf(id)>=0) return n>=-273.15;
+  if([8,37,99,5304].indexOf(id)>=0) return n>=0 && n<=100;
+  if([24,26,58,59,60,63,5305].indexOf(id)>=0) return n>0;
+  if(id===90001) return Number.isInteger(n) && n>=0 && n<=2147483647;
+  if(id===27) return true; // Net radiation can cool an interior surface.
+  return n>=0;
 }
 
 // ---------- objcatidlist.csv 読み込み ----------
 // A列: RGB値 / B列以降: オブジェクトIDスペース区切り。
 // RGBの書式ゆれ ("R G B" / "R,G,B" / 単一整数) に耐性を持たせる。
 function sslSplitCsvLine(line){
-  const cols=[]; let cur=''; let inQ=false;
+  const cols=[]; let cur=''; let inQ=false; let closed=false;
   for(let i=0;i<line.length;i++){
     const c=line[i];
     if(inQ){
-      if(c==='"'){ if(line[i+1]==='"'){cur+='"'; i++;} else inQ=false; }
+      if(c==='"'){ if(line[i+1]==='"'){cur+='"'; i++;} else {inQ=false; closed=true;} }
       else cur+=c;
     }else{
-      if(c==='"') inQ=true;
-      else if(c===','){ cols.push(cur); cur=''; }
+      if(c==='"'){ if(cur.trim()!=='' || closed) throw new Error('CSV_QUOTES'); inQ=true; cur=''; }
+      else if(c===','){ cols.push(cur); cur=''; closed=false; }
+      else if(closed){ if(!/\s/.test(c)) throw new Error('CSV_QUOTES'); }
       else cur+=c;
     }
   }
+  if(inQ) throw new Error('CSV_QUOTES');
   cols.push(cur);
   return cols;
 }
 function sslParseRgb(rgbStr){
-  const s=String(rgbStr||'').trim();
+  const s=String(rgbStr==null?'':rgbStr).trim();
   const hex=s.match(/^#([0-9a-fA-F]{6})$/);
   if(hex){
     const n=parseInt(hex[1],16);
     return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
   }
-  const nums=(s.match(/\d+/g)||[]).map(Number);
-  if(nums.length>=3 && nums.slice(0,3).every(function(v){ return v>=0 && v<=255; })){
+  const triple=s.match(/^(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)$/);
+  const nums=triple ? triple.slice(1).map(Number) : [];
+  if(nums.length===3 && nums.every(function(v){ return v>=0 && v<=255; })){
     return {r:nums[0], g:nums[1], b:nums[2]};
   }
-  if(nums.length===1){
-    const n=nums[0];
+  if(/^\d+$/.test(s) && Number(s)<=16777215){
+    const n=Number(s);
     return {r:n&255, g:(n>>8)&255, b:(n>>16)&255};
   }
   return null;
@@ -385,6 +396,26 @@ function sslHexToRgb(hex){
 }
 function sslRgbChebyshev(a,b){
   return Math.max(Math.abs(a.r-b.r), Math.abs(a.g-b.g), Math.abs(a.b-b.b));
+}
+function sslThermalCategories(){
+  if(typeof appMode!=='undefined' && appMode!=='architrend') return [];
+  return typeof boundaryThermalCategories==='function' ? (boundaryThermalCategories()||[]) : [];
+}
+function sslGainRoomName(g){
+  let name=g.zone||'';
+  const cards=(typeof document!=='undefined' && document.querySelectorAll)
+    ? document.querySelectorAll('.room-card') : [];
+  for(let i=0;i<cards.length;i++){
+    const ds=cards[i].dataset||{};
+    const same=!!g.zone && (ds.epZone===g.zone || ds.atRoomKey===g.zone ||
+      !!ds.epZone && typeof sslNormName==='function' && sslNormName(ds.epZone)===sslNormName(g.zone)) ||
+      !!g.roomKey && ds.atRoomKey===g.roomKey;
+    const el=cards[i].querySelector && cards[i].querySelector('.roomName');
+    if(same || el && String(el.value).trim()===String(g.zone||'').trim()){
+      if(el && String(el.value).trim()) name=String(el.value).trim();
+    }
+  }
+  return name;
 }
 function sslColorCatalog(){
   const items=[];
@@ -401,30 +432,29 @@ function sslColorCatalog(){
       add(k, {r:p.r, g:p.g, b:p.b}, 'palette');
     });
   }
+  if(typeof epShadePalette!=='undefined'){
+    Object.keys(epShadePalette).forEach(function(k){
+      const p=epShadePalette[k];
+      add(k, {r:p.r, g:p.g, b:p.b}, 'palette');
+    });
+  }
   sslWindowUGroups().forEach(function(g){
     add('window', g.color, 'window');
   });
-  const gainVols=(typeof idfMeshEnsureGainVolumes==='function')
-    ? idfMeshEnsureGainVolumes()
-    : ((typeof epParse!=='undefined' && epParse && epParse.gainVolumes)||[]);
+  sslThermalCategories().forEach(c=>add(c.key,c.color,'thermal'));
+  let gainVols=[];
+  try{
+    gainVols=(typeof idfMeshEnsureGainVolumes==='function')
+      ? idfMeshEnsureGainVolumes()
+      : ((typeof epParse!=='undefined' && epParse && epParse.gainVolumes)||[]);
+  }catch(e){
+    // Parsing/assignment remains usable; sslGainColorErrors repeats the actual
+    // output check and blocks export with a fixed error code.
+  }
   if(gainVols && gainVols.length){
-    const cards=(typeof document!=='undefined' && document.querySelectorAll)
-      ? document.querySelectorAll('.room-card') : [];
     gainVols.forEach(function(g){
       if(!g || !g.color) return;
-      let name=g.zone||'';
-      for(let i=0;i<cards.length;i++){
-        const ds=cards[i].dataset||{};
-        const same=ds.epZone===g.zone || ds.atRoomKey===g.zone || ds.atRoomKey===g.roomKey ||
-          (typeof sslNormName==='function' && (sslNormName(ds.epZone)===sslNormName(g.zone)));
-        if(same){
-          const el=cards[i].querySelector && cards[i].querySelector('.roomName');
-          if(el && String(el.value).trim()) name=String(el.value).trim();
-        }else{
-          const el=cards[i].querySelector && cards[i].querySelector('.roomName');
-          if(el && String(el.value).trim()===String(g.zone||'').trim()) name=String(el.value).trim();
-        }
-      }
+      const name=sslGainRoomName(g);
       if(name) add('room:'+name, {r:g.color.r, g:g.color.g, b:g.color.b}, 'gain');
     });
   }
@@ -438,45 +468,76 @@ function sslGuessCategory(rgbStr){
   sslColorCatalog().forEach(function(it){
     const d=sslRgbChebyshev(rgb, it);
     if(d>tol) return;
-    const rank=(it.src==='fixed'?0:it.src==='gain'?0:it.src==='window'?1:2);
+    const rank=(it.src==='thermal'?-1:it.src==='fixed'?0:it.src==='gain'?0:it.src==='window'?1:2);
     if(!best || d<best.d || (d===best.d && rank<best.rank)){
-      best={key:it.key, d:d, rank:rank};
+      best={key:it.key, d:d, rank:rank,src:it.src,ambiguous:false};
+    }else if(d===best.d && rank===best.rank && best.key!==it.key &&
+      (rank===-1 || it.src==='gain' || best.src==='gain')){
+      best.ambiguous=true;
     }
   });
-  return best?best.key:'';
+  return best&&!best.ambiguous?best.key:'';
 }
 function sslPriorityForKey(key){
   if(!key || key==='exclude' || String(key).indexOf('room:')===0) return null;
+  const thermal=sslThermalCategories().find(c=>c.key===key);
+  if(thermal && thermal.priority!=null) return thermal.priority;
   if(typeof SSL_PRIORITY==='object' && SSL_PRIORITY[key]!=null) return SSL_PRIORITY[key];
+  if(String(key).indexOf('wall_')===0) return 10;
   return null;
 }
+function sslShadeCategory(g){
+  const tag=g.index<=1 ? g.orient : (g.orient+'#'+g.index);
+  return {
+    key:g.sslKey,
+    label:'外壁 '+tag+' (発生パネル)',
+    params:(typeof sslWallParams==='function') ? sslWallParams(tag) : []
+  };
+}
 function sslFillEmptyAssigns(assign){
-  const next=assign||{};
+  const previous=assign||{},next={};
   sslColors.forEach(function(c){
+    const oldKey=Object.keys(previous).find(k=>{const rgb=sslParseRgb(k);return rgb && [rgb.r,rgb.g,rgb.b].join(' ')===c.rgb;});
+    if(oldKey && previous[oldKey]) next[c.rgb]=previous[oldKey];
     if(next[c.rgb]) return;
     const g=sslGuessCategory(c.rgb);
     if(g) next[c.rgb]=g;
   });
   return next;
 }
-function parseSslCat(text, fileName){
-  const map={}; const order=[];
-  text.split(/\r\n|\r|\n/).forEach(line=>{
-    if(!line.trim()) return;
-    const cols=sslSplitCsvLine(line);
-    const key=String(cols[0]).trim();
-    if(key==='' || !sslParseRgb(key)) return;
-    const ids=(cols.slice(1).join(' ').match(/\d+/g)||[]).map(Number);
-    if(!ids.length) return;
+function sslParseCategoryCsv(text){
+  const map=Object.create(null), seen=new Set(), order=[], errors=[];
+  String(text).replace(/^\uFEFF/,'').split(/\r\n|\r|\n/).forEach((line,index)=>{
+    if(!line.trim() || /^\s*;/.test(line)) return;
+    let cols;
+    try{ cols=sslSplitCsvLine(line); }catch(e){ errors.push('行 '+(index+1)+': CSVの引用符が閉じていません'); return; }
+    if(cols.length!==2){ errors.push('行 '+(index+1)+': 色とID一覧の2列が必要です。objParam.csvと取り違えていないか確認してください'); return; }
+    const rgb=sslParseRgb(cols[0]);
+    if(!rgb){ errors.push('行 '+(index+1)+': RGBは #RRGGBB、3つの0〜255、または0〜16777215で指定してください'); return; }
+    const tokens=cols[1].trim().split(/\s+/);
+    if(!cols[1].trim() || tokens.some(t=>!/^\d+$/.test(t) || Number(t)<1 || Number(t)>2147483647)){
+      errors.push('行 '+(index+1)+': オブジェクトIDは正の整数を空白で区切ってください'); return;
+    }
+    const key=[rgb.r,rgb.g,rgb.b].join(' '), ids=tokens.map(Number);
     if(!map[key]){ map[key]={rgb:key, css:sslCssColor(key), ids:[]}; order.push(key); }
-    ids.forEach(id=>{ if(map[key].ids.indexOf(id)===-1) map[key].ids.push(id); });
+    ids.forEach(id=>{
+      if(seen.has(id)) errors.push('行 '+(index+1)+': オブジェクトID '+id+' が重複しています');
+      else {seen.add(id); map[key].ids.push(id);}
+    });
   });
-  sslColors = order.map(k=>map[k]);
+  if(!order.length && !errors.length) errors.push('色とオブジェクトIDの行がありません。FDで色モードのCSVを出し直してください');
+  return {colors:errors.length?[]:order.map(k=>map[k]),errors,warnings:[]};
+}
+function parseSslCat(text, fileName){
+  const parsed=sslParseCategoryCsv(text);
+  sslCatDiagnostics={errors:parsed.errors,warnings:parsed.warnings};
+  sslColors = parsed.colors;
   sslFileName = fileName||'';
   const next={};
   let autoCount=0;
   sslColors.forEach(c=>{
-    if(sslAssign[c.rgb]) next[c.rgb] = sslAssign[c.rgb];
+    const oldKey=Object.keys(sslAssign).find(k=>{const r=sslParseRgb(k);return r && [r.r,r.g,r.b].join(' ')===c.rgb;});
+    if(oldKey && sslAssign[oldKey]) next[c.rgb] = sslAssign[oldKey];
     else {
       const g=sslGuessCategory(c.rgb);
       next[c.rgb] = g;
@@ -488,17 +549,21 @@ function parseSslCat(text, fileName){
   if(info){
     info.textContent = sslColors.length
       ? sslFileName+' — '+sslColors.length+'色 / オブジェクト'+sslColors.reduce((a,c)=>a+c.ids.length,0)+'個を読み込み、'+autoCount+'色を自動割当しました'
-      : '色とオブジェクトIDの行が見つかりませんでした。objcatidlist.csv (色モードで出力) か確認してください。';
+      : 'CSVを読み込めませんでした。下の修正項目を確認してください。';
   }
   renderSslAssign();
   if(typeof saveStateDebounced==='function') saveStateDebounced();
+  return parsed;
 }
 function onSslCatSelected(input){
   const file=input.files[0];
   if(!file) return;
+  resetSslCategory();
+  const readId=++sslReadSelectionId;
   const reader=new FileReader();
-  reader.onload=e=>parseSslCat(e.target.result, file.name);
-  reader.readAsText(file);
+  reader.onload=e=>{if(readId===sslReadSelectionId)parseSslCat(e.target.result, file.name);};
+  reader.onerror=()=>{if(readId!==sslReadSelectionId)return;resetSslCategory();sslCatDiagnostics.errors=['ファイルを読み込めませんでした。ファイルを選び直してください'];updateSslPreview();};
+  reader.readAsText(file,'shift-jis');
   input.value='';
 }
 
@@ -520,6 +585,13 @@ function sslRoomNames(){
 function sslCategoryOptions(){
   const opts=[{key:'', label:'— 未割当 —'}];
   SSL_CATEGORIES.forEach(c=>opts.push({key:c.key, label:c.label}));
+  sslThermalCategories().forEach(c=>opts.push({key:c.key,label:c.label}));
+  if(typeof epShadeGroups!=='undefined'){
+    epShadeGroups.forEach(function(g){
+      if(!g || g.index<=1) return;
+      opts.push({key:g.sslKey, label:'外壁 '+g.orient+'#'+g.index+' (発生パネル)'});
+    });
+  }
   sslRoomNames().forEach(n=>opts.push({key:'room:'+n, label:'発生エリア: '+n}));
   opts.push({key:'exclude', label:'対象外 (書き出さない)'});
   return opts;
@@ -536,7 +608,7 @@ function sslAssignStatusHtml(){
   const n=sslAssignCounts();
   if(!n.total) return '';
   if(n.open){
-    return '<p class="ssl-assign-status"><span class="ssl-remain">未割当 '+n.open+' 色</span> / 割当済 '+n.done+' 色。赤い行はまだ書き出されません。</p>';
+    return '<p class="ssl-assign-status"><span class="ssl-remain">未割当 '+n.open+' 色</span> / 割当済 '+n.done+' 色。すべて割り当てるか、対象外を明示すると書き出せます。</p>';
   }
   return '<p class="ssl-assign-status"><span class="ssl-ok">全 '+n.total+' 色を割当済み</span>（対象外も含む）</p>';
 }
@@ -585,9 +657,10 @@ function renderSslAssign(){
 
 // ---------- objParam.csv 生成 ----------
 function sslWindowUGroups(){
+  if(typeof appMode!=='undefined'&&appMode==='architrend'&&typeof architrendWindowUGroups==='function')return architrendWindowUGroups();
   if(typeof uniqueSortedWinU!=='function') return [];
   let us = [];
-  if(typeof epParse!=='undefined' && epParse && epParse.windows && epParse.windows.length){
+  if((typeof appMode==='undefined'||appMode==='energyplus') && typeof epParse!=='undefined' && epParse && epParse.windows && epParse.windows.length){
     us = uniqueSortedWinU(epParse.windows.map(function(w){ return w.u; }));
   }
   if(!us.length && typeof collectRoomWindowUs==='function') us = collectRoomWindowUs();
@@ -605,6 +678,7 @@ function sslWindowGroupForRgb(rgbStr){
 }
 function sslSplitWindowDummy(){
   const groups = sslWindowUGroups();
+  if(typeof appMode!=='undefined'&&appMode==='architrend')return groups.length>0;
   if(groups.length<2) return false;
   const matched = sslColors.filter(function(c){ return !!sslWindowGroupForRgb(c.rgb); });
   return matched.length>=2;
@@ -620,6 +694,8 @@ function sslWindowDummyVal(rgbStr){
 }
 
 function sslCategoryByKey(key){
+  const thermal=sslThermalCategories().find(c=>c.key===key);
+  if(thermal) return thermal;
   if(key.indexOf('room:')===0){
     const name=key.slice(5);
     return {key, label:'発生エリア: '+name, roomName:name, params:[
@@ -627,6 +703,10 @@ function sslCategoryByKey(key){
       {id:77, label:'発熱量', roomGain:'heat'},
       {id:78, label:'発湿量', roomGain:'moist'}
     ]};
+  }
+  if(typeof epShadeGroups!=='undefined'){
+    const hit=epShadeGroups.find(function(g){ return g && g.sslKey===key && g.index>1; });
+    if(hit) return sslShadeCategory(hit);
   }
   return SSL_CATEGORIES.find(c=>c.key===key)||null;
 }
@@ -638,23 +718,93 @@ function sslEnsureCalcs(){
   try{ runAll(); }
   finally{ _sslEnsuring=false; }
 }
+function sslGainColorErrors(){
+  const errors=[];
+  const mode=typeof appMode==='undefined'?'':appMode;
+  if(mode!=='architrend' && mode!=='energyplus') return errors;
+  const source=mode==='architrend'
+    ? (typeof atMesh!=='undefined' && atMesh)
+    : (typeof epParse!=='undefined' && epParse);
+  // The CSV-only/manual workflow has no exported gain solids to compare.
+  if(!source) return errors;
+  const expected=new Map(),roomNames=new Set();
+  try{
+    const volumes=typeof idfMeshEnsureGainVolumes==='function' ? idfMeshEnsureGainVolumes() : (source.gainVolumes||[]);
+    if(!Array.isArray(volumes)) throw new Error('GAIN_OUTPUT_INVALID');
+    volumes.forEach(function(vol){
+      if(!vol) throw new Error('GAIN_OUTPUT_INVALID');
+      // Match idfMeshAppendGainVolumes: only solids actually written to the
+      // gain 3DS can require a returned color/ID row.
+      if(typeof idfMeshGainSolid==='function'){
+        const solid=idfMeshGainSolid(vol);
+        if(!solid || !solid.verts || solid.verts.length<4 || !solid.tris || !solid.tris.length) return;
+      }
+      const rgb=vol.color||{r:255,g:176,b:168};
+      if(!['r','g','b'].every(k=>Number.isInteger(rgb[k]) && rgb[k]>=0 && rgb[k]<=255)) throw new Error('GAIN_COLOR_INVALID');
+      const color=[rgb.r,rgb.g,rgb.b].join(' '),name=sslGainRoomName(vol);
+      if(!name) throw new Error('GAIN_ROOM_INVALID');
+      const normalizedName=sslNormName(name);
+      if(roomNames.has(normalizedName)) errors.push(sslDuplicateRoomMessage());
+      roomNames.add(normalizedName);
+      const key='room:'+name,old=expected.get(color);
+      if(old && old.key!==key){
+        errors.push('発熱体の色が複数の居室で重複しています。3DSと色CSVを作り直してください');
+      }else expected.set(color,{key:key});
+    });
+  }catch(e){
+    const code=['GAIN_COLOR_INDEX_INVALID','GAIN_COLOR_CAPACITY_EXCEEDED'].includes(e && e.code) ? e.code : 'GAIN_OUTPUT_INVALID';
+    return ['['+code+'] 現在の発熱体の出力対象を確認できません。居室設定を確認し、3DSと色CSVを作り直してください'];
+  }
+  if(!expected.size) return errors;
+  const allIds=new Set();
+  sslColors.forEach(function(row){
+    if(!Array.isArray(row.ids)){
+      errors.push('発熱体を含む色CSVのID一覧が不正です。FDで色CSVを出し直してください');
+      return;
+    }
+    row.ids.forEach(function(id){
+      if(!Number.isInteger(id) || id<1 || id>2147483647 || allIds.has(id)){
+        errors.push('発熱体を含む色CSVのIDが不正または重複しています。FDで色CSVを出し直してください');
+      }
+      allIds.add(id);
+    });
+    if(String(sslAssign[row.rgb]||'').indexOf('room:')===0 && !expected.has(row.rgb)){
+      errors.push('現在の発熱体にない色が発生エリアへ割り当てられています。3DSを取り込み直し、FDで色CSVを出し直してください');
+    }
+  });
+  expected.forEach(function(required,color){
+    const row=sslColors.find(c=>c.rgb===color);
+    if(!row){
+      errors.push('現在の居室に必要な発熱体の色が色CSVにありません。3DSを取り込み直し、FDで色CSVを出し直してください');
+      return;
+    }
+    if(sslAssign[color]!==required.key){
+      errors.push('発熱体の色が対応する居室へ割り当てられていません。「対象外」にはせず、3DSと色CSVを確認してください');
+    }
+    if(!Array.isArray(row.ids) || !row.ids.length){
+      errors.push('発熱体の色に有効なオブジェクトIDがありません。FDで色CSVを出し直してください');
+    }
+  });
+  return [...new Set(errors)];
+}
 function buildObjParam(){
-  const warns=[]; const lines=[];
+  const warns=[]; const errors=sslCatDiagnostics.errors.slice(); const lines=[];
+  errors.push(...sslGainColorErrors());
   let objCount=0; let unassigned=0;
-  const resolvedCache={};
+  const resolvedCache={}; const seenIds=new Set();
   sslColors.forEach(c=>{
     const key=sslAssign[c.rgb]||'';
     if(key==='' ){ unassigned++; return; }
     if(key==='exclude') return;
     const cat=sslCategoryByKey(key);
-    if(!cat){ warns.push('RGB '+c.rgb+': 割当カテゴリが見つかりません (部屋名の変更など)。割当し直してください'); return; }
+    if(!cat){ errors.push('RGB '+c.rgb+': 割当カテゴリが見つかりません。割当し直してください'); return; }
     if(!resolvedCache[key]){
       const params=cat.params.slice();
       const pri=sslPriorityForKey(key);
       if(typeof SSL_PRIORITY_PARAM_ID==='number' && SSL_PRIORITY_PARAM_ID && pri!=null){
         params.push({id:SSL_PRIORITY_PARAM_ID, label:'優先度', fixed:String(pri)});
       }
-      resolvedCache[key]=params.map(p=>({id:p.id, val:sslResolveParam(p, warns, cat.label, cat.roomName)}))
+      resolvedCache[key]=params.filter(p=>!(key==='window'&&p.id===63&&sslSplitWindowDummy())).map(p=>({id:p.id, val:sslResolveParam(p, warns, cat.label, cat.roomName, errors)}))
                                .filter(pv=>{
                                  if(cat.roomName && (pv.id===77 || pv.id===78)) return pv.val!=null && pv.val!=='';
                                  return pv.val!==null;
@@ -663,28 +813,59 @@ function buildObjParam(){
     let pvs=resolvedCache[key];
     if(key==='window' && sslSplitWindowDummy()){
       const d=sslWindowDummyVal(c.rgb);
-      pvs=pvs.map(function(pv){
-        if(pv.id!==63 || d==null) return pv;
-        return {id:pv.id, val:d};
-      });
+      pvs=pvs.filter(pv=>pv.id!==63);
+      if(d!=null)pvs=pvs.concat([{id:63,val:d}]);
       if(d==null && warns.every(function(w){ return String(w).indexOf('U色分けに一致しない')<0; })){
-        warns.push('窓色 '+c.rgb+' はU色分けに一致しないため、共通の疑似厚みを使います。このツールの3DSを取り込み直してください');
+        errors.push('窓色 '+c.rgb+' がU色分けに一致しません。このツールの3DSを取り込み直し、色CSVを出し直してください');
       }
     }
     if(!pvs.length) return;
     c.ids.forEach(objId=>{
+      if(!Number.isInteger(objId) || objId<1 || objId>2147483647 || seenIds.has(objId)){
+        errors.push('対象オブジェクトIDが不正または重複しています。FDから色CSVを出し直してください'); return;
+      }
+      seenIds.add(objId);
       objCount++;
       pvs.forEach(pv=>lines.push(objId+','+pv.id+','+pv.val));
     });
   });
-  if(unassigned>0) warns.push('未割当の色が '+unassigned+' 件あります (未割当の色は書き出されません)');
+  if(unassigned>0) errors.push('未割当の色が '+unassigned+' 件あります。割当カテゴリか「対象外」を選んでください');
+  if(!objCount) errors.push('反映対象のオブジェクトがありません');
   // モデル全体設定 (m行)
   sslModelParams().forEach(p=>{
-    const v=sslResolveParam(p, warns, 'モデル設定');
+    const v=sslResolveParam(p, warns, 'モデル設定',undefined,errors);
     if(v!==null) lines.push('m,'+p.id+','+v);
   });
-  return {lines, warns, objCount};
+  const unit=document.getElementById('sslFlowUnit');
+  if(!unit || !['cmh','cmm'].includes(unit.value)) errors.push('CSVの流量単位を選んでください');
+  return {lines, warns, errors, objCount};
 }
+function sslReadiness(){
+  const built=buildObjParam(), errors=built.errors.slice(), warnings=built.warns.slice();
+  if(!sslColors.length && !errors.length) errors.push('先にFDの色CSVを読み込んでください');
+  if(typeof boundaryExportReadiness==='function'){
+    const check=boundaryExportReadiness('conditions');
+    if(check && check.ready===false) errors.push(check.message||'入力資料とモデルの修正項目を確認してください');
+  }else if(typeof appMode!=='undefined' && appMode==='architrend' && typeof architrendImportReadiness==='function'){
+    const check=architrendImportReadiness();
+    if(check && check.ready===false){
+      const messages=Array.isArray(check.blocking)?check.blocking:(Array.isArray(check.errors)?check.errors:[]);
+      errors.push(...(messages.length?messages.map(e=>typeof e==='string'?e:e.message||e.code||'入力資料の確認が必要です'):['ARCHITRENDの入力資料に未解決の問題があります']));
+    }
+  }
+  if(typeof boundaryExportReadiness!=='function' && typeof appMode!=='undefined' && appMode==='architrend' && typeof atMesh!=='undefined' && atMesh && atMesh.readiness && atMesh.readiness.ready===false){
+    errors.push('3DSの形状確認が必要です。モデルの修正項目を確認してください');
+  }
+  if(sslEncodeSjis(built.lines.join('\r\n')).bad.length) errors.push('材質名にShift-JISで出力できない文字があります。ASCIIか既定候補を使用してください');
+  return {ready:errors.length===0,errors,warnings,objectCount:built.objCount,lines:built.lines};
+}
+function resetSslCategory(){
+  sslReadSelectionId++;
+  sslColors=[];sslAssign={};sslFileName='';sslCatDiagnostics={errors:[],warnings:[]};
+  const fi=document.getElementById('sslFileInfo');if(fi)fi.textContent='';
+  renderSslAssign();
+}
+if(typeof window!=='undefined'){window.sslReadiness=sslReadiness;window.resetSslCategory=resetSslCategory;}
 function renderSslWarns(warns){
   const ul=document.getElementById('sslWarnList');
   if(!ul) return;
@@ -694,31 +875,32 @@ function renderSslWarns(warns){
 }
 function updateSslPreview(){
   const info=document.getElementById('sslExportInfo');
-  if(!sslColors.length){ renderSslWarns([]); if(info) info.textContent=''; return; }
-  const built=buildObjParam();
-  renderSslWarns(built.warns);
-  if(info) info.textContent='現在の設定で 設定行 '+built.lines.length+' 行 / 対象オブジェクト '+built.objCount+' 個';
+  const check=sslReadiness(),button=document.getElementById('sslExportBtn');
+  if(button)button.disabled=!check.ready;
+  renderSslWarns(check.errors.concat(check.warnings));
+  if(info) info.textContent=check.ready?'現在の設定で 設定行 '+check.lines.length+' 行 / 対象オブジェクト '+check.objectCount+' 個':(sslColors.length?'書き出し前に修正が必要です':'');
 }
 function sslDownloadCsv(){
   const info=document.getElementById('sslExportInfo');
   if(!sslColors.length){ if(info) info.textContent='先に objcatidlist.csv を読み込んでください。'; return; }
   sslEnsureCalcs();
-  const built=buildObjParam();
-  renderSslWarns(built.warns);
-  if(!built.lines.length){
-    if(info) info.textContent='書き出せる設定行がありません。割当と計算値を確認してください。';
+  const built=sslReadiness();
+  renderSslWarns(built.errors.concat(built.warnings));
+  if(!built.ready){
+    if(info) info.textContent='書き出しを停止しました。修正項目を確認してください。';
     return;
   }
   const now=new Date();
   const stamp=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   const all=[
     '; cfd_boundary_tool SSL export '+stamp+',,',
+    '; cfd_boundary_tool contract=1 flow_unit='+document.getElementById('sslFlowUnit').value+',,',
     '\u25CF\u30C7\u30FC\u30BF\u958B\u59CB\u884C,=,=',                       // ●データ開始行
     '\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8ID,\u30D1\u30E9\u30E1\u30FC\u30BFID,\u30D1\u30E9\u30E1\u30FC\u30BF'  // タイトル行
   ].concat(built.lines);
   const enc=sslEncodeSjis(all.join('\r\n')+'\r\n');
   if(enc.bad.length){
-    renderSslWarns(built.warns.concat(['Shift-JIS変換できない文字が含まれるため書き出せません: '+enc.bad.join(' ')+' (材質名はASCIIか既定候補を使用してください)']));
+    renderSslWarns(built.warnings.concat(['Shift-JIS変換できない文字が含まれるため書き出せません。材質名はASCIIか既定候補を使用してください']));
     return;
   }
   const blob=new Blob([enc.bytes], {type:'text/csv'});
@@ -727,7 +909,7 @@ function sslDownloadCsv(){
   a.download='objParam.csv';
   a.click();
   URL.revokeObjectURL(a.href);
-  if(info) info.textContent='objParam.csv を書き出しました (設定行 '+built.lines.length+' 行 / 対象オブジェクト '+built.objCount+' 個)。FDのプロジェクトフォルダに置いて「【SSL】自動化_objParamCSV読み込み.vbs」を実行してください。';
+  if(info) info.textContent='objParam.csv を書き出しました (設定行 '+built.lines.length+' 行 / 対象オブジェクト '+built.objectCount+' 個)。FDの .fdp と同じフォルダへ置き、名前を objParam.csv（(1)なし）にしてから、FDの読込スクリプトを実行してください。';
 }
 
 // ---------- 状態保存への統合 (09-state.js はラップして変更しない) ----------
@@ -745,7 +927,10 @@ if(typeof applyState==='function'){
     _sslApplyOrig(s);
     if(s && s.ssl){
       sslFileName=s.ssl.fileName||'';
-      sslColors=Array.isArray(s.ssl.colors)?s.ssl.colors:[];
+      const restored=Array.isArray(s.ssl.colors)?s.ssl.colors:[];
+      const checked=sslParseCategoryCsv(restored.map(c=>String(c.rgb)+','+(Array.isArray(c.ids)?c.ids.join(' '):'')).join('\n'));
+      sslColors=checked.colors;
+      sslCatDiagnostics={errors:checked.errors,warnings:checked.warnings};
       sslAssign=sslFillEmptyAssigns(s.ssl.assign||{});
       const fi=document.getElementById('sslFileInfo');
       if(fi) fi.textContent=sslColors.length?(sslFileName?sslFileName+' — ':'')+sslColors.length+'色を復元しました':'';

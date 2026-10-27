@@ -9,12 +9,23 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta property="og:title" content="境界条件ツール — FlowDesigner">
 <meta property="og:image" content="./apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="style.css?v=20260924a">
+<!-- Bundled font and libraries work offline without contacting a CDN. -->
+<script src="vendor/chart.umd-4.4.1.js"></script>
+<script src="vendor/pdf-3.11.174.js"></script>
+<link rel="stylesheet" href="style.css?v=20261025c">
+<link rel="stylesheet" href="beginner.css?v=20261024h">
+<link rel="stylesheet" href="workflow.css?v=20261025e">
+<link rel="stylesheet" href="settings.css?v=20261025g">
+<link rel="stylesheet" href="actions.css?v=20261025i">
+<link rel="stylesheet" href="pipeline.css?v=20261021g">
+<link rel="stylesheet" href="journey.css?v=20261025j">
+<link rel="stylesheet" href="earth.css?v=20261026c">
+<link rel="stylesheet" href="header.css?v=20261026b">
+<link rel="stylesheet" href="gains.css?v=20261025p">
+<link rel="stylesheet" href="guides.css?v=20261025p">
+<link rel="stylesheet" href="metal.css?v=20261026d">
+<link rel="stylesheet" href="fields.css?v=20261027b">
+<link rel="stylesheet" href="workspace.css?v=20261027d">
 </head>
 <body>
 <a class="skip-link" href="#main">本文へ</a>
@@ -30,21 +41,26 @@
     <div class="header-status">
       <span id="modeInfo" class="visually-hidden">モード未選択</span>
       <span class="status-dot" aria-hidden="true"></span>
-      <span id="saveInfo">入力内容はこのブラウザに自動保存されます</span>
+      <span id="saveInfo" role="status" aria-live="polite">入力内容はこのブラウザに自動保存されます</span>
     </div>
     <div class="header-actions">
-      <button type="button" onclick="exportJSON()">JSON書き出し</button>
+      <button type="button" onclick="if(saveStateNow()){this.textContent='保存済み';setTimeout(()=>this.textContent='いま保存',2000)}">いま保存</button>
+      <button type="button" onclick="exportJSON()">バックアップ保存</button>
       <button type="button" onclick="document.getElementById('importFile').click()">読み込み</button>
       <button type="button" onclick="resetAll()">リセット</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
     </div>
   </div>
 </header>
+<div class="workflow-tabs" role="group" aria-label="解析フロー">
+  <button type="button" id="flowCfd" aria-pressed="true">CFDのみ</button>
+  <button type="button" id="flowCoupled" aria-pressed="false">EP → CFD <span>IDF作成・SQL取込</span></button>
+</div>
 <div class="mode-tabs" id="modeTabs" role="tablist" aria-label="入力モード">
   <button type="button" role="tab" class="is-current" data-mode="manual" aria-selected="true" tabindex="0"><span class="tab-idx">01</span><span class="tab-label">手動入力</span></button>
   <button type="button" role="tab" data-mode="architrend" aria-selected="false" tabindex="-1"><span class="tab-idx">02</span><span class="tab-label">アーキトレンド</span></button>
-  <button type="button" role="tab" data-mode="energyplus" aria-selected="false" tabindex="-1"><span class="tab-idx">03</span><span class="tab-label">EnergyPlus</span></button>
-  <span id="atRemainInfo" class="mode-tabs-remain" style="display:none; color:var(--chrome-hot);"></span>
+  <button type="button" role="tab" data-mode="energyplus" aria-selected="false" tabindex="-1"><span class="tab-idx">03</span><span class="tab-label">計算済みEPデータ取込</span></button>
+  <button type="button" id="atRemainInfo" class="mode-tabs-remain" style="display:none" data-workflow-home aria-label="残りの作業と設定済みの一覧を開く"></button>
 </div>
 </div>
 
@@ -93,29 +109,51 @@
 
 <div class="wrap" id="main">
 
+<section id="requiredSetupGuide" class="setup-guide" aria-label="残りの作業と設定済みの一覧" hidden></section>
+
 <div id="atPanel" class="box">
-  <h3 style="margin-top:0;">アーキトレンド 出力データ</h3>
-  <p class="small" style="margin-top:0;">CSVを主入力として窓と外皮面積を正確に取得します。PDFを追加すると、CSVにないUA・U値・居室・窓ηなどを補完して相互検証します。</p>
-  <div class="row2" style="max-width:760px; align-items:end;">
-    <div>
-      <label>シミュレートデータ CSV <span class="tag-at">推奨・主入力</span></label>
-      <input type="file" id="atCsvInput" accept="text/csv,.csv">
+  <section class="at-start" aria-labelledby="atStartTitle">
+    <div class="at-start-heading"><span class="at-start-kicker">ARCHITREND → FlowDesigner</span><h3 id="atStartTitle">おうちのデータから、はじめましょう。</h3><p>まずは同じ物件のファイルを用意します。読み込む順番は自由です。</p></div>
+    <img class="at-start-flow" src="assets/architrend/workflow.svg?v=20261025k" width="1120" height="250" alt="1 データを読み込む → 2 部屋と階を確認 → 3 断熱・使い方を設定 → 4 FlowDesignerへ渡す">
+    <img class="at-start-flow-mobile" src="assets/architrend/workflow-mobile.svg?v=20261025k" width="360" height="460" alt="1 データ読込、2 部屋・階の確認、3 断熱・使い方の設定、4 FDへ渡す、の順に進みます。">
+    <p class="at-input-instruction">赤茶色の「ファイルの選択」から資料を選びます。窓の枚数・部屋数・断熱性能などは自動で取得し、下に結果を表示します。</p>
+    <div class="at-upload-grid">
+      <section class="at-upload-card" data-at-upload="at3dsInput">
+        <div class="at-upload-top"><span class="at-file-kind">3DS</span><span class="at-upload-status" id="at3dsStatus" role="status">まだ選んでいません</span></div>
+        <label for="at3dsInput">① 家の3Dモデル</label><p>床・壁・窓の形を読み込みます。<br>ARCHITRENDから出力した3DSを選びます。</p>
+        <p class="at-input-requirement" id="at3dsRequirement">選択が必要：FDへ渡す家の3Dモデル</p>
+        <input type="file" id="at3dsInput" accept=".3ds,.3DS" aria-describedby="at3dsRequirement at3dsHint">
+        <small id="at3dsHint">床・内壁・天井を含めて出力してください。</small><p class="small" id="at3dsFileEcho"></p>
+      </section>
+      <section class="at-upload-card" data-at-upload="atCsvInput">
+        <div class="at-upload-top"><span class="at-file-kind">CSV・Excel</span><span class="at-upload-status" id="atCsvStatus" role="status">まだ選んでいません</span></div>
+        <label for="atCsvInput">② 窓と断熱のデータ</label><p>窓の大きさや断熱性能を読み込みます。<br>外皮の表が入ったCSVかExcel（.xlsx）を選びます。</p>
+        <p class="at-input-requirement" id="atCsvRequirement">資料を選択：CSV・Excel または性能表PDF</p>
+        <input type="file" id="atCsvInput" accept="text/csv,.csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="atCsvRequirement atCsvHint">
+        <small id="atCsvHint">モデルと同じ物件・同じ版を使います。ExcelはCSVへ保存し直さず、そのまま選べます。</small>
+      </section>
+      <section class="at-upload-card" data-at-upload="atPdfInput">
+        <div class="at-upload-top"><span class="at-file-kind">PDF</span><span class="at-upload-status" id="atPdfStatus" role="status">追加すると便利です</span></div>
+        <label for="atPdfInput">③ 部屋名などを補うPDF一式 <span>複数選択可</span></label><p>同じ物件の性能表と平面図を、まとめて選べます。<br>今回選んだ一式に置き換え、以前のPDFは引き継ぎません。</p>
+        <p class="at-input-requirement" id="atPdfRequirement" data-file-requirement="optional">補足は任意：CSV・Excelがない場合は性能表PDFを選択</p>
+        <input type="file" id="atPdfInput" accept="application/pdf,.pdf" multiple aria-describedby="atPdfRequirement atPdfHint">
+        <small id="atPdfHint">平面図の部屋名を優先し、性能表の窓η・断熱性能を補います。読めない図面は理由を表示し、ほかのPDFで取得できた値を保持します。別の物件は資料一式を選び直してください。</small>
+      </section>
     </div>
-    <div>
-      <label>外皮性能計算表 PDF <span class="small">任意・補完用</span></label>
-      <input type="file" id="atPdfInput" accept="application/pdf,.pdf">
-    </div>
-  </div>
-  <div class="row2" style="max-width:760px; align-items:end; margin-top:10px;">
-    <div>
-      <label>色分け用 3DS <span class="tag-at">内壁つき可</span></label>
-      <input type="file" id="at3dsInput" accept=".3ds,.3DS">
-      <p class="small" id="at3dsFileEcho" style="margin:6px 0 0;"></p>
-    </div>
-  </div>
-  <p class="small" style="margin:9px 0 0;">CSVのみでも窓は取得できます。部屋カードはPDFの居室区画面積表、または3DSの床・内壁から作ります。3DSはマテリアルの透明度で窓を分け、内壁・天井を残し、軒の出は壁外形へ寄せます。メッシュはブラウザに保存しないので、開き直したら選び直してください。</p>
+    <details class="at-start-options"><summary>モデルの大きさ・階数が違うとき</summary><p>普段は「自動確認」のままで進めます。表示が元のモデルと違うときに確認してください。</p><div class="at-model-options">
+      <label for="at3dsUnit">3DSの長さの単位</label>
+      <select id="at3dsUnit"><option value="auto">自動確認</option><option value="m">m（メートル）</option><option value="mm">mm（ミリメートル）</option></select>
+      <label for="at3dsStories">地上階数</label>
+      <select id="at3dsStories"><option value="auto">モデルから確認</option><option value="1">1階建て</option><option value="2">2階建て</option><option value="3">3階建て</option></select>
+      <details><summary>不足している2階床の高さを指定</summary><label for="at3dsUpperFloorZ">2階床のZ座標（モデルの原点から、m）</label><input id="at3dsUpperFloorZ" type="number" step="0.001" placeholder="元モデルで確認した高さ"><p class="small">屋根の高さから階数・階高を推測しません。元モデルと一致する値を指定してください。</p></details>
+    </div></details>
+    <div class="at-start-next"><div><b>次にすること</b><p id="atStartNext" role="status">3DモデルとCSV・Excelを選ぶところから始めましょう。</p></div></div>
+    <p class="at-start-note">形状・入力・割当はこのブラウザに保存され、再開時に復元します。「バックアップ保存」では形状を含むJSONを保存できます。</p>
+  </section>
   <div id="atSummary" style="margin-top:12px;"></div>
   <div id="atReview"></div>
+  <section id="atPlanFloorReview" class="at-plan-floor-review" aria-label="PDF平面図の階を確認" hidden></section>
+  <section id="atFloorReview" class="at-plan-floor-review" aria-label="上階の床と吹抜けを確認" hidden></section>
   <section id="atRoomViewer" class="at-room-viewer" aria-label="3DS 部屋の確認と修正" hidden></section>
   <ul class="at-warn-list" id="atWarnList" style="display:none;"></ul>
 </div>
@@ -146,14 +184,16 @@
   <div id="epSqlStatus" class="small" style="margin-top:8px;"></div>
   <div id="epSummary" style="margin-top:12px;"></div>
   <div id="epReview"></div>
+  <section id="epRoomViewer" class="at-room-viewer" aria-label="EnergyPlusの部屋配置" hidden></section>
   <ul class="at-warn-list" id="epWarnList" style="display:none;"></ul>
 </div>
 
 <p class="desc" style="margin-top:16px;">FlowDesigner初心者向け。上から順に入力すると境界条件の値がすべて計算されます。Step 3のあと、SSL連携で FlowDesigner へ一括反映します。手でコピーする場合は末尾の転記一覧を使います。</p>
 
 <div class="legend-box" id="legendManual"><span class="tag-req">要設定</span><span>のバッジが付いた項目は、対象の建物・敷地・気象条件に応じて自分で調べて入力する値です (例: 外壁の熱通過率)。バッジがない項目は標準値やツールが自動計算する値なので、基本的にそのまま使えます。</span></div>
-<div class="legend-box" id="legendAt" style="display:none;"><span class="tag-req">要手動</span><span>のバッジと赤ハイライトは、CSV/PDFから確実に読めなかった空欄です。推測埋めはしません。床・基礎Uと人体・機器の原単位は初期値が入っています。在室人数は手入力です。<span class="tag-at">AT</span> はアーキトレンド出力から自動入力した項目です。</span></div>
+<div class="legend-box" id="legendAt" style="display:none;"><span class="setup-required-legend">必須</span><span>オレンジ色の入力欄は、今回の解析・出力に必要な未設定項目です。欄の下の理由を確認し、入力するとハイライトが消えます。取得済み・反映済みの値を重ねて入力する必要はありません。使わない換気や部位の欄は必須にしません。<span class="tag-at">AT</span> はアーキトレンドから取得した値です。</span></div>
 <div class="legend-box" id="legendEp" style="display:none;"><span class="tag-req">要手動</span><span>のバッジは IDF/SQL に無い項目です。壁U・窓U（複数なら面積加重）・UA・外皮面積・ピーク時刻・最大在室人数は自動入力します。人体・機器の原単位と床・基礎U、換気回数 0.5 回/h は初期値が入っています。<span class="tag-at">EP</span> は EnergyPlus から自動入力した項目です。</span></div>
+
 
 <!-- ================= 共通条件 ================= -->
 <h2 id="common">
@@ -241,19 +281,24 @@
     <div class="field-user"><label>最高気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmax" value="37.1" step="0.1"></div>
     <div class="field-user"><label>最低気温 (℃)<span class="tag-req">要設定</span></label><input type="number" id="tmin" value="26.0" step="0.1"></div>
   </div>
-  <div class="row4">
+  <div class="row2">
     <div class="field-user"><label>気温ピーク時刻 (時)<span class="tag-req">要設定</span></label><input type="number" id="tpeak" value="14.5" step="0.5"></div>
     <div class="field-user"><label>目標室温 (℃) ※負荷計算・吹出温度に使用<span class="tag-req">要設定</span></label><input type="number" id="targetT" value="26" step="0.5"></div>
-    <div><label>解析の初期温度 (℃)</label><input type="number" id="initT" value="25" step="0.5"></div>
-    <div><label>解析の初期湿度 (%)</label><input type="number" id="initRH" value="60" step="1"></div>
   </div>
-  <div class="row4">
-    <div><label>日射吸収率 α (外皮表面)</label><input type="number" id="alpha" value="0.70" step="0.01"></div>
-    <div><label>外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
-    <div><label>地面反射率 ρ</label><input type="number" id="rho" value="0.20" step="0.01"></div>
-    <div><label>屋根の夜間放射補正 ΔR/ho (℃)</label><input type="number" id="roofCorr" value="4" step="0.5"></div>
-    <div><label>対流成分比 f_c (窓日射)</label><input type="number" id="solarFc" value="0.10" step="0.01" min="0" max="1"></div>
-  </div>
+  <section class="setting-assumptions" data-assumptions="common" aria-label="現在使っている日射・初期状態の条件"></section>
+  <details class="setting-details" id="commonAdvanced" data-basic-detail="common">
+    <summary>詳細設定：日射・熱の計算条件と解析の初期状態</summary>
+    <p class="setting-help">ここに入力した値で計算します。資料や解析方針に合わせて調整してください。「初期状態」は計算を始める時点の温度・湿度で、目標室温とは別の値です。</p>
+    <div class="row3">
+      <div><label for="alpha">日射吸収率 α（壁・屋根）</label><input type="number" id="alpha" value="0.70" step="0.01"></div>
+      <div><label for="ho">壁・屋根の外表面熱伝達率 ho (W/m²K)</label><input type="number" id="ho" value="23" step="1"></div>
+      <div><label for="rho">地面反射率 ρ</label><input type="number" id="rho" value="0.20" step="0.01"></div>
+      <div><label for="roofCorr">屋根の夜間放射補正 ΔR/ho (℃)</label><input type="number" id="roofCorr" value="4" step="0.5"></div>
+      <div hidden><label for="solarFc">窓日射の対流成分比 f_c</label><input type="number" id="solarFc" value="0.10" step="0.01" min="0" max="1"></div>
+      <div><label for="initT">解析の初期温度 (℃)</label><input type="number" id="initT" value="25" step="0.5"></div>
+      <div><label for="initRH">解析の初期湿度 (%)</label><input type="number" id="initRH" value="60" step="1"></div>
+    </div>
+  </details>
   <div class="small" id="commonSolarInfo"></div>
 </div>
 </div>
@@ -261,6 +306,18 @@
 
 <!-- ================= STEP 1 ================= -->
 <h2 id="step1"><span class="stepnum">01</span><span class="h2-text"><span class="h2-jp">断熱性能と相当外気温度</span><span class="h2-en">Insulation / SAT</span></span><label class="done-label"><input type="checkbox" id="done1">このステップ完了</label></h2>
+
+<section id="insulationGuide" class="insulation-guide" aria-label="部位別の断熱設定" hidden>
+  <header class="insulation-guide-heading"><div><p>01 断熱性能</p><h3>外壁・屋根・天井を、ここで確認</h3></div><p>取得済み・反映済みの値をそのまま使います。<br>必要なところだけ設定してください。</p></header>
+  <div id="insulationTaskSummary" class="insulation-task-summary" role="status"></div>
+  <div class="insulation-cards">
+    <article class="insulation-card" data-insulation-card="wall"><div class="insulation-card-title"><h4>外壁</h4><span data-insulation-state></span></div><p data-insulation-current></p><div data-insulation-input="wall"></div><p class="insulation-next" data-insulation-next></p><button type="button" data-insulation-action="wall">外壁を設定する</button></article>
+    <article class="insulation-card" data-insulation-card="roof"><div class="insulation-card-title"><h4>屋根</h4><span data-insulation-state></span></div><p data-insulation-current></p><div data-insulation-input="roof"></div><p class="insulation-next" data-insulation-next></p><button type="button" data-insulation-action="roof">屋根を設定する</button></article>
+    <article class="insulation-card" data-insulation-card="ceiling"><div class="insulation-card-title"><h4>天井・小屋裏</h4><span data-insulation-state></span></div><p data-insulation-current></p><p class="insulation-next" data-insulation-next></p><button type="button" data-insulation-action="ceiling">天井・小屋裏を設定する</button></article>
+  </div>
+  <p class="insulation-guide-note">床・基礎・窓・外部扉は、この下の各設定で確認できます。屋根と天井の値は区別し、共通して使う条件を二重に入力しないようにしています。</p>
+</section>
+<section id="atThermalReview" class="at-thermal-editors" aria-label="01 断熱性能：外壁・屋根・天井と小屋裏の設定" hidden></section>
 
 <div class="stage-split">
 <aside class="stage-guide">
@@ -387,7 +444,7 @@
     <b>相当外気温度 (SAT: Sol-Air Temperature) とは</b><br>
     壁や屋根など日射が当たる不透明な外皮表面は、外気温だけでなく日射も受けて温められています。SATは、その「外気温+日射の影響」をまとめて1つの仮想的な外気温として置き換えたものです。<br>
     SAT = 外気温 Ta + α×(壁面が受ける日射量)/外表面熱伝達率 ho − (屋根のみ) 夜間放射による低下分。<br>
-    EnergyPlus の SQL に面日射があるときは、この SAT を ISO 13786 の遅れ φ と減衰率 η で ETD にし、発生パネルの外気温は <b>室温 + ETD</b> とします (q = U × ETD)。SQL が無いときは従来どおり晴天モデルの SAT を外気温に入れます。
+    EnergyPlus の SQL に面日射があるときは、この SAT を ISO 13786 の遅れ φ と減衰率 η で ETD にし、発生パネルの外気温は <b>室温 + ETD</b> とします (q = U × ETD)。同じ方位の外壁でも、その外気温の差が 0.1℃を超える部分は 3DS の色と SSL の外気温を分けます。庇がある壁は、解析時刻の日影で日なたと日陰に分割します。差が 0.1℃以内の部分は同じ色です。SQL が無いときは従来どおり晴天モデルの SAT を外気温に入れます。
   </div>
   <div class="diagram">
     <svg viewBox="0 0 620 140" style="width:100%; max-width:620px; height:auto;">
@@ -411,14 +468,14 @@
   </div>
 </aside>
 <div class="stage-work">
-<div class="box">
+<div class="box" id="atEnvelopeReference">
   <h3 style="margin-top:0;">1-4 屋根・外壁 (SAT + 熱通過率)</h3>
-  <div class="row2" style="max-width:500px;">
-    <div class="field-user"><label>外壁の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWall" value="0.39" step="0.01"></div>
-    <div class="field-user"><label>屋根の熱通過率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uRoof" value="0.27" step="0.01"></div>
+  <div class="row2" style="max-width:960px;">
+    <div class="field-user"><label>外壁の熱通過率 U (W/m²K)<span class="tag-req">要設定</span><span id="uWallStatus" class="at-envelope-status" hidden></span></label><input type="number" id="uWall" value="0.39" step="0.01" aria-describedby="uWallHint"><div id="uWallHint" class="at-envelope-hint" hidden><p></p><button type="button" onclick="architrendShowThermal('wall')">外壁の仕様を面ごとに設定する ↑</button></div></div>
+    <div class="field-user"><label>屋根の熱通過率 U (W/m²K)<span class="tag-req">要設定</span><span id="uRoofStatus" class="at-envelope-status" hidden></span></label><input type="number" id="uRoof" value="0.27" step="0.01" aria-describedby="uRoofHint"><div id="uRoofHint" class="at-envelope-hint" hidden><p></p><button type="button" onclick="architrendShowThermal('ceiling')">小屋裏・断熱の設定を確認する ↑</button></div></div>
   </div>
   <div class="row2" style="max-width:500px; margin-top:10px;">
-    <div class="field-user"><label>外部扉の熱通過率 U (W/m²K)</label><input type="number" id="uDoor" step="0.01"></div>
+    <div class="field-user"><label>外部扉の熱通過率 U (W/m²K)</label><input type="number" id="uDoor" step="0.01" aria-describedby="uDoorHint"><div id="uDoorHint" class="at-envelope-hint" hidden><p></p></div></div>
   </div>
   <p class="small">窓をドアに変えた面は、元の形のままこのUと方位のSATで外部扉にします。扉の隙間は作りません。</p>
   <p class="small" style="font-weight:600; margin:12px 0 4px;">↓ 参考: 1日のSAT変化 (方位別・傾向確認用)</p>
@@ -509,12 +566,16 @@
   </div>
 </aside>
 <div class="stage-work">
-<div class="box">
+<div class="box win-preset-panel">
   <h3 style="margin-top:0;">1-7 窓 (疑似厚みの逆算)</h3>
+  <div class="win-preset-guide boundary-action-bar" data-boundary-action="win-preset">
+    <div><b id="winPresetHelp">窓の仕様を選ぶと、U値を自動入力できます。</b><p>① 下の3つの仕様を選ぶ → ② U値を確認。今の選択のまま入力したいときは、右のボタンを押してください。</p><span id="winPresetStatus" class="boundary-action-status" role="status" aria-live="polite"></span></div>
+    <button type="button" id="winPresetApply" onclick="applyWinTableU()" aria-describedby="winPresetStatus">選択中の仕様からU値を入力 ↓</button>
+  </div>
   <div class="row4">
-    <div><label>建具の仕様</label><select id="winFrame"></select></div>
-    <div><label>ガラス・中空層の仕様</label><select id="winGlass"></select></div>
-    <div><label>付属部材</label><select id="winAttach">
+    <div><label for="winFrame">① 建具の仕様</label><select id="winFrame" aria-describedby="winPresetHelp winPresetStatus"></select></div>
+    <div><label for="winGlass">① ガラス・中空層の仕様</label><select id="winGlass" aria-describedby="winPresetHelp winPresetStatus"></select></div>
+    <div><label for="winAttach">① 付属部材</label><select id="winAttach" aria-describedby="winPresetHelp winPresetStatus">
       <option value="0">無し</option>
       <option value="1">シャッター・雨戸付</option>
       <option value="2">和障子付</option>
@@ -522,15 +583,22 @@
     </select></div>
     <div style="align-self:end;" class="small" id="winTableInfo"></div>
   </div>
-  <div class="row5">
-    <div class="field-user"><label>窓の熱貫流率 U (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uWin" value="1.7" step="0.01"></div>
-    <div><label>内表面熱伝達率 (W/m²K)</label><input type="number" id="hiWin" value="9" step="0.5"></div>
-    <div><label>外表面熱伝達率 (W/m²K)</label><input type="number" id="hoWin" value="25" step="0.5"></div>
-    <div><label>CFD材質の熱伝導率 λ (W/mK)</label><input type="number" id="lamWin" value="1" step="0.1"></div>
+  <div class="row2">
+    <div class="field-user"><label for="uWin">② 窓の熱貫流率 U (W/m²K)</label><input type="number" id="uWin" value="1.7" step="0.01" aria-describedby="winPresetStatus winPresetManual"><span class="small" id="winPresetManual">仕様書の値を直接入力することもできます。</span></div>
   </div>
-  <div class="small" style="margin-bottom:8px;">躯体のみの熱抵抗 = 1/U − 1/外表面 − 1/内表面、疑似厚み = 躯体熱抵抗 × λ。EnergyPlus連携では各窓のUを部屋カードに入れ、ここは面積加重の代表値です。種類が複数あると下表と3DS色分けで疑似厚みを分けます。日射は各窓のη0です。</div>
+  <section class="setting-assumptions" data-assumptions="window" aria-label="現在使っている窓の計算条件"></section>
+  <details class="setting-details" id="windowAdvanced" data-basic-detail="window">
+    <summary>詳細設定：窓の熱伝達率・材質とCFDへの換算</summary>
+    <p class="setting-help">窓のU値と同じ熱抵抗になるよう、CFD用の仮の厚みへ換算します。この厚みは実際のガラスの厚さではありません。</p>
+    <div class="row3">
+      <div><label for="hiWin">内表面熱伝達率 (W/m²K)</label><input type="number" id="hiWin" value="9" step="0.5"></div>
+      <div><label for="hoWin">外表面熱伝達率 (W/m²K)</label><input type="number" id="hoWin" value="25" step="0.5"></div>
+      <div><label for="lamWin">CFD材質の熱伝導率 λ (W/mK)</label><input type="number" id="lamWin" value="1" step="0.1"></div>
+    </div>
+    <p class="setting-help">躯体のみの熱抵抗 = 1/U − 1/外表面 − 1/内表面、疑似厚み = 躯体熱抵抗 × λ。EnergyPlus連携では各窓のUを部屋カードに入れ、共通欄は面積加重の代表値です。種類が複数あると下表と3DS色分けで疑似厚みを分けます。日射は各窓のη0です。</p>
+    <div id="winWrap"></div>
+  </details>
   <div id="winWarn"></div>
-  <div id="winWrap"></div>
   <div id="winPerUWrap" style="margin-top:10px;"></div>
 </div>
 </div>
@@ -671,11 +739,10 @@
     cosθ = cos h × cos (A − wAz) → 窓が受ける日射 = I_DN × max(cosθ, 0)。裏を向いていて cosθ が負になる場合は0として扱います。3DSモードではビューワーで設定した北方向から wAz を更新します。
   </div>
   <div class="info">
-    <b>④ 透過率 η → 室内への熱 (W)</b><br>
-    窓ガラス+付属部材 (ブラインド等) を通過する割合を日射熱取得率 η0 として窓ごとに設定します (下の窓入力欄)。最終的な直達日射による室内発熱は次の式です。<br>
-    <b>q_eff = q_raw × [f_c + (1−f_c)×r_G]</b> ← この値がStep 2の「直達日射」として部屋ごとに合算されます。<br>
-    q_raw は、SQL に透過日射があればその値 (W)、無ければ <b>I_DN × cosθ × η0 × A</b> です。r_G は表2.12の方位×時刻（北面は1.0）、f_c の初期値は 0.10 です。
-  </div>
+    <b>④ 直達・散乱・地面反射 → 窓から室内へ入る熱</b><br>
+    <b>Q = (I_DN × max(cosθ,0) ＋ DHI/2 ＋ ρ×GHI/2) × η₀ × A</b><br>
+    鉛直窓・等方天空の簡易式です。DHI = 0.125×I_DN、GHI = I_DN×sin(太陽高度)＋DHI。η₀は日射熱取得率で、透過とガラス吸収後の室内流入（放射・対流）を含みます。再放射を別加算しません。<br>
+    室内に入った熱は全量を顕熱負荷に計上します。蓄熱・再放射の時間遅れは計算せず、旧 f_c・r_G の減額は使いません。晴天近似なので曇天・周辺建物・庇の遮蔽は再現しません。  </div>
   <div class="diagram">
     <svg viewBox="0 0 780 220" style="width:100%; max-width:780px; height:auto;">
       <defs>
@@ -694,11 +761,11 @@
         <path d="M370,105 A33,33 0 0 0 357,80" fill="none" stroke="#3D3D3D" stroke-width="1.5"/>
         <text x="378" y="88" font-size="11" fill="#3D3D3D" font-weight="600">θ</text>
         <line x1="344" y1="105" x2="470" y2="105" stroke="#DE5A3A" stroke-width="3" marker-end="url(#mkSun2)"/>
-        <text x="460" y="90" font-size="10" fill="#b3611f" text-anchor="end">室内へ透過 (×η0)</text>
+        <text x="460" y="90" font-size="10" fill="#b3611f" text-anchor="end">室内へ取得 (×η0)</text>
         <line x1="330" y1="105" x2="260" y2="60" stroke="#B4B4B4" stroke-width="1.5" marker-end="url(#mkSun2)"/>
         <text x="255" y="52" font-size="9.5" fill="#8C8C8C" text-anchor="middle">反射・吸収</text>
-        <text x="600" y="60" font-size="12" font-weight="600" fill="#3D3D3D" text-anchor="middle">q = I_DN・cosθ・η0・A</text>
-        <text x="600" y="78" font-size="10" fill="#8C8C8C" text-anchor="middle">[W] → Step 2 直達日射へ</text>
+        <text x="600" y="60" font-size="12" font-weight="600" fill="#3D3D3D" text-anchor="middle">q = 全入射日射・η0・A</text>
+        <text x="600" y="78" font-size="10" fill="#8C8C8C" text-anchor="middle">[W] → 部屋の窓日射熱へ</text>
       </g>
     </svg>
   </div>
@@ -707,12 +774,13 @@
 </aside>
 <div class="stage-work">
 <div class="box">
-  <p class="small" style="margin-top:0;">部屋ごとに発生エリアを作ります。窓がある部屋は直達日射を必ず内部発熱に入れ、居室だけ人体・機器・発湿を足します。太陽条件は共通条件から自動計算され、Step 3 の必要処理熱量に使われます。</p>
-  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。潜熱は発湿×2450 kJ/kg÷3600 です。各窓のη0はSHGC、Uは構成から入れます。SQLに透過日射があればそれを r_G 補正して使い、無ければ η0×日射×面積に r_G を掛けます。SQLからピーク日付・時刻も入れます。</div>
-  <div class="note">対象: ①窓のある部屋は直達日射を内部発熱に入れる ②居室はそこに人体・機器発熱を足す。北面を含むすべての窓について、設定方位と太陽位置の入射角から直達日射を計算します。</div>
+  <p class="small" style="margin-top:0;">部屋ごとに発生エリアを作ります。窓がある部屋は窓日射熱を必ず内部発熱に入れ、居室だけ人体・機器・発湿を足します。太陽条件は共通条件から自動計算され、Step 3 の必要処理熱量に使われます。</p>
+  <div class="note" id="epStep2Hint" style="display:none;">EnergyPlus連携では在室人数を IDF の People（スケジュール前の最大人数）から入れます。People が無い室は 0 人です。人体顕熱・発湿はその人数×原単位、機器は床面積×原単位です。潜熱は発湿×2450 kJ/kg÷3600 です。各窓のη0はSHGC、Uは構成から入れます。SQLの透過日射に、面日射×η×面積との差分（0以上）を吸収後の室内流入として補います。面日射がないときは晴天近似で補完します。散乱・反射の二重加算と r_G の減額は行いません。SQLからピーク日付・時刻も入れます。</div>
+  <div class="note">対象: ①窓のある部屋は窓日射熱を内部発熱に入れる ②居室はそこに人体・機器発熱を足す。北面を含むすべての窓について、直達・天空散乱・地面反射を含めて計算します。</div>
   <div class="summary-grid" id="step2SolarInfo"></div>
 </div>
 
+<p id="atWindowMatchSummary" class="box" role="status" hidden></p>
 <div id="atUnassignedBox" class="box" style="display:none;">
   <h3 style="margin-top:0;">未割当の窓 (アーキトレンド自動取得)<span class="tag-req">要手動</span></h3>
   <p class="small" style="margin-top:0;">3DSの窓は幾何の部屋へ自動で入ります。窓のある非居室は直達日射だけのカードになります。ここに残るのは、3DS位置と結びつかないPDF窓などです。部屋を選んで割り当てできます。<span id="atNorthExcludedInfo"></span></p>
@@ -789,13 +857,12 @@
   <h3 style="margin-top:0;">3-1 機種の選択</h3>
   <div class="row4">
     <div class="field-user"><label>畳数クラス<span class="tag-req">要設定</span></label><select id="tatamiSel"></select></div>
-    <div class="field-user"><label>最大冷房能力 (kW) ※編集可</label><input type="number" id="acMax" value="3.4" step="0.1"></div>
     <div class="field-user"><label>台数<span class="tag-req">要設定</span></label><input type="number" id="acCount" value="1" step="1" min="1"></div>
     <div style="align-self:end;" class="small" id="acRatedInfo"></div>
   </div>
-  <p class="small" style="margin:-2px 0 12px;">最大冷房能力は空欄のままでも大丈夫です。吹出温度の計算には使いません。台数は空欄にできません。1台以上がないと吹出温度を計算できません。</p>
+  <p class="small">台数を1台以上で設定してください。機器能力の確認・変更は、下の詳細設定にあります。</p>
   <h3>3-2 風向・風量の選択 (Z-Tシリーズ実測ベース)</h3>
-  <p class="small" style="margin:-6px 0 10px;">風向は FlowDesigner に渡す設定です。エアコンを置くときに水平 / 30° / 50° を選びます。ここでの風向は、手動入力のときと、まだ置いていないときの初期値です。</p>
+  <p class="small" style="margin:-6px 0 10px;">風向は FlowDesigner に渡す設定です。配置済みのエアコンは各台の風向を使い、未配置のときはここの風向が初期値です。</p>
   <div class="row4">
     <div><label>風向</label><select id="dirSel"><option value="水平">水平</option><option value="50°">50° (ノッチ3)</option><option value="30°">30°</option></select>
       <p class="small" id="dirSelNote" hidden></p></div>
@@ -803,6 +870,13 @@
     <div><label>風量/台 (㎥/h) ※編集可</label><input type="number" id="flowPerUnit" value="608" step="1"></div>
     <div style="align-self:end;" class="small" id="flowInfo"></div>
   </div>
+  <section class="setting-assumptions" data-assumptions="ac" aria-label="現在使っているエアコン計算の仮定"></section>
+  <details class="setting-details" id="acAdvanced" data-basic-detail="ac">
+    <summary>詳細設定：機器能力の確認・計算の前提</summary>
+    <div class="row2"><div class="field-user"><label for="acMax">最大冷房能力 (kW・任意)</label><input type="number" id="acMax" value="3.4" step="0.1"></div></div>
+    <p class="setting-help">最大冷房能力は能力不足の確認に使います。空欄なら能力判定を行いません。吹出温度の計算には使いません。機器の仕様書で確認できます。</p>
+    <p class="setting-help">吹出温度は総風量と顕熱負荷から求める、全台共通の概算値です。発湿の潜熱は別に集計し、除湿の計算は行いません。吹出湿度は95%RHに固定しています。</p>
+  </details>
 </div>
 </div>
 </div>
@@ -849,7 +923,7 @@
 <div class="box">
   <h3 style="margin-top:0;">3-3 必要冷房処理熱量の計算</h3>
   <div class="row4">
-    <div class="field-user"><label>UA値 (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uaVal" value="0.37" step="0.01"></div>
+    <div class="field-user"><label>UA値 (W/m²K)<span class="tag-req">要設定</span></label><input type="number" id="uaVal" value="0.37" step="0.01" aria-describedby="atUaRepair"><div id="atUaRepair" class="at-envelope-hint" hidden><p></p><button type="button" onclick="architrendUseCsvUaEstimate()">CSVからUAの概算を入れる</button></div></div>
     <div class="field-user"><label>外皮面積 (㎡)<span class="tag-req">要設定</span></label><input type="number" id="envArea" value="300" step="1"></div>
     <div><label>外気温 (℃) ※共通条件から自動</label><input type="number" id="outTaDisp" value="37" readonly></div>
     <div><label>目標室温 (℃) ※共通条件から自動</label><input type="number" id="roomTDisp" value="26" readonly></div>
@@ -879,15 +953,17 @@
 <div class="stage-work">
 <div class="box">
   <h3 style="margin-top:0;">3-4 吹出温度の算出 (全台数で均等に処理する前提)</h3>
-  <p class="small">吹出温度 = 目標室温 − (必要処理熱量 ÷ 台数) / (ρ・cp・1台あたり風量)。すべての台数が同じ風量で稼働し、負荷を均等に分担すると仮定しています。</p>
+  <p class="small">総風量と顕熱負荷から、全台共通の吹出温度を概算します。採用中の仮定は上の「現在の計算条件」で確認できます。</p>
   <div class="summary-grid" id="supplyStats"></div>
   <div id="acWarn"></div>
 </div>
 
 <div class="box">
-  <h3 style="margin-top:0;">3-5 台数を変えた場合の比較 (均等分担)</h3>
+  <details class="setting-details" id="acCompareAdvanced" data-basic-detail="ac-compare">
+  <summary>詳細：台数を変えた場合の比較（同じ風量で均等分担）</summary>
   <p class="small">同じ機種・同じ風量ノッチのまま台数だけを変えたら、1台あたりの処理熱量と吹出温度がどう変わるかの一覧です。現在選択中の台数の行を強調表示します。</p>
   <div id="acCountCompare"></div>
+  </details>
 </div>
 </div>
 </div>
@@ -940,11 +1016,19 @@
     <div class="ssl-step"><span class="n">1</span><b>FDで色リストを出す</b><span>プロジェクトを開いた状態で「【SSL】オブジェクトIDカテゴライズcsv出力.vbs」を実行</span></div>
     <div class="ssl-step"><span class="n">2</span><b>CSVを読み込む</b><span>プロジェクトフォルダの objcatidlist.csv をファイル選択へ</span></div>
     <div class="ssl-step"><span class="n">3</span><b>色に属性を割当てる</b><span>3DS色とAC・扉モジュール色は自動割当。手直し可</span></div>
-    <div class="ssl-step"><span class="n">4</span><b>objParam.csv を書く</b><span>「objParam.csv を書き出す」でダウンロード</span></div>
+    <div class="ssl-step"><span class="n">4</span><b>objParam.csv を配置する</b><span>ダウンロード後、対象の .fdp と同じフォルダへ移動。名前を objParam.csv にする</span></div>
     <div class="ssl-step"><span class="n">5</span><b>FDへ読み込む</b><span>「【SSL】自動化_objParamCSV読み込み.vbs」。外壁を発生パネルにし、優先度も入れる</span></div>
   </div>
 </aside>
 <div class="stage-work">
+<details class="fd-guide" open>
+  <summary>図で確認：FDへの受渡しと保存先</summary>
+  <p>今回出力した <b>objParam.csv</b> を、いま開いている <b>.fdp と同じフォルダ</b>へ置きます。</p>
+  <img src="assets/setup/fd-roundtrip.svg" alt="FDで形状を確定して色CSVを出力し、Toolで条件CSVを作成して、同じFDプロジェクトへ戻す順序" width="900" height="330" loading="lazy">
+  <div class="fd-guide-grid"><figure><img src="assets/setup/fd-folder.svg" alt="model.fdp と objParam.csv は同じフォルダ直下に置く。Scriptsフォルダではない" width="740" height="360" loading="lazy"><figcaption>色リストはFDがここへ出力。条件CSVはダウンロード後に移動します。</figcaption></figure><div><h3>読み込み前の3点確認</h3><ol><li>対象のFDプロジェクトを開いている</li><li>名前が <code>objParam.csv</code> になっている</li><li>今回の形状・条件から作成したCSVである</li></ol><p class="small"><code>objcatidlist.csv</code> はファイル選択で読むため、別フォルダや <code>(1)</code> 付きでも内容が正しければ使えます。FDが固定名で探すのは <code>objParam.csv</code> です。</p></div></div>
+  <img src="assets/setup/fd-rename.svg" alt="DownloadsのobjParam (1).csvを、今回の出力と確認してobjParam.csvに改名し、対象のFDプロジェクトフォルダへ移動" width="900" height="260" loading="lazy">
+  <a href="FD連携ガイド.html" target="_blank" rel="noopener">別画面で手順を開く・印刷する</a>
+</details>
 <div class="ssl-banner">
   objParam.csv を読むとき、外壁・屋根・窓・基礎を発生パネルへ変え、薄い赤の内部発熱ソリッドを発生エリアへ変え、優先度（壁10・窓30・隙間50・吹出90）も入れます。内壁と埋メは形状モデルのままです。
 </div>
@@ -959,13 +1043,13 @@
   </div>
   <div class="row2" style="max-width:760px; margin-top:10px;">
     <div>
-      <label>FDプロジェクトの流量単位 (エアコン風量の換算先)</label>
+      <label>CSVに書き出す流量単位</label>
       <select id="sslFlowUnit">
         <option value="cmh" selected>㎥/h (CMH)</option>
         <option value="cmm">m³/min (CMM)</option>
       </select>
     </div>
-    <div class="small" style="align-self:end;">FlowDesigner側の「領域の設定」の流量単位に合わせてください。SSLの空調解析系スクリプトは CMM 前提です。</div>
+    <div class="small" style="align-self:end;">単位をCSVに記録します。更新版のFDスクリプトが、FDの入力に必要なCMMへ一度だけ換算します。旧CSVで単位が不明な場合は読み込み時に選択します。</div>
   </div>
   <div class="row2" style="max-width:760px; margin-top:10px;">
     <div>
@@ -1088,27 +1172,75 @@
 
 </div><!-- /.wrap -->
 
-<script src="js/01-constants.js?v=20260923a"></script>
+<dialog id="atThermalDialog" class="at-thermal-dialog" aria-labelledby="atThermalDialogTitle">
+  <header><div><p>この画面で設定・確認できます</p><h2 id="atThermalDialogTitle">断熱の設定</h2></div><button type="button" onclick="architrendCloseThermal()" aria-label="設定画面を閉じる">閉じる ×</button></header>
+  <p id="atThermalDialogStatus" class="at-thermal-dialog-status" role="status"></p>
+  <div id="atThermalDialogBody" class="at-thermal-dialog-body"></div>
+  <footer>変更した条件は、各設定の「反映」ボタンで確定します。<button type="button" onclick="architrendCloseThermal()">閉じて元の画面へ</button></footer>
+</dialog>
+<script src="js/01-constants.js?v=20261023e"></script>
 <script src="js/02-solar.js?v=20260920f"></script>
-<script src="js/03-utils.js?v=20260920f"></script>
-<script src="js/04-rooms.js?v=20260923a"></script>
-<script src="js/05-ac.js?v=20260923a"></script>
-<script src="js/15-sat-etd.js?v=20260920f"></script>
-<script src="js/06-run-all.js?v=20260924e"></script>
+<script src="js/03-utils.js?v=20261024h"></script>
+<script src="js/24-action-feedback.js?v=20261025i"></script>
+<script src="js/04-rooms.js?v=20261025p"></script>
+<script src="js/05-ac.js?v=20261024f"></script>
+<script src="js/15-sat-etd.js?v=20261027a"></script>
+<script src="js/06-run-all.js?v=20261027a"></script>
 <script src="js/07-external-api.js?v=20260920f"></script>
-<script src="js/08-presets.js?v=20260923a"></script>
-<script src="js/09-state.js?v=20260924a"></script>
-<script src="js/10-architrend.js?v=20260923c"></script>
-<script src="js/12-energyplus.js?v=20260920k"></script>
-<script src="js/13-ssl-export.js?v=20260923a"></script>
-<script src="js/14-idf-mesh.js?v=20260924c"></script>
-<script src="js/16-at-3ds.js?v=20260923b"></script>
-<script src="js/17-at-rooms.js?v=20260923b"></script>
-<script src="js/19-at-stairs.js?v=20260923a"></script>
-<script src="js/18-at-room-viewer.js?v=20260923f"></script>
+<script src="js/08-presets.js?v=20261024a"></script>
+<script src="js/09-state.js?v=20261024d"></script>
+<script src="js/24-at-pdf-lines.js?v=20261025a"></script>
+<script src="js/24-at-plan-rooms.js?v=20261025a"></script>
+<script src="js/24-at-pdf-set.js?v=20261026a"></script>
+<script src="js/24-at-room-match.js?v=20261023g"></script>
+<script src="js/24-at-spatial-match.js?v=20261023g"></script>
+<script src="js/24-at-plan-floor.js?v=20261023e"></script>
+<script src="js/10-architrend.js?v=20261026i"></script>
+<script src="js/24-at-xlsx.js?v=20261025b"></script>
+<script src="js/12-energyplus.js?v=20261027b"></script>
+<script src="js/13-ssl-export.js?v=20261023e"></script>
+<script src="js/14-idf-mesh.js?v=20261023h"></script>
+<script src="js/16-at-3ds.js?v=20261025c"></script>
+<script src="js/17-at-rooms.js?v=20261024i"></script>
+<script src="js/24-at-room-merge.js?v=20261023g"></script>
+<script src="js/24-at-room-merge-fields.js?v=20261023g"></script>
+<script src="js/24-at-room-merge-ui.js?v=20261025i"></script>
+<script src="js/24-at-interstory-opening.js?v=20261023i"></script>
+<script src="js/24-at-floor-review.js?v=20261027a"></script>
+<script src="js/19-at-stairs.js?v=20261023g"></script>
+<script src="js/18-at-room-viewer.js?v=20261027d"></script>
+<script src="js/24-at-window-recheck.js?v=20261026a"></script>
 <script src="js/19-at-fdd-templates.js?v=20260924d"></script>
-<script src="js/20-at-parts.js?v=20260924d"></script>
-<script src="js/21-at-ac-fdd.js?v=20260924e"></script>
-<script src="js/11-init.js?v=20260923a"></script>
+<script src="js/20-at-parts.js?v=20261027c"></script>
+<script src="js/21-at-ac-fdd.js?v=20261024f"></script>
+<script src="js/22-ep-viewer.js?v=20260928c"></script>
+<script src="js/11-init.js?v=20261024a"></script>
+<script src="js/23-pipeline-defaults.js?v=20261021b"></script>
+<script src="js/23-ghost-viewer.js?v=20261021d"></script>
+<script src="js/23-architrend-import.js?v=20261021f"></script>
+<script src="js/23-setup-tasks.js?v=20261021g"></script>
+<script src="js/23-setup-progress.js?v=20261021g"></script>
+<script src="js/23-setup-guide.js?v=20261025j"></script>
+<script src="js/23-pipeline.js?v=20261025j"></script>
+<script src="js/24-at-attic-model.js?v=20261024e"></script>
+<script src="js/24-at-attic-ui.js?v=20261025i"></script>
+<script src="js/24-at-thermal.js?v=20261025i"></script>
+<script src="js/24-import-safety.js?v=20261023o"></script>
+<script src="js/24-at-start-guide.js?v=20261027b"></script>
+<script src="js/24-insulation-guide.js?v=20261025i"></script>
+<script src="js/24-session-save.js?v=20261025p"></script>
+<script src="js/24-workflow-overview.js?v=20261025e"></script>
+<script src="js/24-required-guide.js?v=20261026a"></script>
+<script src="js/24-basic-details.js?v=20261025p"></script>
+<script src="js/24-gains-ui.js?v=20261025p"></script>
+<script src="js/24-visual-guides.js?v=20261025p"></script>
+<script src="js/25-journey.js?v=20261027e"></script>
+<script src="js/26-header.js?v=20261027b"></script>
+<script src="vendor/paper-liquid-metal.js?v=20261026a"></script>
+<script src="js/27-liquid-metal.js?v=20261026e"></script>
+<script src="js/28-field-guidance.js?v=20261027d"></script>
+<!-- Register the embedded offline font after the application initializes. -->
+<link rel="stylesheet" href="assets/fonts/noto-sans-jp.css?v=20261025k">
 </body>
 </html>
+

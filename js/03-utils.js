@@ -41,7 +41,8 @@ function fillIfEmpty(el, value){
   if(!el) return;
   if(el.value==='' || el.value==null) el.value = String(value);
 }
-function applySharedToolDefaults(){
+function applySharedToolDefaults(options){
+  if(options?.fillEmpty===false)return;
   fillIfEmpty(document.getElementById('uFloor1'), TOOL_DEFAULTS.uFloor1);
   fillIfEmpty(document.getElementById('uFound'), TOOL_DEFAULTS.uFound);
   fillIfEmpty(document.getElementById('ach'), TOOL_DEFAULTS.ach);
@@ -52,13 +53,13 @@ function applySharedToolDefaults(){
   const lonN = lonEl ? parseFloat(lonEl.value) : NaN;
   const geoMissing = !isFinite(latN) || !isFinite(lonN) ||
     (Math.abs(latN)<1e-9 && Math.abs(lonN)<1e-9);
-  if(geoMissing){
+  if(geoMissing&&(typeof appMode==='undefined'||appMode!=='architrend')){
     if(latEl) latEl.value = String(TOOL_DEFAULTS.lat);
     if(lonEl) lonEl.value = String(TOOL_DEFAULTS.lon);
   }
   fillIfEmpty(document.getElementById('calcDate'), TOOL_DEFAULTS.calcDate);
   const hourEl = document.getElementById('detailHour');
-  if(hourEl && (hourEl.value==='' || hourEl.value==null || parseFloat(hourEl.value)===0)){
+  if(hourEl && (hourEl.value==='' || hourEl.value==null)){
     hourEl.value = String(TOOL_DEFAULTS.detailHour);
   }
   document.querySelectorAll('.room-card').forEach(card=>{

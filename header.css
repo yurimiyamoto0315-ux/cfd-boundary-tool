@@ -1,0 +1,107 @@
+/* Keep the capsule layout with a still, softly shaded satin rim. */
+body.journey-mode.has-brand-header{
+  --header-h:96px;--chrome-h:96px;
+  --header-rim:var(--satin-rim);
+}
+body.journey-mode.has-brand-header .app-chrome{height:var(--chrome-h);background:var(--earth-shell);}
+body.journey-mode.has-brand-header .app-header{
+  position:relative;height:var(--chrome-h);max-width:1800px;margin:0 auto;padding:10px 24px 0;
+  display:flex;flex-flow:row nowrap;align-items:flex-start;gap:16px;
+}
+body.journey-mode.has-brand-header #main{margin-top:var(--chrome-h);}
+body.journey-mode.has-brand-header .toc{top:var(--chrome-h);}
+html:has(body.has-brand-header){scroll-padding-top:120px;}
+body.journey-mode.has-brand-header :is(.header-name,.header-utils,.header-save-group){
+  min-height:60px;border:4px solid transparent;border-radius:999px;
+  background:linear-gradient(#fffdfa,#fffdfa) padding-box,var(--header-rim) border-box; /* taste-skill-ignore: flat capsule face inside the requested static satin rim. */
+  box-shadow:0 2px 4px #44372b12,inset 0 1px 0 #ffffff66; /* taste-skill-ignore: shallow depth defines the existing floating header. */
+}
+body.journey-mode.has-brand-header .header-name{
+  min-width:0;flex:0 0 276px;width:auto;height:60px;padding:5px 18px 5px 12px;
+  display:flex;flex-direction:row;align-items:center;gap:12px;text-decoration:none;color:var(--earth-ink);
+}
+body.journey-mode.has-brand-header .header-name::after{content:none;}
+.has-brand-header .header-brand-mark{display:block;flex:0 0 46px;width:46px;height:42px;object-fit:contain;}
+.has-brand-header .header-brand-copy{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.has-brand-header .header-brand-title{font-size:17px;font-weight:600;line-height:1.35;letter-spacing:-.025em;white-space:nowrap;}
+.has-brand-header #journeyCompactCurrent{display:block;margin:0;color:var(--earth-muted);font-size:12px;line-height:1.5;white-space:nowrap;}
+body.journey-mode.has-brand-header .header-name:hover{filter:brightness(1.025);}
+body.journey-mode.has-brand-header .header-utils{
+  flex:1 1 auto;min-width:0;margin:0;padding:3px 12px;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:linear-gradient(var(--earth-sage),var(--earth-sage)) padding-box,var(--header-rim) border-box; /* taste-skill-ignore: flat sage face inside the requested static satin rim. */
+}
+body.journey-mode.has-brand-header :is(.header-utils button,.journey-context){
+  min-height:44px;border:0;border-radius:999px;background:transparent;color:#fffdfa;padding:9px 15px;
+  font-size:14px;font-weight:500;line-height:1.5;white-space:nowrap;flex:none;
+}
+body.journey-mode.has-brand-header .header-utils button:hover{background:#ffffff16;color:#fffdfa;}
+body.journey-mode.has-brand-header .header-actions{display:flex;align-items:center;gap:2px;}
+body.journey-mode.has-brand-header .header-actions button+button{margin:0;}
+body.journey-mode.has-brand-header .header-utils .journey-context{margin:0;border-radius:999px;}
+body.journey-mode.has-brand-header .header-save-group{
+  display:flex;flex:0 0 auto;align-items:stretch;height:60px;overflow:visible;
+  background:linear-gradient(var(--earth-clay),var(--earth-clay)) padding-box,var(--header-rim) border-box; /* taste-skill-ignore: flat clay face inside the same static satin rim. */
+}
+body.journey-mode.has-brand-header .header-save-group button{
+  border:0;border-radius:999px;background:transparent;color:#fffdfa;min-height:52px;padding:10px 22px;
+  font-family:inherit;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap;
+}
+body.journey-mode.has-brand-header .header-save-main{width:164px;min-width:164px;max-width:164px;}
+body.journey-mode.has-brand-header .header-save-group button:hover{background:#ffffff12;color:#fffdfa;}
+body.journey-mode.has-brand-header #headerToolsToggle{display:flex;align-items:center;justify-content:center;min-width:44px;padding:8px 12px;border-left:1px solid #e4beb350;border-radius:0 999px 999px 0;}
+body.journey-mode.has-brand-header #headerToolsToggle[aria-expanded='true']{background:#ffffff1c;}
+body.journey-mode.has-brand-header .header-status{
+  position:absolute;top:75px;right:28px;left:316px;display:flex;justify-content:flex-end;align-items:center;gap:7px;
+  min-width:0;max-width:none;margin:0;flex-wrap:nowrap;color:var(--earth-muted);font-size:12px;line-height:1.5;letter-spacing:0;text-shadow:none;pointer-events:auto;
+}
+.has-brand-header #saveInfo{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:inherit;}
+.has-brand-header .header-status .status-dot{width:5px;height:5px;flex:0 0 5px;background:var(--earth-sage);}
+.has-brand-header .header-status:has([data-save-error='true']){color:var(--earth-error);}
+.has-brand-header .header-status:has([data-save-error='true']) .status-dot{background:var(--earth-error);}
+body.journey-mode.has-brand-header :is(.header-name,.header-utils button,.header-save-group button,.nav-toggle):focus-visible{outline:3px solid #7c482f;outline-offset:3px;}
+body.journey-mode.has-brand-header .header-utils button:focus-visible{outline-color:#fffdfa;outline-offset:-3px;}
+/* Preserve the entry controls' existing size with the shared satin edge. */
+body.journey-mode.has-brand-header .workflow-tabs button,
+body.journey-mode.has-brand-header .workflow-tabs button[aria-pressed='true']{border-width:3px;padding:22px 25px;}
+@media(max-width:1100px){
+  body.journey-mode.has-brand-header .app-header{gap:12px;padding-inline:20px;}
+  body.journey-mode.has-brand-header .header-name{flex:1 1 auto;max-width:360px;}
+  body.journey-mode.has-brand-header .header-save-group{margin-left:auto;}
+  body.journey-mode.has-brand-header .nav-toggle{display:flex!important;flex:0 0 44px;margin-top:8px;border-radius:999px;}
+  body.journey-mode.has-brand-header .header-utils.is-tools-open{
+    position:fixed;top:85px;right:20px;left:auto;z-index:50;display:flex;align-items:stretch;flex-direction:column;
+    width:min(340px,calc(100vw - 32px));max-height:calc(100dvh - 105px);overflow-y:auto;padding:12px;border-radius:24px;
+    box-shadow:0 12px 24px #352b2426; /* taste-skill-ignore: the mobile utility menu is a real overlay. */
+  }
+  body.journey-mode.has-brand-header .header-utils.is-tools-open .header-actions{display:flex;flex-direction:column;align-items:stretch;gap:2px;width:100%;}
+  body.journey-mode.has-brand-header .header-utils.is-tools-open button{display:block;min-height:48px;width:100%;text-align:left;padding:12px 16px;font-size:15px;}
+  body.journey-mode.has-brand-header .header-status{left:24px;right:24px;}
+}
+@media(max-width:700px){
+  body.journey-mode.has-brand-header .app-header{gap:8px;padding:10px 12px 0;}
+  body.journey-mode.has-brand-header .header-name{height:58px;min-height:58px;padding:4px 10px;gap:8px;max-width:none;}
+  .has-brand-header .header-brand-mark{width:32px;height:34px;flex-basis:32px;}
+  .has-brand-header .header-brand-title{font-size:14px;white-space:normal;line-height:1.35;}
+  .has-brand-header #journeyCompactCurrent{display:none;}
+  body.journey-mode.has-brand-header .header-save-group{height:58px;min-height:58px;}
+  body.journey-mode.has-brand-header .header-save-group button{min-height:50px;font-size:14px;padding:10px 12px;}
+  body.journey-mode.has-brand-header .header-save-main{width:84px;min-width:84px;max-width:84px;white-space:normal;line-height:1.3;padding:6px 10px;}
+  body.journey-mode.has-brand-header #headerToolsToggle{padding:8px;min-width:40px;}
+  body.journey-mode.has-brand-header .nav-toggle{margin-top:7px;}
+  body.journey-mode.has-brand-header .header-status{top:74px;left:16px;right:16px;font-size:12px;}
+  body.journey-mode.has-brand-header .header-utils.is-tools-open{right:12px;}
+  body.journey-mode.has-brand-header .workflow-tabs button,
+  body.journey-mode.has-brand-header .workflow-tabs button[aria-pressed='true']{padding:19px 21px;}
+}
+@media(max-width:360px){
+  body.journey-mode.has-brand-header .header-name{flex:1 1 auto;justify-content:center;padding-inline:6px;}
+  .has-brand-header .header-brand-copy{display:none;}
+  .has-brand-header .header-brand-mark{width:40px;flex-basis:40px;}
+}
+@media(prefers-reduced-motion:no-preference){
+  .has-brand-header :is(.header-name,.header-utils button,.header-save-group button){transition:background-color .15s ease-out,filter .15s ease-out;}
+}
+@media(forced-colors:active){
+  body.journey-mode.has-brand-header :is(.header-name,.header-utils,.header-save-group){border:4px solid ButtonText;background:Canvas;box-shadow:none;}
+  body.journey-mode.has-brand-header :is(.header-utils button,.header-save-group button){color:ButtonText;}
+}

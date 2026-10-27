@@ -788,16 +788,43 @@ function epGasGapR(thickness, gasType, e1, e2){
   return h>0 ? 1/h : null;
 }
 
-function estimateWindowShgc(layers, winGlass){
-  let t = 1, n = 0;
-  (layers||[]).forEach(name=>{
-    const g = idfGet(winGlass, name);
-    if(g && g.solarT>0){ t *= g.solarT; n++; }
-  });
-  if(!n) return null;
-  return Math.round(Math.max(0.05, Math.min(0.85, t*0.87))*1000)/1000;
+// Normal-incidence, broadband optical recursion plus a steady thermal network.
+// This is an estimate, not an NFRC rating or EnergyPlus window heat-balance result.
+function estimateWindowShgc(layers, winGlass, winGas={}){
+  const panes=[],positions=[];let resistance=1/23;
+  const ratio=v=>Number.isFinite(v)&&v>=0&&v<=1;
+  for(let i=0;i<(layers||[]).length;i++){
+    const g=idfGet(winGlass,layers[i]),gas=idfGet(winGas,layers[i]);
+    if(g){
+      if(g.opticalType!=='spectralaverage'||g.dirt!==1||!(g.d>0)||!(g.k>0)||
+        !ratio(g.solarT)||!ratio(g.solarRf)||!ratio(g.solarRb)||
+        g.solarT+g.solarRf>1+1e-9||g.solarT+g.solarRb>1+1e-9)return null;
+      const r=g.d/g.k;positions.push(resistance+r/2);resistance+=r;panes.push(g);
+    }else if(gas){
+      const previous=idfGet(winGlass,layers[i-1]),next=idfGet(winGlass,layers[i+1]);
+      if(gas.mixture||!['air','argon','krypton','xenon'].includes(String(gas.type).toLowerCase())||!previous||!next||!ratio(previous.eBack)||!ratio(next.eFront)||previous.eBack===0||next.eFront===0)return null;
+      const r=epGasGapR(gas.d,gas.type,previous.eBack,next.eFront);
+      if(!(r>0))return null;resistance+=r;
+    }else return null; // Never silently omit a shade, blind or unknown layer.
+  }
+  if(!panes.length)return null;
+  resistance+=1/EP_HI;
+  const reflected=new Array(panes.length+1).fill(0);
+  for(let i=panes.length-1;i>=0;i--){
+    const g=panes[i],den=1-g.solarRb*reflected[i+1];
+    if(den<=1e-12)return null;
+    reflected[i]=g.solarRf+g.solarT*g.solarT*reflected[i+1]/den;
+  }
+  let forward=1,absorbed=0,inward=0;
+  for(let i=0;i<panes.length;i++){
+    const g=panes[i],out=g.solarT*forward/(1-g.solarRb*reflected[i+1]);
+    const back=reflected[i+1]*out;
+    const absorption=Math.max(0,1-g.solarT-g.solarRf)*forward+Math.max(0,1-g.solarT-g.solarRb)*back;
+    absorbed+=absorption;inward+=absorption*positions[i]/resistance;forward=out;
+  }
+  if(Math.abs(forward+reflected[0]+absorbed-1)>1e-7)return null;
+  return Math.max(0,Math.min(1,forward+inward));
 }
-
 function windowUFromLayers(layers, winGlass, winGas, hi, ho, winSkip){
   if(!layers || !layers.length) return null;
   const hIn = (hi>0) ? hi : EP_HI;
@@ -842,6 +869,7 @@ function parseEnergyPlusIdf(text){
   const zones = [];
   const surfaces = [];
   const fenestrations = [];
+  const shading = [];
   const zoneLists = {};
   const peopleObjs = [];
   let northAxis = 0;
@@ -869,12 +897,14 @@ function parseEnergyPlusIdf(text){
       winGlass[fields[1]] = {
         d: numField(fields[4]),
         solarT: numField(fields[5]),
+        solarRf: numField(fields[6]), solarRb: numField(fields[7]),
+        opticalType: String(fields[2]||'').toLowerCase(), dirt: numField(fields[15])??1,
         eFront: numField(fields[12]),
         eBack: numField(fields[13]),
-        k: numField(fields[14]) || 0.9
+        k: numField(fields[14])
       };
     }else if(cls==='WINDOWMATERIAL:GAS' || cls==='WINDOWMATERIAL:GASMIXTURE'){
-      winGas[fields[1]] = {type: fields[2] || 'Air', d: numField(fields[3])};
+      winGas[fields[1]] = {mixture:cls==='WINDOWMATERIAL:GASMIXTURE',type: fields[2] || 'Air', d: numField(fields[3])};
     }else if(cls==='WINDOWMATERIAL:SHADE' || cls==='WINDOWMATERIAL:BLIND' || cls==='WINDOWMATERIAL:SCREEN' || cls==='WINDOWMATERIAL:SHADE:EQUIVALENTLAYER'){
       winSkip[fields[1]] = true;
     }else if(cls==='CONSTRUCTION'){
@@ -907,6 +937,10 @@ function parseEnergyPlusIdf(text){
       surfaces.push(parseBuildingSurface(fields));
     }else if(cls==='FENESTRATIONSURFACE:DETAILED'){
       fenestrations.push(parseFenestration(fields));
+    }else if(cls==='SHADING:BUILDING:DETAILED' || cls==='SHADING:SITE:DETAILED'){
+      const nSh = parseInt(fields[3], 10);
+      const shVerts = Number.isFinite(nSh) ? readVerts(fields, 4, nSh) : [];
+      if(shVerts.length>=3) shading.push({name: fields[1], verts: shVerts});
     }
   });
 
@@ -926,7 +960,8 @@ function parseEnergyPlusIdf(text){
     }
     const uLayered = windowUFromLayers(layers, winGlass, winGas, EP_HI, 23, winSkip);
     if(uLayered>0){
-      consMeta[name] = {kind:'window', u:uLayered, shgc:estimateWindowShgc(layers, winGlass), rSolid:null};
+      consMeta[name] = {kind:'window', u:uLayered, shgc:estimateWindowShgc(layers, winGlass, winGas), rSolid:null};
+      warnings.push(name+'：'+(consMeta[name].shgc==null?'日射熱取得率ηを推定できません。窓のηを仕様値で入力してください。':'日射熱取得率ηは多重反射・各層吸収と熱抵抗による垂直入射の概算です。仕様値を優先してください。'));
       return;
     }
     const rSolid = constructionSolidR(layers, materials, nomass);
@@ -1044,6 +1079,9 @@ function parseEnergyPlusIdf(text){
   const zoneByName = {};
   zones.forEach(z=>{ zoneByName[z.name]=z; });
   const relative = epCoordIsRelative(coordSys);
+  const toolAzByName={};
+  opaque.forEach(function(o){ if(o && o.name && isFinite(o.toolAz)) toolAzByName[o.name]=o.toolAz; });
+  windows.forEach(function(w){ if(w && w.name && isFinite(w.toolAz)) toolAzByName[w.name]=w.toolAz; });
   const meshFaces = [];
   surfaces.forEach(s=>{
     const zone = zoneByName[s.zone] || idfGet(zoneByName, s.zone);
@@ -1059,7 +1097,9 @@ function parseEnergyPlusIdf(text){
     const cls = classifyIdfMeshSurface(s, nearestOrientation(toolAzFromNorth(azN)), zone);
     meshFaces.push({
       sslKey: cls.sslKey, nameJa: cls.nameJa, idfName: s.name, zone: s.zone,
-      kind: 'opaque', verts: world
+      kind: 'opaque', verts: world, baseSslKey: cls.sslKey,
+      atFaceId: 'ep-'+meshFaces.length,
+      modelToolAz: isFinite(toolAzByName[s.name]) ? toolAzByName[s.name] : toolAzFromNorth(azN)
     });
   });
   fenestrations.forEach(f=>{
@@ -1073,18 +1113,22 @@ function parseEnergyPlusIdf(text){
     const world = epVertsToWorld(f.verts, zoneByName[zoneName] || idfGet(zoneByName, zoneName), northAxis, relative);
     if(world.length<3) return;
     const meta = idfGet(consMeta, f.construction) || {};
+    const wTool = toolAzByName[f.name];
     meshFaces.push({
       sslKey: isDoor ? 'doorbody' : 'window',
       nameJa: isDoor ? 'ドア' : '窓',
-      idfName: f.name, zone: zoneName,
+      idfName: f.name, zone: zoneName, parent: f.parent,
       kind: isDoor ? 'door' : 'window', verts: world,
-      u: (meta.u>0) ? meta.u : null
+      u: (meta.u>0) ? meta.u : null,
+      atFaceId: 'ep-'+meshFaces.length,
+      baseSslKey: isDoor ? 'doorbody' : 'window',
+      modelToolAz: isFinite(wTool) ? wTool : null
     });
   });
 
   const parsed = {
     northAxis, coordSys, relative, zones, habitable, excluded, opaque, windows: habWindows,
-    openings: habOpenings, meshFaces, warnings, consLayers,
+    openings: habOpenings, meshFaces, shading, warnings, consLayers,
     zoneCount: zones.length, habitableCount: habitable.length,
     fenestrationCount: fenestrations.length, windowCount: habWindows.length,
     meshFaceCount: meshFaces.length
@@ -1295,6 +1339,7 @@ function blankForEnergyPlus(){
   if(epwInput) epwInput.value = '';
   applySharedToolDefaults();
   if(typeof syncUWinFromTable==='function' && !hasInput('uWin')) syncUWinFromTable();
+  if(typeof epHideRoomViewer==='function') epHideRoomViewer();
 }
 
 function renderEpPanel(){
@@ -1302,11 +1347,12 @@ function renderEpPanel(){
   const review = document.getElementById('epReview');
   const warnEl = document.getElementById('epWarnList');
   if(!summary) return;
-  if(!epParse && !epSqlName && !epSqlPeak){
+    if(!epParse && !epSqlName && !epSqlPeak){
     summary.innerHTML = '<p class="small" style="margin:0;">IDF を指定すると、床下・小屋裏を除いた居室ゾーンの外壁・窓・床の外皮面積と UA、最大在室人数を入れます。SQL を追加すると冷房ピーク時刻を入れます。</p>';
     review.innerHTML = '';
     warnEl.style.display = 'none';
     warnEl.innerHTML = '';
+    if(typeof epHideRoomViewer==='function') epHideRoomViewer();
     setEpFileEcho();
     return;
   }
@@ -1363,7 +1409,7 @@ function renderEpPanel(){
     extra.push('SQLに面の入射日射 (Surface Outside Face Incident Solar Radiation Rate per Area, Hourly) がありません。IDF の Output:Variable に入れて再計算すると、Grasshopper と同じ SAT/ETD が使えます。今は晴天モデルのSATです。');
   }
   if(epSqlWx && !epSqlWx.nTransmitted){
-    extra.push('SQLに窓の透過日射 (Surface Window Transmitted Solar Radiation Rate, Hourly) がありません。今は I_DN×η0×面積 に r_G を掛けます。');
+    extra.push('SQLに窓の透過日射 (Surface Window Transmitted Solar Radiation Rate, Hourly) がありません。今は直達・散乱・地面反射の合計×η0×面積を顕熱に全量計上します。');
   }
   const warns = ((epParse && epParse.warnings)||[]).concat(extra);
   if(warns.length){
@@ -1374,6 +1420,7 @@ function renderEpPanel(){
     warnEl.innerHTML = '';
   }
   setEpFileEcho();
+  if(epParse && typeof epSyncViewerMesh==='function') epSyncViewerMesh();
 }
 
 function escapeEp(s){
@@ -1453,8 +1500,8 @@ function epWinsForZone(zname){
   return (epParse && epParse.windows || []).filter(w=>w.zone===zname || idfNameKey(w.zone)===key);
 }
 function epEtaForWindow(w){
-  if(w && w.shgc!=null && isFinite(w.shgc) && w.shgc>0) return String(w.shgc);
-  return '0.54';
+  if(w && w.shgc!=null && isFinite(w.shgc) && w.shgc>=0 && w.shgc<=1) return String(w.shgc);
+  return '';
 }
 function epWindowRowFromParse(w){
   return {
@@ -1627,15 +1674,23 @@ function renderEpWallHeat(satByOri, roofSat, taNow){
 
   const grouped = {};
   rows.forEach(r=>{
-    const key = r.zone+'|'+r.part+'|'+(r.part==='外壁'?r.orient:'—');
-    if(!grouped[key]) grouped[key] = {zone:r.zone, part:r.part, orient:r.part==='外壁'?r.orient:'—', area:0, ua:0};
+    const parentT = (r.part==='外壁' && typeof epShadeParentT!=='undefined' && epShadeParentT)
+      ? epShadeParentT[idfNameKey(r.name)] : undefined;
+    const shade = (r.part==='外壁' && !isFinite(parentT) && typeof epShadeForSurface==='function') ? epShadeForSurface(r.name) : null;
+    const orientLabel = r.part==='外壁'
+      ? (r.orient + (shade && shade.index>1 ? '#'+shade.index : ''))
+      : '—';
+    const key = r.zone+'|'+r.part+'|'+orientLabel;
+    if(!grouped[key]) grouped[key] = {zone:r.zone, part:r.part, orient:orientLabel, area:0, ua:0, tShade:NaN};
     grouped[key].area += r.net;
     if(r.u>0) grouped[key].ua += r.u*r.net;
+    if(isFinite(parentT)) grouped[key].tShade = parentT;
+    else if(shade && isFinite(shade.tCfd)) grouped[key].tShade = shade.tCfd;
   });
   const list = Object.values(grouped).map(g=>{
     const u = g.area>0 && g.ua>0 ? g.ua/g.area : null;
     let tBound = NaN;
-    if(g.part==='外壁') tBound = satByOri && satByOri[g.orient];
+    if(g.part==='外壁') tBound = isFinite(g.tShade) ? g.tShade : (satByOri && satByOri[String(g.orient).replace(/#\d+$/,'')]);
     else if(g.part==='屋根') tBound = roofSat;
     else tBound = taNow;
     let q = null;
@@ -1667,7 +1722,7 @@ function renderEpWallHeat(satByOri, roofSat, taNow){
   html += '<tr style="font-weight:600; background:#F4F4F4;"><td colspan="3">居室 外壁合計</td><td>'+aWall.toFixed(2)+'</td><td></td><td></td><td>'+(hasQ?qWall.toFixed(0):'—')+'</td></tr>';
   html += '<tr style="font-weight:600; background:#F4F4F4;"><td colspan="3">居室 屋根合計</td><td>'+aRoof.toFixed(2)+'</td><td></td><td></td><td>'+(hasQ?qRoof.toFixed(0):'—')+'</td></tr>';
   html += '</table>';
-  html += '<p class="small" style="margin:8px 0 0;">q = U × 開口控除後面積 × (境界温度 − 目標室温)。外壁の境界温度は方位別 SAT、屋根は屋根 SAT、外気床は外気温です。床下・小屋裏ゾーンは含めていません。この W は Step 2 の発生エリアには足しません (CFD の壁パネルと二重になるため)。</p>';
+  html += '<p class="small" style="margin:8px 0 0;">q = U × 開口控除後面積 × (境界温度 − 目標室温)。外壁の境界温度は、同じ方位でも CFD 外気温の差が 0.1℃を超える部分を分けた SAT です。庇で分割した壁は、その面の面積加重平均を使います。屋根は屋根 SAT、外気床は外気温です。床下・小屋裏ゾーンは含めていません。この W は Step 2 の発生エリアには足しません (CFD の壁パネルと二重になるため)。</p>';
   if(!canQ){
     html += '<div class="warn" style="margin-top:8px;">緯度経度・外気温・目標室温が入ると貫流 W が計算されます。面積と U は IDF だけで出ています。</div>';
   }
@@ -2088,7 +2143,7 @@ function startEnergyPlusMode(saved){
 if(typeof module!=='undefined' && module.exports){
   module.exports = {
     parseEnergyPlusIdf, isEpBufferZone, epOpaqueRows, opaqueUFromR, uniqueEpWindowU,
-    epWeightedWindowU, windowUFromLayers, epPeopleCount, epEnvelopeParts, parseEpSqlPeak, EP_HI,
+    epWeightedWindowU, windowUFromLayers, estimateWindowShgc, epEtaForWindow, epPeopleCount, epEnvelopeParts, parseEpSqlPeak, EP_HI,
     buildEpGainVolumes, epInsetPolyhedron, epAabbInsetFaces
   };
 }

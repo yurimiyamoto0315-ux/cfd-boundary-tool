@@ -1,8 +1,18 @@
 // ========================= 保存 / 読込 =========================
-const STORE_KEY = 'cfdBoundaryToolState_v2';
+const STORE_KEY = 'cfdBoundaryToolState_v3';
+(function migrateV2(){
+  try{
+    ['', '_manual', '_architrend', '_energyplus'].forEach(suffix=>{
+      if(localStorage.getItem(STORE_KEY+suffix)) return;
+      const raw=localStorage.getItem('cfdBoundaryToolState_v2'+suffix);
+      if(raw){ const value=JSON.parse(raw); value.schemaVersion=3; localStorage.setItem(STORE_KEY+suffix,JSON.stringify(value)); }
+    });
+  }catch(err){}
+})();
 function modeStoreKey(mode){ return STORE_KEY+'_'+(mode||'manual'); }
 let saveTimer=null;
 function saveStateNow(){
+  if(window.boundarySessionSave)return window.boundarySessionSave();
   try{
     const s = gatherState();
     if(!s.mode) return;
@@ -10,13 +20,14 @@ function saveStateNow(){
     localStorage.setItem(modeStoreKey(s.mode), JSON.stringify(s));
     const info=document.getElementById('saveInfo');
     if(info) info.textContent = '自動保存済み ('+new Date().toLocaleTimeString()+')';
-  }catch(err){}
+  }catch(err){const info=document.getElementById('saveInfo');if(info)info.textContent='保存できませんでした。バックアップ保存でJSONを保存してください';}
 }
 function saveStateDebounced(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveStateNow, 600);
 }
 function loadModeState(mode){
+  if(window.boundarySessionLoad){const full=window.boundarySessionLoad(mode);if(full)return full;}
   try{
     const keyed=JSON.parse(localStorage.getItem(modeStoreKey(mode)));
     if(keyed) return keyed;
@@ -92,6 +103,7 @@ function applyState(s){
   document.getElementById('roomsWrap').innerHTML='';
   roomCount=0; winCounter=0;
   (s.rooms||[]).forEach(r=>addRoom(Object.assign({}, r, {skipRerun:true})));
+  if(s.mode==='architrend'&&typeof atReconcileRestoredRoomCards==='function')atReconcileRestoredRoomCards();
 }
 function exportJSON(){
   const blob = new Blob([JSON.stringify(gatherState(), null, 2)], {type:'application/json'});
@@ -114,6 +126,7 @@ function importJSON(input){
 }
 function resetAll(){
   if(!confirm('入力内容をすべてリセットしますか?')) return;
+  window.boundarySessionClear?.();
   localStorage.removeItem(STORE_KEY);
   ['manual','architrend','energyplus'].forEach(m=>localStorage.removeItem(modeStoreKey(m)));
   location.reload();

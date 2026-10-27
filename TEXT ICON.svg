@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2872.65 399.53">
+  <defs>
+    <linearGradient id="_名称未設定グラデーション" data-name="名称未設定グラデーション" x1="36.45" y1="-783.5" x2="262.26" y2="-783.5" gradientTransform="translate(0 -670.25) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".08" stop-color="#d6f3ff" stop-opacity=".3"/>
+      <stop offset=".22" stop-color="#a8e2ff" stop-opacity=".6"/>
+      <stop offset=".4" stop-color="#7ec8f0" stop-opacity=".85"/>
+      <stop offset=".55" stop-color="#6ba3d6"/>
+      <stop offset=".72" stop-color="#8497cf"/>
+      <stop offset=".88" stop-color="#a189c9"/>
+      <stop offset="1" stop-color="#8b8fc4"/>
+    </linearGradient>
+  </defs>
+  <text transform="translate(498.38 125.58)" fill="#fff" font-size="96.62"><tspan x="0" y="0" font-family="DunbarText-Regular, &apos;Dunbar Text&apos;" letter-spacing=".63em">Fl</tspan><tspan x="195.09" y="0" font-family="DunbarText-Regular, &apos;Dunbar Text&apos;" letter-spacing=".61em">o</tspan><tspan x="317.28" y="0" font-family="DunbarText-Regular, &apos;Dunbar Text&apos;" letter-spacing=".63em">wDesigner</tspan><tspan x="1343.81" y=".68" font-family="KozGoPr6N-Regular-90ms-RKSJ-H, &apos;Kozuka Gothic Pr6N&apos;" letter-spacing="1.63em">連</tspan><tspan x="1597.88" y=".68" font-family="KozGoPr6N-Regular-90ms-RKSJ-H, &apos;Kozuka Gothic Pr6N&apos;">携</tspan><tspan x="0" y="169.08" xml:space="preserve" font-family="DunbarText-Regular, &apos;Dunbar Text&apos;">C  F  D  </tspan><tspan x="299.51" y="169.76" font-family="KozGoPr6N-Regular-90ms-RKSJ-H, &apos;Kozuka Gothic Pr6N&apos;" letter-spacing=".49em">境界条件自動化ツー</tspan><tspan x="1597.88" y="169.76" font-family="KozGoPr6N-Regular-90ms-RKSJ-H, &apos;Kozuka Gothic Pr6N&apos;">ル</tspan></text>
+  <polyline points="403.09 156.18 452.95 41.21 382.65 41.21 343.92 130.53" fill="none" stroke="#0072aa" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.91"/>
+  <path d="M403.09,156.18c-4.5,9.93-11.6,25.19-21.78,40.09-34.51,50.54-77.78,74.41-87.1,79.37-38.55,20.5-74.21,25.78-95.24,27.27l38.6-72.93c40.77-13.76,65.91-34.1,90.48-70.08,7.55-11.06,13.24-23.6,16.29-30.34" fill="none" stroke="#0072aa" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.91"/>
+  <path d="M185.58,277.64l-38.73,89.32h-70.3l49.86-114.98c39.25-94.19,134.74-144.78,204.11-146.72l-38.6,72.93c-40.77,13.76-65.91,34.1-90.48,70.08-7.55,11.06-13.24,23.6-16.29,30.34" fill="none" stroke="#0072aa" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.91"/>
+  <path d="M262.26,113.26l-89.14,116.72V-3.47l89.14,116.73ZM113.29,37.68v151.15h59.83V37.68h-59.83,0ZM69.31,188.66h32.02V37.86h-32.02s0,150.8,0,150.8ZM36.45,188.83h20.89V37.68h-20.89v151.15Z" fill="url(#_名称未設定グラデーション)"/>
+</svg>

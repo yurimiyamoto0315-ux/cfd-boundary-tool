@@ -1,0 +1,32 @@
+/* One apply action: scope/result on the left, the primary button on the right. */
+.boundary-action-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;padding:14px 0;margin:12px 0 18px;border-block:1px solid #cad8cd;background:#fff;min-width:0;}
+.boundary-action-status{margin:0;font-size:14px;line-height:1.75;color:#506655;overflow-wrap:anywhere;min-width:0;}
+.boundary-action-status[data-state="applied"]{color:#21623e;font-weight:600;}
+.boundary-action-status[data-state="pending"],.boundary-action-status[data-state="error"]{color:#895015;font-weight:600;}
+.boundary-action-bar .boundary-action-status{flex:1 1 240px;}
+.boundary-action-bar button,.at-rv-confirm,.at-rv-opening [data-action="floor-opening-apply"],#atApplyImportBtn,#winPresetApply,[data-floor-confirm],[data-assign-window]{min-height:48px;padding:11px 18px;border:1px solid #216c4e;border-radius:6px;background:#216c4e;color:#fff;font-family:inherit;font-size:15px;font-weight:700;line-height:1.6;white-space:normal;box-shadow:none;}
+.boundary-action-bar button:hover,.at-rv-confirm:hover,.at-rv-opening [data-action="floor-opening-apply"]:hover,#atApplyImportBtn:hover,#winPresetApply:hover,[data-floor-confirm]:hover,[data-assign-window]:hover{background:#174f38;border-color:#174f38;color:#fff;}
+.boundary-action-bar button:focus-visible,.at-rv-confirm:focus-visible,#atApplyImportBtn:focus-visible,[data-floor-confirm]:focus-visible,[data-assign-window]:focus-visible{outline:3px solid #a36b27;outline-offset:3px;}
+.boundary-action-bar button:disabled,.at-rv-confirm:disabled,[data-floor-confirm]:disabled{opacity:.5;cursor:not-allowed;}
+.boundary-action-bar button:active,#atApplyImportBtn:active{transform:none;box-shadow:none;}
+.boundary-action-bar button.insulation-apply-required{border:2px solid #aa631d;}
+.boundary-action-bar button{flex:0 1 auto;min-width:190px;}
+#atThermalReview .boundary-action-bar{padding:14px 0;margin:12px 0 20px;}
+#atThermalReview .boundary-action-bar .at-thermal-bulk-status{padding:0;margin:0;border:0;background:transparent;font-size:14px;}
+#atThermalReview .boundary-action-bar button{font-size:15px;min-height:48px;}
+#atThermalReview [data-attic-apply]{display:block;width:auto;min-height:48px;font-size:15px;}
+#atThermalReview [data-thermal-face]{margin-bottom:8px;}
+.at-rv-commit-bar.boundary-action-bar{display:block;margin:0;padding:12px 0;}
+.at-rv-commit-bar .boundary-action-status{font-size:13px;line-height:1.6;margin-bottom:10px;}
+.at-rv-commit-bar .at-rv-confirm{min-height:48px;background:#216c4e;border-color:#216c4e;color:#fff;}
+.at-rv-opening .boundary-action-status{font-size:12px;margin:6px 0;}
+.at-room-viewer:has(.at-rv-opening){min-height:1000px;}
+.at-room-viewer:has(.at-rv-opening) .at-rv-lists{min-height:150px;}
+.at-merge-popup-footer.boundary-action-bar{display:block;}
+.at-merge-popup-footer .at-rv-merge-cancel{margin-top:8px;background:#fff;color:#325b45;border-color:#b5cbbd;}
+.at-floor-review-row .boundary-action-status{flex-basis:100%;}
+.at-review-actions.at-import-confirm.boundary-action-bar{min-height:132px;border:1px solid #c1d3c5;border-radius:6px;padding:18px 20px;background:#f5f9f3;}
+#atApplyImportBtn{min-width:230px;min-height:48px;padding:12px 18px;font-size:16px;box-shadow:none;}
+.at-unassigned-notice{margin:12px 0;}
+@media(max-width:750px){.boundary-action-bar{align-items:stretch;flex-direction:column;gap:12px;}.boundary-action-bar .boundary-action-status{flex-basis:auto;}.boundary-action-bar button,#atThermalReview [data-attic-apply]{width:100%;min-width:0;}#atApplyImportBtn{min-width:0;width:100%;}.at-review-actions.at-import-confirm.boundary-action-bar{padding:16px;}}
+@media(max-width:850px){.at-room-viewer:has(.at-rv-opening){min-height:0;}.at-room-viewer:has(.at-rv-opening) .at-rv-side{height:auto;min-height:1000px;}}

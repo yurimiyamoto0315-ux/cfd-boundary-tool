@@ -162,6 +162,7 @@ const SSL_FIXED_COLORS = [
   {hex:'#8c5a32', key:'doorbody'},
   {hex:'#62a446', key:'doorgap_top'},
   {hex:'#008080', key:'doorgap_uc'},
+  {hex:'#ff00aa', key:'dooropen'},
   {hex:'#3d3d3d', key:'fill_solid'},
   {hex:'#967648', key:'stair_solid'}
 ];
@@ -174,16 +175,48 @@ const SSL_PRIORITY = {
   window:30, doorbody:30,
   extdoor_北:30, extdoor_北東:30, extdoor_東:30, extdoor_南東:30,
   extdoor_南:30, extdoor_南西:30, extdoor_西:30, extdoor_北西:30,
-  doorgap_top:50, doorgap_uc:50, ac_body:50,
+  doorgap_top:50, doorgap_uc:50, dooropen:50, ac_body:50,
   ac_supply:90, ac_return:90
 };
 const SSL_PRIORITY_PARAM_ID = 90001;
 const FILL_SOLID_COLOR = {r:61, g:61, b:61, mat:'FILL'};
 const GAIN_VOLUME_SETBACK_M = 0.3;
+const GAIN_VOLUME_COLOR_CAPACITY = 128;
+// Loaded before 14-idf-mesh.js: reserve its standard colors independently of
+// script/load order. tests/gain-colors.cjs checks the current exported palette.
+const GAIN_VOLUME_STANDARD_RESERVED = [
+  [40,80,180],[35,125,185],[40,160,80],[145,175,50],
+  [200,60,50],[205,105,45],[180,140,40],[115,90,175],
+  [120,50,50],[90,90,90],[95,70,55],[70,50,40],
+  [160,150,175],[180,180,180],[80,180,220],[255,96,24],
+  [80,20,10],[120,30,10],[160,45,15],[200,70,20],
+  [240,100,30],[180,55,10],[140,35,5],[100,25,5],
+  [98,164,70],[0,128,128],[255,0,170],[128,128,128],
+  [0,60,255],[29,109,53],[61,61,61],[150,118,72]
+].map(c=>Object.freeze({r:c[0],g:c[1],b:c[2]}));
+const GAIN_VOLUME_COLOR_PALETTE = (()=>{
+  const fixed=SSL_FIXED_COLORS.map(color=>{
+    const n=parseInt(color.hex.replace('#',''),16);
+    return {r:n>>16&255,g:n>>8&255,b:n&255};
+  });
+  const reserved=GAIN_VOLUME_STANDARD_RESERVED.concat(fixed,WINDOW_U_COLOR_PALETTE),colors=[];
+  const distance=(a,b)=>Math.max(Math.abs(a.r-b.r),Math.abs(a.g-b.g),Math.abs(a.b-b.b));
+  const add=color=>{
+    // Tolerance-12 neighborhoods must not overlap another category's.
+    if(reserved.concat(colors).some(other=>distance(color,other)<=2*SSL_COLOR_TOLERANCE))return;
+    colors.push(Object.freeze(color));
+  };
+  add({r:255,g:176,b:168}); // Preserve the first historical gain color.
+  for(let i=0;i<512&&colors.length<GAIN_VOLUME_COLOR_CAPACITY;i++){
+    const n=i*173%512;
+    add({r:16+n%8*32,g:16+Math.floor(n/8)%8*32,b:16+Math.floor(n/64)*32});
+  }
+  if(colors.length<GAIN_VOLUME_COLOR_CAPACITY)throw Object.assign(new Error('GAIN_COLOR_PALETTE_EXHAUSTED'),{code:'GAIN_COLOR_PALETTE_EXHAUSTED'});
+  return Object.freeze(colors);
+})();
 function gainVolumeColor(i){
-  const n = i||0;
-  const g = 176 - (n % 8) * 16;
-  const b = 168 - Math.floor(n / 8) * 18;
-  return {r:255, g:Math.max(80, g), b:Math.max(80, b), mat:'GAIN'+String(n)};
+  if(!Number.isSafeInteger(i)||i<0)throw Object.assign(new RangeError('GAIN_COLOR_INDEX_INVALID'),{code:'GAIN_COLOR_INDEX_INVALID'});
+  if(i>=GAIN_VOLUME_COLOR_CAPACITY)throw Object.assign(new RangeError('GAIN_COLOR_CAPACITY_EXCEEDED'),{code:'GAIN_COLOR_CAPACITY_EXCEEDED'});
+  return {...GAIN_VOLUME_COLOR_PALETTE[i],mat:'GAIN'+i};
 }
 

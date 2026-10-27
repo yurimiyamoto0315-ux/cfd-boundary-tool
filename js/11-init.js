@@ -25,6 +25,7 @@ const _runAllOrig = runAll;
 runAll = function(){
   _runAllOrig();
   if(appMode==='architrend') refreshNeedManual();
+  updateWinPresetGuide();
 };
 
 (function bootMode(){
