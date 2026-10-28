@@ -517,7 +517,65 @@ function epGridOutlines(ux, uy, nx, ny, keep){
   });
   return rings.filter(function(r){ return Math.abs(epRingArea(r))>0.15; });
 }
+function epGainFloorFrame(zoneFaces){
+  // Shared floor seams (including triangulation diagonals) are not room axes.
+  const boundary=new Map();
+  function key(v){
+    return [v.x,v.y,v.z].map(function(n){ return Math.round(n*1000); }).join(',');
+  }
+  (zoneFaces||[]).forEach(function(f){
+    const vs=f.verts||[];
+    if(vs.length<3 || epFaceNz(vs)>=-0.55) return;
+    vs.forEach(function(a,i){
+      const b=vs[(i+1)%vs.length], ka=key(a), kb=key(b);
+      const reverse=kb+'>'+ka;
+      if(boundary.has(reverse)) boundary.delete(reverse);
+      else boundary.set(ka+'>'+kb, {a:a,b:b});
+    });
+  });
+  const edges=[];
+  boundary.forEach(function(e){
+    const dx=e.b.x-e.a.x, dy=e.b.y-e.a.y, len=Math.hypot(dx,dy);
+    if(len>1e-6) edges.push({a:e.a,c:dx/len,s:dy/len,len:len});
+  });
+  let best=null, support=-1;
+  edges.forEach(function(e){
+    let total=0;
+    edges.forEach(function(q){
+      const cross=e.c*q.s-e.s*q.c, dot=e.c*q.c+e.s*q.s;
+      if(Math.abs(cross)<1e-6 || Math.abs(dot)<1e-6) total+=q.len;
+    });
+    if(total>support+1e-6 || (Math.abs(total-support)<=1e-6 && (!best || e.len>best.len+1e-6))){
+      best=e; support=total;
+    }
+  });
+  if(!best) return null;
+  // A quarter turn describes the same grid. Keep its X axis near world X.
+  let c=best.c, s=best.s;
+  if(Math.abs(s)>Math.abs(c)){ const prev=c; c=-s; s=prev; }
+  if(c<0){ c=-c; s=-s; }
+  if(Math.abs(s)<1e-10) return null;
+  return {x:best.a.x,y:best.a.y,c:c,s:s};
+}
 function epGainPrismsForZone(zoneFaces, setback){
+  const frame=epGainFloorFrame(zoneFaces);
+  if(!frame) return epGainPrismsInFrame(zoneFaces, setback);
+  // Inset in the floor's axes so a North Axis rotation cannot erase a narrow room.
+  // Caps and walls use the same frame, preserving sloping ceilings and floor levels.
+  const local=(zoneFaces||[]).map(function(f){
+    return {verts:(f.verts||[]).map(function(v){
+      const x=v.x-frame.x, y=v.y-frame.y;
+      return {x:x*frame.c+y*frame.s,y:-x*frame.s+y*frame.c,z:v.z};
+    })};
+  });
+  function toWorld(v){
+    return {x:frame.x+v.x*frame.c-v.y*frame.s,y:frame.y+v.x*frame.s+v.y*frame.c,z:v.z};
+  }
+  return epGainPrismsInFrame(local, setback).map(function(p){
+    return {bot:p.bot.map(toWorld),top:p.top.map(toWorld)};
+  });
+}
+function epGainPrismsInFrame(zoneFaces, setback){
   const floors=[], caps=[];
   let wallZmax=-Infinity;
   (zoneFaces||[]).forEach(function(f){
