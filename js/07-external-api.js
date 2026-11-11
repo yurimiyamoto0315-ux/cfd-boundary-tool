@@ -33,6 +33,7 @@ async function geocodeAddress(){
 // Open-Meteo Historical Weather API (無料・APIキー不要) から直近1年の時別気温を取得し、
 // 日最高気温が最大の日を「最厳日」として解析日・解析時刻・最高/最低気温に自動反映する
 async function fetchHottestDay(){
+  if(window.boundarySolar?.source==='pvlib-epw'&&appMode!=='energyplus')return;
   const btn = document.getElementById('fetchHottestBtn');
   const info = document.getElementById('fetchHottestInfo');
   const geo = readLatLon();

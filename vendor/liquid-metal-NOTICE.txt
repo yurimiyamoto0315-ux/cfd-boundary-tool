@@ -1,0 +1,22 @@
+Liquid metal border source and adaptations
+
+Shader: Paper Design Shaders, https://github.com/paper-design/shaders
+License: Apache License 2.0, included as paper-shaders-LICENSE.txt.
+The vertex and liquid-metal fragment shaders in paper-liquid-metal.js are unchanged
+GLSL from the public demo below; template snippets have been expanded.
+
+Interaction reference: Liquid Metal Button, Joly UI by Johuniq.
+Copyright (c) 2025 Johuniq. MIT License, included as jolyui-LICENSE.txt.
+https://www.jolyui.dev/docs/components/buttons/liquid-metal-button
+https://www.jolyui.dev/r/liquid-metal-button
+
+User-supplied public demonstration inspected on 2026-10-26:
+https://cdn.21st.dev/larsen66/liquid-metal-button/demos/default/bundle.1773244704587.html
+
+Adaptations in js/27-liquid-metal.js and metal.css: vanilla DOM integration,
+existing controls and colors retained, a 2-4px rim mask, normalized shader viewport,
+local-only shader loading, and a single shared renderer initialized on first hover.
+Only the control under a mouse or pen animates; leaving it restores its satin rim.
+Keyboard focus, touch, reduced motion, forced colors and GPU failure retain the
+normal accessible controls. Rendering stops while idle or the document is hidden.
+The demo's React runtime, theme loader, preview messaging and analytics are not included.

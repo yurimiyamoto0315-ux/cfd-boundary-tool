@@ -1,0 +1,264 @@
+/* Matte earth tones, precise type, and a satin edge on the two entry controls.
+   The existing DOM, state, validation, and hit areas are intentionally retained. */
+body.journey-mode{
+  --earth-shell:#f0ece5;--earth-paper:#fffdfa;--earth-ink:#38322e;--earth-muted:#6d6259;
+  --earth-line:#ded5cb;--earth-control:#b6a89a;--earth-clay:#994c39;--earth-clay-hover:#7e3b2c;
+  --earth-clay-soft:#f6ebe3;--earth-sage:#526a54;--earth-sage-soft:#edf1e9;
+  --earth-warn:#80551f;--earth-warn-soft:#fbf0de;--earth-error:#a1362e;
+  --satin-rim:linear-gradient(180deg,#e0dfd7 0%,#cccdc6 52%,#b6b9b2 100%); /* taste-skill-ignore: the requested satin material has one static, low-contrast light-to-shade edge. */
+  --ink:var(--earth-ink);--ink2:var(--earth-muted);--ink3:var(--earth-muted);
+  --rule:var(--earth-line);--rule2:var(--earth-control);--paper:var(--earth-paper);
+  --heat:var(--earth-clay);--font-display:'Boundary Noto Sans JP',sans-serif;
+  font-family:'Boundary Noto Sans JP','Noto Sans JP','Yu Gothic',sans-serif;
+  font-weight:400;line-height:1.75;letter-spacing:0;background:var(--earth-shell);color:var(--earth-ink);scrollbar-color:var(--earth-control) var(--earth-shell);
+}
+.journey-mode :is(button,input,select,textarea){font-family:inherit;font-weight:500;letter-spacing:0;}
+.journey-mode :is(input,select,textarea){font-weight:400;font-variant-numeric:tabular-nums;}
+.journey-mode :is(h1,h2,h3,h4){font-weight:500;letter-spacing:0;color:var(--earth-ink);}
+.journey-mode :is(strong,b){font-weight:600;}
+.journey-mode :is(label,summary){font-weight:500;letter-spacing:0;}
+.journey-mode label{color:var(--earth-ink);}
+.journey-mode ::selection{background:#e6c8b8;color:#35271f;}
+.journey-mode :is(input,select,textarea){caret-color:var(--earth-clay);}
+.journey-mode :is(input[type='checkbox'],input[type='radio'],input[type='range']){accent-color:var(--earth-clay);}
+.journey-mode :is(button,input,select,summary,a,[tabindex]):focus-visible{outline:3px solid #64705b;outline-offset:3px;}
+.journey-mode :is(input,select)::placeholder{color:#786b61;opacity:1;}
+
+/* The frame is one surface, not a collection of floating panels. */
+body.journey-mode .app-chrome,body.journey-mode .toc{background:var(--earth-shell);}
+body.journey-mode #main{background:var(--earth-paper);border:0;border-radius:6px;}
+body.journey-mode .header-name{color:var(--earth-ink);}
+body.journey-mode .header-name::after{font-weight:600;letter-spacing:-.02em;font-size:18px;}
+#journeyCompactCurrent,body.journey-mode .header-status{color:var(--earth-muted);}
+body.journey-mode .status-dot{background:#687c64;}
+body.journey-mode .header-actions button,body.journey-mode .journey-context{border-color:transparent;background:transparent;border-radius:4px;color:var(--earth-muted);font-weight:400;}
+body.journey-mode .header-actions button:hover,body.journey-mode .journey-context:hover{background:#e6dfd5;color:var(--earth-ink);}
+.journey-nav-title{color:var(--earth-muted);font-weight:500;}
+body.journey-mode .toc button{color:var(--earth-ink);border-radius:5px;}
+body.journey-mode .toc b{font-weight:500;}
+body.journey-mode .toc small{color:var(--earth-muted);font-size:13px;font-weight:400;}
+body.journey-mode .toc button:hover{background:#e8e2d9;}
+body.journey-mode .toc button[aria-current]{background:#e8dfd5;color:var(--earth-clay);}
+body.journey-mode .toc button[aria-current] b{font-weight:600;}
+body.journey-mode .toc [data-journey-state='ready']{color:var(--earth-sage);}
+body.journey-mode .toc :is([data-journey-state='required'],[data-journey-state='pending']){color:var(--earth-warn);}
+.journey-heading{border-color:var(--earth-line);padding-bottom:28px;}
+.journey-heading h1{font-weight:500;font-size:28px;letter-spacing:-.025em;}
+.journey-heading p,.journey-heading #journeyLocation,.journey-footer>span{color:var(--earth-muted);}
+#journeyRequired{color:var(--earth-warn);font-weight:500;}
+.journey-heading button,.journey-footer button,.journey-fd-help button,.journey-other-overview button{border-color:var(--earth-control);color:var(--earth-ink);background:transparent;border-radius:5px;font-weight:500;}
+.journey-heading button:hover,.journey-footer button:hover{background:#f1e9df;}
+.journey-mode .journey-primary,.journey-mode .journey-primary:hover{background:var(--earth-clay);border-color:var(--earth-clay);color:#fffdfa;font-weight:500;}
+.journey-mode .journey-primary:hover{background:var(--earth-clay-hover);border-color:var(--earth-clay-hover);}
+.journey-footer{background:var(--earth-paper);border-color:var(--earth-line);}
+
+/* Welcome: calm matte surfaces; the labels and existing choices stay intact. */
+.journey-welcome{background:transparent;padding:24px 8px 32px;gap:48px;border-radius:0;border-bottom:1px solid var(--earth-line);margin-bottom:28px;}
+.journey-welcome h1{font-size:32px;font-weight:500;line-height:1.6;letter-spacing:-.035em;text-wrap:balance;}
+.journey-welcome p{color:var(--earth-muted);}
+.journey-house>g:first-child{stroke:#7c8872;}
+.journey-house>g:last-child{fill:#67584d;font-family:inherit;}
+.journey-muted,.journey-entry-block p,.journey-references{color:var(--earth-muted);}
+.journey-entry-block h2{font-size:19px;font-weight:500;margin-top:28px;}
+body.journey-mode .workflow-tabs{gap:18px;}
+/* A single satin rim is shared with the header and workflow dock. */
+/* Include the state attribute so legacy selection/hover rules cannot replace only the face. */
+body.journey-mode .workflow-tabs button[aria-pressed]{
+  --entry-face:#3d3833;
+  position:relative;isolation:isolate;min-height:112px;padding:23px 26px;border:2px solid transparent;border-radius:15px;
+  background:linear-gradient(var(--entry-face),var(--entry-face)) padding-box,var(--satin-rim) border-box; /* taste-skill-ignore: flat control face inside the user-requested satin rim. */
+  color:#fffdfa;box-shadow:0 2px 4px #44372b12,inset 0 1px 0 #ffffff20; /* taste-skill-ignore: shallow depth on the two existing entry controls. */
+  text-shadow:none;transition:none;
+}
+/* The existing clay face and check mark continue to communicate selection. */
+body.journey-mode .workflow-tabs button[aria-pressed='true']{
+  --entry-face:var(--earth-clay);
+  padding:23px 26px;border:2px solid transparent;
+  color:#fffdfa;
+}
+body.journey-mode .workflow-tabs button:hover{--entry-face:#48413b;}
+body.journey-mode .workflow-tabs button[aria-pressed='true']:hover{--entry-face:var(--earth-clay-hover);}
+body.journey-mode .workflow-tabs button:active{box-shadow:0 1px 2px #44372b12;} /* taste-skill-ignore: shallow pressed state without motion or a change in size. */
+body.journey-mode .workflow-tabs button b{font-size:20px;font-weight:500;padding-right:24px;}
+body.journey-mode .workflow-tabs button span{color:#f1e8df;font-weight:400;font-size:14px;line-height:1.8;}
+body.journey-mode .workflow-tabs button[aria-pressed='true'] b::after{content:'';position:absolute;right:25px;top:28px;width:6px;height:12px;border-right:2px solid #fffdfa;border-bottom:2px solid #fffdfa;transform:rotate(45deg);}
+body.journey-mode .mode-tabs{gap:18px;}
+body.journey-mode .mode-tabs button{border:0;border-bottom:1px solid var(--earth-control);border-radius:0;background:transparent;color:var(--earth-ink);padding:18px 16px;min-height:104px;}
+body.journey-mode .mode-tabs button[aria-selected='true']{border:0;border-bottom:2px solid var(--earth-clay);border-radius:0;background:#f4ede4;color:var(--earth-ink);padding:18px 16px 17px;}
+body.journey-mode .mode-tabs button:hover{background:#f2ece3;}
+body.journey-mode .mode-tabs button .tab-label{font-weight:500;font-size:17px;}
+body.journey-mode .mode-tabs button small{color:var(--earth-muted);font-weight:400;}
+
+/* Reduce enclosure. Real controls keep their boundaries and touch targets. */
+.journey-screen .box{border:0;border-top:1px solid var(--earth-line);padding:24px 0;margin-bottom:24px;background:transparent;border-radius:0;box-shadow:none;}
+.journey-screen .stage-work>.box:first-child{border-top:0;}
+.journey-screen .stage-guide{background:transparent;}
+.journey-screen .stage-guide>details{border:0;border-bottom:1px solid var(--earth-line);border-radius:0;padding:14px 0;}
+.journey-screen .stage-guide>details>summary{color:var(--earth-muted);font-weight:500;}
+.journey-mode .journey-part-tabs{border-color:var(--earth-line);gap:6px;}
+.journey-mode .journey-part-tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--earth-muted);font-weight:400;padding:10px 16px;}
+.journey-mode .journey-part-tabs button:hover{color:var(--earth-clay);background:#f5eee6;}
+.journey-mode .journey-part-tabs button[aria-pressed='true']{border-color:var(--earth-clay);background:transparent;color:var(--earth-clay);font-weight:500;}
+.journey-mode .at-upload-grid{gap:28px;}
+.journey-mode .at-start{--at-green:var(--earth-clay);--at-muted:var(--earth-muted);background:transparent;border:0;border-radius:0;padding:20px 0;color:var(--earth-ink);}
+.journey-mode .at-upload-card{border:0;border-top:1px solid var(--earth-line);border-radius:0;padding:22px 0;background:transparent;}
+.journey-mode .at-upload-card label{font-size:18px;font-weight:500;color:var(--earth-ink);}
+.journey-mode .at-upload-card :is(p,small),.journey-mode .at-start-note,.journey-mode .at-upload-status{color:var(--earth-muted);}
+.journey-mode .at-file-kind{border:0;color:var(--earth-clay);font-size:14px;font-weight:500;letter-spacing:0;}
+.journey-mode .at-upload-card input[type='file']{background:#f6f1e9;border:1px solid var(--earth-line);border-radius:5px;color:var(--earth-ink);font-size:14px;}
+.journey-mode input[type='file']::file-selector-button{background:var(--earth-paper);border:1px solid var(--earth-control);border-radius:4px;padding:8px 12px;color:var(--earth-ink);font-family:inherit;margin-right:10px;cursor:pointer;}
+.journey-mode .at-start-options,.journey-mode .at-start-next{background:#f3ede4;border-color:var(--earth-line);color:var(--earth-ink);border-radius:5px;}
+.journey-mode .at-start-next p{color:var(--earth-muted);}
+.journey-mode .at-start-heading h3{font-weight:500;}
+.journey-mode .at-start-heading p{color:var(--earth-muted);}
+.journey-mode .insulation-card{border:0;border-radius:0;background:transparent;padding:24px 0;color:var(--earth-ink);}
+.journey-mode .insulation-guide{background:transparent;}
+.journey-mode .insulation-card :is(h4,.insulation-next){font-weight:500;}
+.journey-mode .insulation-card-title span{background:var(--earth-sage-soft);color:var(--earth-sage);font-weight:500;}
+.journey-mode .insulation-card:is([data-state='required'],[data-state='pending']) .insulation-card-title span{background:var(--earth-warn-soft);color:var(--earth-warn);}
+.journey-mode .insulation-task-summary{border:0;background:var(--earth-warn-soft);color:var(--earth-warn);border-radius:4px;font-weight:500;}
+.journey-mode .insulation-task-summary[data-ready='true']{background:var(--earth-sage-soft);color:var(--earth-sage);}
+.journey-mode .insulation-guide-note{color:var(--earth-muted);font-size:14px;}
+.journey-mode :is(.journey-fd-help,.journey-empty){background:#f4eee5;color:var(--earth-ink);border:0;border-radius:5px;}
+.journey-mode .journey-fd-ready{background:var(--earth-sage-soft);color:var(--earth-sage);}
+.journey-mode .fd-guide{border:0;border-bottom:1px solid var(--earth-line);border-radius:0;background:transparent;padding:16px 0;color:var(--earth-ink);}
+.journey-mode .fd-guide>summary{color:var(--earth-muted);font-size:16px;font-weight:500;}
+.journey-mode .ssl-banner{background:#f3ede4;border:0;border-radius:4px;color:#51473f;font-weight:400;font-size:14px;}
+
+/* One family and a small number of weights carry labels, quantities and explanations. */
+.journey-mode .setting-assumptions,.journey-mode .setting-details{border-color:var(--earth-line);color:var(--earth-ink);}
+.journey-mode .setting-assumptions :is(dt,dd span,.setting-assumptions-note,.setting-initial-note),.journey-mode .setting-assumption-state,.journey-mode .setting-details .setting-help{color:var(--earth-muted);}
+.journey-mode .setting-assumptions-heading>b{font-weight:500;}
+.journey-mode .setting-assumptions dd strong,.journey-mode .setting-room-results dd{font-weight:500;color:var(--earth-ink);}
+.journey-mode .setting-details>summary{font-weight:500;}
+.journey-mode .setting-details>summary:hover{background:#f4eee5;color:var(--earth-ink);}
+.journey-mode .setting-details label,.journey-mode .setting-basic-fields label{color:var(--earth-ink);font-weight:500;}
+.journey-mode .setting-value-review{background:var(--earth-warn-soft);}
+.journey-mode .setting-value-review :is(dd,dd span),.journey-mode .setting-assumptions[data-assumption-state='review'] .setting-assumption-state{color:var(--earth-warn);}
+.journey-mode .setting-assumptions [data-open-basic-detail],.journey-mode .setting-details>summary [data-detail-review]{background:var(--earth-warn-soft);border-color:#ae854d;color:var(--earth-warn);font-weight:500;}
+.journey-mode :is(.setup-required-field,.need-manual){background:var(--earth-warn-soft)!important;color:var(--earth-ink);}
+.journey-mode :is(.setup-required-reason,.insulation-required-reason){color:var(--earth-warn);font-size:13px;font-weight:500;}
+.journey-mode :is(.cfd-value .v,.at-rv-label){font-family:inherit;font-weight:500;}
+.journey-mode .at-rv-label{fill:var(--earth-ink);}
+.journey-mode .at-rv-label-sub{font-weight:400;}
+.journey-mode .at-rv-side,.journey-mode .at-rv-command{background:var(--earth-paper);border-color:var(--earth-line);}
+.journey-mode .at-rv-side :is(input,select){font-family:inherit;color:var(--earth-ink);}
+
+/* Apply actions retain their position, confirmation semantics, and minimum size. */
+body.journey-mode :is(.at-apply-btn,.at-rv-confirm,#winPresetApply,#atApplyImportBtn,[data-thermal-apply],[data-thermal-face-apply],[data-attic-apply],[data-floor-confirm],[data-assign-window],[data-action='floor-opening-apply'],.boundary-action-bar button),
+body.journey-mode #atThermalReview button,
+body.journey-mode .insulation-card>button{
+  background:var(--earth-clay);border-color:var(--earth-clay);color:#fffdfa;border-radius:5px;font-family:inherit;font-weight:500;box-shadow:none;
+}
+body.journey-mode :is(.at-apply-btn,.at-rv-confirm,#winPresetApply,#atApplyImportBtn,[data-thermal-apply],[data-thermal-face-apply],[data-attic-apply],[data-floor-confirm],[data-assign-window],[data-action='floor-opening-apply'],.boundary-action-bar button):hover,
+body.journey-mode #atThermalReview button:hover,body.journey-mode .insulation-card>button:hover{background:var(--earth-clay-hover);border-color:var(--earth-clay-hover);color:#fffdfa;}
+.journey-mode .boundary-action-bar{border-color:var(--earth-line);background:transparent;}
+.journey-mode .boundary-action-status{color:var(--earth-muted);font-weight:400;}
+.journey-mode .boundary-action-status[data-state='applied']{color:var(--earth-sage);font-weight:500;}
+.journey-mode .boundary-action-status[data-state='pending']{color:var(--earth-warn);font-weight:500;}
+.journey-mode .boundary-action-status[data-state='error']{color:var(--earth-error);font-weight:500;}
+.journey-mode .at-import-confirm.boundary-action-bar{border:0;background:#f5ede1;border-radius:5px;}
+.journey-mode .at-import-confirm-copy :is(strong,p){color:var(--earth-ink);}
+.journey-mode #winPresetStatus{color:var(--earth-muted);font-weight:500;}
+.journey-mode .win-preset-guide{background:#f5ede1;border:0;border-radius:5px;}
+.journey-mode .win-preset-guide :is(b,p){color:#68503c;font-weight:400;}
+body.journey-mode .at-merge-popup-footer .at-rv-merge-cancel{background:var(--earth-paper);border-color:var(--earth-control);color:var(--earth-muted);}
+.journey-mode .at-rv-merge-popup{background:var(--earth-paper);}
+.journey-mode .at-merge-popup-footer{background:var(--earth-paper);border-color:var(--earth-line);}
+
+/* Thermal detail panels use the same matte surface and semantic state colors. */
+body.journey-mode #atThermalDialog{color:var(--earth-ink);background:var(--earth-paper);border:1px solid #c6baae;border-radius:12px;box-shadow:0 22px 70px #352b242b;}
+.journey-mode .at-thermal-dialog::backdrop{background:#302b2766;}
+.journey-mode .at-thermal-dialog>header{background:var(--earth-shell);border-color:var(--earth-line);}
+.journey-mode .at-thermal-dialog>header p{color:var(--earth-muted);}
+.journey-mode .at-thermal-dialog h2{font-weight:500;padding-top:0;border:0;text-wrap:balance;}
+.journey-mode .at-thermal-dialog-status{color:var(--earth-warn);background:var(--earth-warn-soft);font-weight:500;}
+.journey-mode .at-thermal-dialog-status[data-ready='true']{color:var(--earth-sage);background:var(--earth-sage-soft);}
+.journey-mode .at-thermal-dialog>footer{border-color:var(--earth-line);color:var(--earth-muted);}
+.journey-mode .at-thermal-dialog>footer button{background:var(--earth-clay);color:#fffdfa;border-color:var(--earth-clay);}
+.journey-mode #atThermalReview{border:0;border-radius:0;padding:12px 0;background:transparent;}
+.journey-mode #atThermalReview .at-thermal-card{border:0;background:transparent;padding:22px 0;border-radius:0;}
+.journey-mode #atThermalReview h4{text-wrap:balance;}
+.journey-mode #atThermalReview :is(p,label){color:var(--earth-ink);}
+.journey-mode #atThermalReview label{font-weight:500;}
+.journey-mode #atThermalReview input:not([type='checkbox']),.journey-mode #atThermalReview select{font-weight:400;border-color:var(--earth-control);background:var(--earth-paper);color:var(--earth-ink);border-radius:4px;}
+.journey-mode #atThermalReview :is(.at-thermal-unit,.at-attic-source p){color:var(--earth-muted);}
+.journey-mode #atThermalReview .at-thermal-details{border-color:var(--earth-line);background:transparent;}
+.journey-mode #atThermalReview .at-thermal-details fieldset{border:0;border-top:1px solid var(--earth-line);padding:16px 0;}
+.journey-mode #atThermalReview .at-thermal-details>summary{font-weight:500;color:var(--earth-muted);}
+.journey-mode #atThermalReview .at-thermal-notice{border:0;background:var(--earth-warn-soft);color:var(--earth-warn);}
+.journey-mode #atThermalReview :is(.at-attic-source,.at-attic-imported){background:#f3eee6;border:0;border-radius:5px;color:var(--earth-ink);}
+.journey-mode #atThermalReview .at-attic-estimator{border:0;border-radius:0;background:transparent;padding:0;}
+.journey-mode .at-attic-diagram{font-family:inherit;fill:var(--earth-sage);}
+.journey-mode .at-attic-diagram path[stroke='#db6636']{stroke:var(--earth-clay);}
+.journey-mode .at-attic-imported b{color:var(--earth-sage);font-weight:500;}
+.journey-mode .at-attic-imported span{color:var(--earth-muted);}
+.journey-mode .at-attic-result{border:0;background:var(--earth-sage-soft);border-radius:5px;}
+.journey-mode .at-attic-result>b{color:var(--earth-sage);font-weight:500;}
+.journey-mode #atThermalReview [data-attic-preview] ul{background:var(--earth-warn-soft);color:var(--earth-warn);}
+
+/* The overview is a list of work, not another layer of cards. */
+body.journey-mode #requiredSetupGuide.workflow-guide{padding:0;border:0;border-radius:0;background:transparent;color:var(--earth-ink);}
+.journey-mode .workflow-heading h2{font-weight:500;color:var(--earth-ink);}
+.journey-mode .workflow-heading p:not(.workflow-eyebrow),.journey-mode .workflow-progress small{color:var(--earth-muted);}
+.journey-mode .workflow-progress>strong{font-weight:500;color:var(--earth-ink);}
+.journey-mode .workflow-progress [role='progressbar']{background:#e4e5da;}
+.journey-mode .workflow-progress [role='progressbar'] span{background:#718169;}
+.journey-mode .workflow-stages button{border:0;border-bottom:1px solid var(--earth-control);border-radius:0;background:transparent;color:var(--earth-ink);}
+.journey-mode .workflow-stages button[aria-current='step']{background:#f4eee4;border-color:var(--earth-clay);box-shadow:inset 0 -1px var(--earth-clay);}
+.journey-mode .workflow-stages button[aria-pressed='true']{outline-color:var(--earth-clay);}
+.journey-mode .workflow-stages small{color:var(--earth-muted);}
+.journey-mode .workflow-stage-number{border-color:var(--earth-line);color:var(--earth-muted);font-weight:400;}
+.journey-mode .workflow-next{background:#f4ece2;border:0;border-radius:5px;}
+.journey-mode .workflow-next :is(b,p){color:var(--earth-ink);}
+.journey-mode .workflow-next button{background:var(--earth-clay);border-color:var(--earth-clay);color:#fffdfa;font-weight:500;}
+.journey-mode .workflow-filters{border-color:var(--earth-line);}
+.journey-mode .workflow-filters button{background:transparent;color:var(--earth-muted);border-color:var(--earth-line);font-weight:400;border-radius:4px;}
+.journey-mode .workflow-filters button[aria-pressed='true']{background:#ece3d7;border-color:#ba9a81;color:#694433;}
+.journey-mode .workflow-task{background:transparent;border:0;border-bottom:1px solid var(--earth-line);border-radius:0;color:var(--earth-ink);}
+.journey-mode .workflow-task-copy>p,.journey-mode .workflow-legend,.journey-mode .workflow-note{color:var(--earth-muted);}
+.journey-mode .workflow-task>button{border-color:var(--earth-control);color:var(--earth-clay);background:transparent;font-weight:500;}
+.journey-mode .workflow-task>button:hover{background:#f4eee5;border-color:var(--earth-control);color:var(--earth-clay-hover);}
+.journey-mode .workflow-state{border-color:#d6bb95;background:var(--earth-warn-soft);color:var(--earth-warn);font-weight:500;}
+.journey-mode [data-state='ready'] .workflow-state{border-color:#c0caba;background:var(--earth-sage-soft);color:var(--earth-sage);}
+.journey-mode [data-state='waiting'] .workflow-state{border-color:var(--earth-line);background:#f0ebe4;color:var(--earth-muted);}
+.journey-mode .workflow-origin{border:0;background:#f0ebe4;color:var(--earth-muted);}
+.journey-mode .workflow-origin[data-origin='estimate']{background:var(--earth-warn-soft);color:var(--earth-warn);}
+.journey-mode .workflow-task :is(summary,.workflow-field-state){color:var(--earth-muted);}
+.journey-mode .workflow-count-dot.is-done{background:var(--earth-sage);}
+.journey-mode .workflow-count-dot.is-review{background:#938575;}
+.journey-mode .workflow-count-dot.is-required{background:#ae7046;}
+.journey-mode .journey-other-overview li{border-color:var(--earth-line);}
+.journey-mode .journey-other-overview :is(p,li span){color:var(--earth-muted);}
+.journey-mode .copy-btn{background:#f2ece3;border-color:var(--earth-line);color:var(--earth-muted);font-weight:400;}
+body.journey-mode .nav-toggle{background:var(--earth-paper);border-color:var(--earth-control);}
+body.journey-mode .nav-toggle span{background:var(--earth-ink);}
+.journey-mode #pipelinePanel{--pipe-accent:var(--earth-clay);}
+.journey-mode :is(.pipe-status,.pipe-sheet){background:#f3ede5;color:var(--earth-ink);}
+.journey-mode .pipe-source button[aria-pressed='true']{background:var(--earth-clay-soft);color:var(--earth-clay);}
+.journey-mode .pipe-errors{border:0;background:var(--earth-warn-soft);color:var(--earth-warn);}
+.journey-mode .pipe-ok{background:var(--earth-sage-soft);color:var(--earth-sage);}
+
+@media(prefers-reduced-motion:no-preference){
+  body.journey-mode .workflow-tabs button{transition:box-shadow .15s ease-out;}
+}
+
+@media(max-width:700px){
+  .journey-welcome{padding:12px 0 24px;gap:24px;}
+  .journey-welcome h1{font-size:clamp(21px,6.2vw,26px);letter-spacing:-.035em;}
+  .journey-heading h1{font-size:25px;}
+  body.journey-mode .workflow-tabs{gap:12px;}
+  body.journey-mode .workflow-tabs button,body.journey-mode .workflow-tabs button[aria-pressed='true']{min-height:104px;padding:20px 22px;}
+  body.journey-mode .workflow-tabs button[aria-pressed='true'] b::after{top:25px;right:24px;}
+  .journey-mode .at-upload-grid{gap:22px;}
+  .journey-mode .at-upload-card{padding:20px 0;}
+  .journey-screen .box{padding:20px 0;}
+  body.journey-mode .header-actions button{font-size:12px;}
+}
+@media(forced-colors:active){
+  body.journey-mode .workflow-tabs button[aria-pressed]{background:ButtonFace;border:2px solid ButtonText;color:ButtonText;box-shadow:none;}
+  body.journey-mode .workflow-tabs button span{color:ButtonText;}
+  body.journey-mode .workflow-tabs button[aria-pressed='true']{background:Highlight;color:HighlightText;border-color:Highlight;}
+  body.journey-mode .workflow-tabs button[aria-pressed='true'] span{color:HighlightText;}
+  body.journey-mode .workflow-tabs button[aria-pressed='true'] b::after{border-color:HighlightText;}
+}

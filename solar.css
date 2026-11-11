@@ -1,0 +1,21 @@
+.solar-settings{margin-block:24px;padding-block:20px;border-block:1px solid var(--line,#c9c9c9);min-width:0;}
+.solar-settings h3{margin-top:0;}
+.solar-settings>label,.solar-settings #solarEpwFields>label{display:block;margin-block:12px 6px;font-size:14px;font-weight:600;}
+.solar-settings select,.solar-settings input{max-width:100%;font-size:16px;min-height:44px;}
+.solar-settings select{width:min(100%,32rem);}
+.solar-status{margin-block:12px;line-height:1.8;overflow-wrap:anywhere;}
+.solar-status[data-state="error"],.solar-wait{color:var(--solar-error,#96351f);}
+.solar-actions{display:flex;flex-wrap:wrap;gap:10px;}
+.solar-actions button{min-height:44px;}
+.solar-details{margin-top:14px;}
+.solar-details summary{cursor:pointer;min-height:44px;padding-block:10px;font-weight:600;}
+.solar-details p{margin-block:10px;}
+.solar-table-scroll{overflow-x:auto;max-width:100%;}
+.solar-settings table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}
+.solar-settings caption{text-align:left;padding-block:8px;font-weight:600;}
+.solar-settings td,.solar-settings th{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line,#c9c9c9);white-space:nowrap;}
+.solar-settings th:first-child{text-align:left;}
+.solar-settings thead th{background:transparent;}
+.solar-settings [hidden]{display:none!important;}
+.solar-settings :focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+@media(max-width:650px){.solar-actions button{width:100%;}.solar-settings td,.solar-settings th{padding:8px 6px;font-size:13px;}}

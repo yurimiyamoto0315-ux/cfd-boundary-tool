@@ -137,6 +137,7 @@ function atFddBakeBlock(block, anchor, item, shift, flow, temp, names, parentMov
 }
 
 function atFddBakeXml(xml, item, shift, flow, temp, label){
+  if(!Number.isFinite(flow)||flow<=0||!Number.isFinite(temp)||temp<5)throw new Error('エアコンの風量・吹出温度を確認してください。条件は出力していません。');
   const parsed = atPartParseFdd(xml, 'ac', label || 'ac');
   const start = xml.indexOf('<model>');
   const end = atFddModelEnd(xml, start);
@@ -147,18 +148,23 @@ function atFddBakeXml(xml, item, shift, flow, temp, label){
 
 function atFddSupplyTemp(){
   if (typeof runAll === 'function') runAll();
+  if(typeof boundaryAcCalculationStatus==='function'&&!boundaryAcCalculationStatus()?.ready)return null;
   if (typeof sslTrVal === 'function'){
     const n = parseFloat(sslTrVal('3', 'エアコン (吹出)', '吹出温度 [℃]'));
-    if (Number.isFinite(n)) return n;
+    if (Number.isFinite(n)&&n>=5) return n;
   }
   return null;
 }
 
 function exportAtAcFdd(){
+  if(typeof boundaryExportReadiness==='function'){
+    const status=boundaryExportReadiness('model');
+    if(!status.ready){alert(status.message);return;}
+  }
   const info = document.getElementById('idfMeshExportInfo');
   const units = typeof atPartAcUnits === 'function' ? atPartAcUnits() : [];
   if (!units.length){
-    if (info) info.textContent = 'エアコンが未配置です。3Dビューワーで置いてから書き出してください。';
+    if (info) info.textContent = 'エアコンの配置はありません。';
     return;
   }
   if (typeof atPartTemplatesReady === 'function' && !atPartTemplatesReady()){
@@ -171,7 +177,8 @@ function exportAtAcFdd(){
   const vol = volEl ? volEl.value : '強';
   const temp = atFddSupplyTemp();
   if (temp == null){
-    if (info) info.textContent = '吹出温度がまだ計算できません。気象・室温・負荷を入れてから書き出してください。';
+    const status=typeof boundaryAcCalculationStatus==='function'?boundaryAcCalculationStatus():null;
+    if (info) info.textContent = status?.errors?.length?status.errors.map(error=>error.message).join(' '):'吹出温度がまだ計算できません。気象・室温・負荷を入れてから書き出してください。';
     return;
   }
   const jobs = units.map(function(item, index){

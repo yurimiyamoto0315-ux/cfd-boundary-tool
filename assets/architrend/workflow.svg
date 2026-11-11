@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="250" viewBox="0 0 1120 250" role="img" aria-labelledby="title desc">
+<title id="title">おうちの解析、4つのステップ</title><desc id="desc">データを読み込み、部屋と階を確かめ、断熱と使い方を設定して、FlowDesignerへ渡します。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10" fill="none" stroke="#75958a" stroke-width="1.5"/></marker></defs>
+<g font-family="Noto Sans JP,Yu Gothic,Meiryo,sans-serif" fill="#38322e">
+<g stroke="#75958a" stroke-width="2" marker-end="url(#arrow)"><path d="M259 125h21"/><path d="M549 125h21"/><path d="M839 125h21"/></g>
+<g stroke="#377967" stroke-width="2.5" stroke-linejoin="round" fill="#fff"><path d="m93 88 32-27 32 27v36H93z"/><path d="M119 124v-24h16v24M88 91l37-32 37 32"/><path d="M373 57h84v68h-84zM407 57v68M407 91h50M373 100h34"/><path d="M667 124V88l38-32 38 32v36z"/><path d="M667 88h76M681 102h16v22M718 101v13M712 108h12"/><path d="M953 61h84v58h-84zM995 119v10M977 130h36"/><path d="m968 102 17-20 18 14 17-22"/></g>
+<g fill="#994c39"><rect x="379" y="63" width="22" height="31" rx="2"/><path d="M673 91h64v5h-64z"/></g><g stroke="#994c39" stroke-width="2" fill="none"><path d="M696 85v-9m9 9v-9m9 9v-9"/><path d="m1043 96 13 9-13 9m-7-9h20"/></g>
+<g text-anchor="middle"><g font-size="20" font-weight="500"><text x="125" y="175">1 データを読み込む</text><text x="415" y="175">2 部屋と階を確認</text><text x="705" y="175">3 断熱・使い方</text><text x="995" y="175">4 FDへ渡す</text></g><g font-size="15" fill="#6d6259"><text x="125" y="208">3DS・CSV/Excel・PDFを選ぶ</text><text x="415" y="208">部屋名・階段・吹抜け</text><text x="705" y="208">資料を見ながら入力</text><text x="995" y="208">形状 → 色CSV → 条件CSV</text></g></g></g></svg>

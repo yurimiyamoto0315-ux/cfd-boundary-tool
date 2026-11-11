@@ -1,0 +1,155 @@
+/* A task-oriented shell: 216px of workflow, a flexible model, 328px of properties. */
+:root { --journey-dock-height:60px; }
+body.journey-mode.has-brand-header { --header-h:56px;--chrome-h:56px;--sidenav-w:216px; }
+html:has(body.journey-mode) { scroll-padding-top:68px;scroll-padding-bottom:calc(var(--journey-dock-height) + 24px); }
+body.journey-mode :is(input,select,button,[tabindex]) { scroll-margin-top:68px;scroll-margin-bottom:calc(var(--journey-dock-height) + 24px); }
+body.journey-mode.has-brand-header .app-chrome { height:56px;border-bottom:1px solid var(--earth-line); }
+body.journey-mode.has-brand-header .app-header { height:56px;max-width:none;padding:0 20px;gap:16px;align-items:center; }
+body.journey-mode.has-brand-header :is(.header-name,.header-utils,.header-save-group) { min-height:0;border:0;border-radius:0;background:transparent;box-shadow:none; }
+body.journey-mode.has-brand-header .header-name { flex:0 0 200px;height:48px;padding:0;gap:9px; }
+body.journey-mode.has-brand-header .header-brand-mark { flex-basis:30px;width:30px;height:30px; }
+body.journey-mode.has-brand-header .header-brand-title { font-size:15px; }
+body.journey-mode.has-brand-header #journeyCompactCurrent { display:none; }
+body.journey-mode.has-brand-header .header-status { position:static;order:2;flex:0 1 auto;margin-left:auto;font-size:12px;max-width:540px; }
+body.journey-mode.has-brand-header .header-save-group { order:3;display:flex;gap:8px;margin:0;height:auto; }
+body.journey-mode.has-brand-header .header-save-group button { min-height:44px;padding:6px 12px;border:1px solid var(--earth-control);border-radius:5px;background:var(--earth-paper);color:var(--earth-ink);font-size:13px;line-height:1.5; }
+body.journey-mode.has-brand-header .header-save-main { width:84px;min-width:84px;max-width:84px; }
+body.journey-mode.has-brand-header #headerToolsToggle { display:flex;align-items:center;gap:4px;min-width:80px;padding:6px 10px;border:1px solid var(--earth-control);border-radius:5px; }
+body.journey-mode.has-brand-header .header-save-group button:hover { background:var(--earth-sage-soft);color:var(--earth-ink); }
+body.journey-mode.has-brand-header .header-utils.is-tools-open { position:fixed;inset:52px 16px auto auto;z-index:60;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:4px;width:min(320px,calc(100vw - 32px));max-height:calc(100dvh - 64px);overflow:auto;margin:0;padding:8px;border:1px solid var(--earth-line);border-radius:8px;background:var(--earth-paper);box-shadow:0 8px 24px #38322e1a; }
+body.journey-mode.has-brand-header .header-actions { flex-direction:column;align-items:stretch;gap:4px; }
+body.journey-mode.has-brand-header .header-utils.is-tools-open button { width:100%;min-height:40px;padding:8px 12px;border:0;border-radius:4px;background:transparent;color:var(--earth-ink);font-size:14px;text-align:left; }
+body.journey-mode.has-brand-header .header-utils.is-tools-open button:hover { background:var(--earth-sage-soft);color:var(--earth-ink); }
+body.journey-mode.has-brand-header #navToggle { display:none!important; }
+body.journey-mode #sidenav.journey-step-nav { position:fixed;inset:56px auto 0 0;z-index:45;display:block;width:216px;height:auto;padding:16px 10px;border:0;border-right:1px solid var(--earth-line);background:var(--earth-shell);overflow:auto;transform:none; }
+body.journey-mode #sidenav ol { display:flex;flex-direction:column;gap:4px;width:100%;min-width:0;margin:0;padding:0;list-style:none; }
+body.journey-mode #sidenav li { margin:0;padding:0; }
+body.journey-mode #sidenav button { display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;max-width:none;min-height:54px;padding:10px;border:0;border-radius:6px;background:transparent;color:var(--earth-muted);text-align:left;line-height:1.4;scroll-margin:8px; }
+body.journey-mode #sidenav button:hover { background:#e7e5de;color:var(--earth-ink); }
+body.journey-mode #sidenav button[aria-current="step"] { border:0;background:var(--earth-paper);color:var(--earth-ink); }
+body.journey-mode #sidenav svg { flex:none;width:18px;height:18px; }
+body.journey-mode #sidenav b { display:block;font-size:14px;font-weight:500;white-space:normal; }
+body.journey-mode #sidenav small { display:block;margin-top:4px;font-size:12px;font-weight:400; }
+body.journey-mode #sidenav :is([data-journey-state="required"],[data-journey-state="pending"]) { color:var(--earth-warn); }
+body.journey-mode #sidenav [data-journey-state="ready"] { color:var(--earth-sage); }
+body.journey-mode #main,body.journey-mode.pipeline-mode #main { max-width:none;margin:56px 12px 0 228px;padding:20px 20px calc(var(--journey-dock-height) + 28px);min-height:calc(100dvh - 56px);border-radius:0; }
+body.journey-mode.has-brand-header #main { margin-top:56px; }
+body.journey-mode[data-journey-current="welcome"] #main { max-width:1400px;margin:56px auto 0;padding-bottom:24px; }
+body.journey-mode #journeyFooter { position:fixed;inset:auto 12px 12px 228px;z-index:35;display:block;max-width:none;margin:0;padding:8px 12px;border:1px solid var(--earth-line);border-radius:6px;background:var(--earth-paper);box-shadow:none; }
+.journey-dock-actions { display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0;margin:0; }
+.journey-dock-actions>button { min-height:40px;max-width:42%;margin:0;padding:8px 12px;font-size:14px;line-height:1.5; }
+.journey-dock-note>span { display:none; }
+.journey-dock-note>button { min-height:40px;padding:8px;font-size:13px;border:0;background:transparent;white-space:nowrap; }
+body.journey-mode[data-journey-current="rooms"] #journeyNext { background:var(--earth-paper);color:var(--earth-ink);border-color:var(--earth-control); }
+body.journey-mode :is(#roomTableWrap,#atFloorReview) { max-width:100%;overflow-x:auto; }
+.journey-mode :is(#roomChart,#satChart) { max-width:100%; }
+
+/* The top row changes the view; all editing lives in the properties column. */
+body.journey-mode .at-room-viewer { display:flex;flex-direction:column;margin-top:12px;height:calc(100dvh - var(--chrome-h) - var(--journey-dock-height) - 36px);min-height:0;border:1px solid var(--earth-line);border-radius:6px;overflow:hidden;scroll-margin:0; }
+body.journey-mode .at-room-viewer :is(input,select,button,[tabindex]) { scroll-margin:8px; }
+body.journey-mode .at-rv-command-row { display:flex;flex-wrap:nowrap;align-items:center;gap:12px;padding:10px 14px;overflow-x:auto;scrollbar-width:thin; }
+body.journey-mode .at-rv-command-row>* { flex-shrink:0; }
+body.journey-mode .at-rv-floor-choice { display:flex;align-items:center;gap:8px;margin:0;font-size:12px;white-space:nowrap; }
+body.journey-mode #atRoomFloorSelect { width:auto;min-width:68px;min-height:34px;margin:0;padding:5px 22px 5px 8px;font-size:13px; }
+body.journey-mode .at-rv-toolbar { display:flex;flex-wrap:nowrap;gap:0; }
+body.journey-mode .at-rv-command button { min-height:34px;margin:0;padding:6px 10px;border:1px solid var(--earth-line);border-radius:4px;font-size:13px;white-space:nowrap; }
+body.journey-mode .at-rv-toolbar button[aria-pressed="true"] { border-color:var(--earth-control);background:#e8e5dd;color:var(--earth-ink); }
+body.journey-mode .at-rv-metrics { display:flex;flex-wrap:nowrap;gap:12px;margin-left:auto; }
+body.journey-mode :is(.at-rv-progress,.at-rv-volume) { padding:0;border:0;background:transparent;font-size:12px; }
+body.journey-mode .at-rv-workspace { flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 328px; }
+body.journey-mode .at-rv-stage { min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;padding:12px;background:#f8f9fa; }
+body.journey-mode #atRoomScene { width:100%;height:100%;min-height:0; }
+body.journey-mode .at-rv-help { padding:8px 0 0;font-size:12px;line-height:1.5;color:var(--earth-muted); }
+body.journey-mode .at-room-viewer .at-rv-side { display:block;height:auto;min-height:0;padding:16px;overflow:auto;scroll-padding:12px;border-left:1px solid var(--earth-line); }
+.at-rv-panel-switch { display:flex;gap:4px;padding:3px;border-radius:6px;background:#edeae3; }
+.at-rv-panel-switch button { flex:1;min-height:36px;padding:6px;border:0;border-radius:4px;background:transparent;color:var(--earth-muted);font-size:13px; }
+.at-rv-panel-switch button[aria-pressed="true"] { background:var(--earth-paper);color:var(--earth-ink); }
+body.journey-mode .at-rv-side h3 { margin:20px 0 4px;font-size:16px;line-height:1.5; }
+body.journey-mode .at-rv-steps { margin:0 0 20px;font-size:12px;line-height:1.6; }
+body.journey-mode #atRoomEditor { flex:none;height:auto;min-height:0;max-height:none;overflow:visible; }
+body.journey-mode .at-rv-selection { margin-bottom:16px;font-size:13px; }
+body.journey-mode .at-rv-side label { font-size:13px; }
+body.journey-mode .at-rv-side :is(input,select) { min-height:40px;font-size:14px; }
+body.journey-mode .at-rv-side input[type="checkbox"] { min-height:0; }
+body.journey-mode #atRoomPdfChoice { font-size:13px; }
+body.journey-mode .at-rv-commit-bar.boundary-action-bar { margin:0;padding:12px 0;border:0;background:transparent; }
+body.journey-mode .at-rv-commit-bar .boundary-action-status { margin-bottom:10px;font-size:12px;line-height:1.6; }
+body.journey-mode .at-rv-commit-bar .at-rv-confirm { width:100%;min-height:42px;font-size:14px; }
+.at-rv-details { margin-top:16px;padding-top:12px;border-top:1px solid var(--earth-line); }
+.at-rv-details>summary { min-height:32px;font-size:13px;line-height:1.6;cursor:pointer;color:var(--earth-ink); }
+.at-rv-details[open]>summary { margin-bottom:12px; }
+.at-rv-details p { margin:8px 0;font-size:12px;line-height:1.7;color:var(--earth-muted); }
+body.journey-mode .at-rv-details button { max-width:100%;min-height:38px;font-size:13px; }
+body.journey-mode .at-room-viewer .at-rv-lists { display:block;min-height:0;margin:0; }
+body.journey-mode .at-rv-lists>* { overflow:visible; }
+body.journey-mode .at-rv-list { padding-top:0;border:0; }
+body.journey-mode .at-rv-room { margin:4px 0;padding:8px; }
+body.journey-mode .at-rv-room b { font-size:13px; }
+body.journey-mode .at-rv-room small { font-size:11px; }
+body.journey-mode .at-part-toolbar { display:flex;flex:none;flex-direction:column;align-items:stretch;gap:8px;min-width:0; }
+body.journey-mode .at-part-toolbar .small { flex:none;margin:8px 0; }
+body.journey-mode .at-part-toolbar .at-rv-divider { display:none; }
+body.journey-mode .at-part-toolbar :is(select,button) { width:100%; }
+body.journey-mode .at-part-toolbar label { display:block; }
+body.journey-mode .at-rv-orientation { display:grid;grid-template-columns:1fr 100px;gap:10px;min-width:0; }
+body.journey-mode .at-rv-orientation input[type="range"],body.journey-mode .at-rv-orientation>button { grid-column:1/-1;width:100%; }
+body.journey-mode .at-rv-angle input { width:72px; }
+body.journey-mode .at-rv-footer { margin:0;padding:0;border:0;background:transparent;white-space:normal;overflow-wrap:anywhere;font-size:12px; }
+body.journey-mode .is-merge-popup #atRoomEditor { height:auto;max-height:none;overflow:visible; }
+body.journey-mode .at-rv-merge-popup { height:auto;padding:12px; }
+body.journey-mode .at-part-side { overflow:visible; }
+
+@media(max-width:1100px) {
+  body.journey-mode #main,body.journey-mode.pipeline-mode #main { margin-left:12px;padding-inline:16px; }
+  body.journey-mode #journeyFooter { left:12px; }
+  body.journey-mode #sidenav.journey-step-nav { transform:translateX(-100%);visibility:hidden; }
+  body.journey-mode.nav-open #sidenav.journey-step-nav { transform:none;visibility:visible; }
+  body.journey-mode.has-brand-header #navToggle { display:flex!important;flex:0 0 44px;width:44px;height:44px;margin:0;padding:0;border:1px solid var(--earth-control);border-radius:4px;background:transparent; }
+  body.journey-mode #navBackdrop { position:fixed;inset:56px 0 0;z-index:40;background:#38322e33; }
+  body.journey-mode.nav-open #navBackdrop { display:block; }
+  body.journey-mode.has-brand-header .header-name { flex:0 1 auto; }
+  body.journey-mode.has-brand-header .header-status { max-width:400px; }
+}
+@media(max-width:760px) {
+  body.journey-mode.has-brand-header .app-header { padding:0 12px;gap:8px; }
+  body.journey-mode.has-brand-header .header-name { flex:1;min-width:0;gap:6px; }
+  body.journey-mode.has-brand-header .header-brand-mark { flex-basis:24px;width:24px;height:24px; }
+  body.journey-mode.has-brand-header .header-brand-title { font-size:13px;white-space:nowrap; }
+  body.journey-mode.has-brand-header .header-status { display:none; }
+  body.journey-mode.has-brand-header .header-status:has([data-save-error="true"]) { position:fixed;inset:60px 8px auto;z-index:65;display:flex;max-width:none;margin:0;padding:8px 12px;border:1px solid var(--earth-error);border-radius:4px;background:var(--earth-paper); }
+  body.journey-mode.has-brand-header .header-save-group { gap:4px; }
+  body.journey-mode.has-brand-header .header-save-main { width:72px;min-width:72px;max-width:72px;padding-inline:8px;font-size:12px; }
+  body.journey-mode.has-brand-header #headerToolsToggle { min-width:0;padding-inline:8px;font-size:12px; }
+  body.journey-mode #main,body.journey-mode.pipeline-mode #main { margin-inline:0;padding-inline:12px; }
+  body.journey-mode #journeyFooter { left:8px;right:8px;bottom:8px;padding:8px; }
+  .journey-dock-actions { gap:6px; }
+  .journey-dock-actions>button { min-width:0;max-width:40%;padding:8px;font-size:12px; }
+  .journey-dock-note>button { padding:6px;font-size:12px; }
+  body.journey-mode .at-rv-command-row { gap:8px;padding:8px; }
+  body.journey-mode .at-rv-floor-choice { gap:0;font-size:0; }
+  body.journey-mode .at-rv-metrics { display:none; }
+  body.journey-mode .at-rv-workspace { display:block;overflow:auto;scroll-padding:8px; }
+  body.journey-mode .at-rv-stage { height:clamp(220px,45vw,360px); }
+  body.journey-mode .at-room-viewer .at-rv-side { border-left:0;border-top:1px solid var(--earth-line);overflow:visible; }
+}
+@media(max-width:360px) {
+  body.journey-mode.has-brand-header .header-brand-copy { display:none; }
+}
+body.journey-mode[data-journey-current="welcome"] #navToggle { display:none!important; }
+@media(max-height:560px) {
+  body.journey-mode.has-brand-header .app-chrome { position:relative; }
+  body.journey-mode.has-brand-header #main { margin-top:0;min-height:0;padding-bottom:16px; }
+  body.journey-mode #journeyFooter { position:relative;inset:auto;width:100%;max-width:100%;min-width:0;margin-top:16px; }
+  body.journey-mode .at-room-viewer { height:auto;min-height:0;overflow:visible; }
+  body.journey-mode .at-rv-workspace { flex:none; }
+  body.journey-mode .at-rv-stage { height:360px; }
+  body.journey-mode .at-room-viewer .at-rv-side { max-height:460px;overflow:auto; }
+  html:has(body.journey-mode) { scroll-padding:12px; }
+  body.journey-mode :is(input,select,button,[tabindex]) { scroll-margin:8px; }
+}
+@media(forced-colors:active) {
+  body.journey-mode #sidenav button[aria-current="step"],.at-rv-panel-switch button[aria-pressed="true"] { outline:1px solid Highlight; }
+}
+/* Exceptional floor reconstruction stays available below the model. */
+.journey-mode #atFloorReview{padding:12px 16px;border:1px solid #d8d2c7;background:#fffdfa;margin-top:16px;}
+.at-floor-review-details>summary{cursor:pointer;font-weight:600;line-height:1.8;}

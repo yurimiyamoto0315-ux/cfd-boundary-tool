@@ -14,19 +14,43 @@ function populateWinGlass(){
   const wg = document.getElementById('winGlass');
   wg.innerHTML = jsmaWinTable[frame].map((r,i)=>'<option value="'+i+'">'+r.label+'</option>').join('');
 }
-function syncUWinFromTable(){
+function selectedWinTableU(){
+  const frame=document.getElementById('winFrame').value;
+  const row=jsmaWinTable[frame]?.[+document.getElementById('winGlass').value];
+  const value=row?.vals[+document.getElementById('winAttach').value];
+  return Number.isFinite(Number(value))&&Number(value)>0?Number(value):null;
+}
+function updateWinPresetGuide(){
+  const status=document.getElementById('winPresetStatus'),button=document.getElementById('winPresetApply');
+  if(!status||!button)return;
+  const u=selectedWinTableU(),input=document.getElementById('uWin');
+  button.disabled=u===null;
+  const current=input.value.trim()===''?null:Number(input.value);
+  const same=u!==null&&current!==null&&Math.abs(current-u)<1e-8;
+  status.dataset.state=current===null?'empty':same?'same':'different';
+  status.textContent=u===null?'仕様を選び直してください。対応するU値を確認できません。':
+    current===null?'U値はまだ空欄です。仕様を選び直すか、ボタンで U='+u+' を入力できます。':
+    same?'U='+u+' を入力済みです。選択中の仕様と同じ値です。':
+    '現在のU値は保持しています。ボタンを押すと、選択中の仕様の U='+u+' に置き換わります。';
+}
+function syncUWinFromTable(force=false){
   const el = document.getElementById('uWin');
   const wrap = el && el.closest('div');
-  if(wrap && (wrap.classList.contains('ep-filled') || wrap.classList.contains('at-filled'))){
-    return;
+  const u=selectedWinTableU();
+  if(u===null){updateWinPresetGuide();return false;}
+  document.getElementById('winTableInfo').textContent = '選択中の仕様: U='+u+' W/(m²K) (出典: JSMA 2025/7改訂)';
+  if(!force&&wrap&&(wrap.classList.contains('ep-filled')||wrap.classList.contains('at-filled'))){
+    updateWinPresetGuide();return false;
   }
-  const frame = document.getElementById('winFrame').value;
-  const row = jsmaWinTable[frame][+document.getElementById('winGlass').value];
-  const attach = +document.getElementById('winAttach').value;
-  if(!row) return;
-  el.value = row.vals[attach];
-  wrap && wrap.classList.remove('need-manual');
-  document.getElementById('winTableInfo').textContent = '選択中の熱貫流率: U='+row.vals[attach]+' W/(m²K) (出典: JSMA 2025/7改訂)';
+  el.value=u;
+  if(wrap){
+    wrap.classList.remove('need-manual');
+    if(force)wrap.classList.remove('ep-filled','at-filled');
+  }
+  updateWinPresetGuide();return true;
+}
+function applyWinTableU(){
+  if(syncUWinFromTable(true))runAll();
 }
 document.addEventListener('change', function(e){
   let needsRerun = false;

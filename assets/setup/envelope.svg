@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none"><style>text{font-family:"Yu Gothic",sans-serif;fill:#294c4b;font-size:14px} .label{font-size:12px;fill:#57706b}.stroke{stroke:#315c59;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}</style><rect width="480" height="300" rx="16" fill="#f0f4ec"/><title>壁・屋根・床・窓で、熱の出入りが変わります</title>
+<circle cx="391" cy="53" r="22" fill="#efc06f"/><g stroke="#dfaa57" stroke-width="2"><path d="M391 19v-8m0 84v-8m34-34h8m-84 0h8m59-24 6-6m-60 60 6-6m48 0 6 6m-60-60 6 6"/></g>
+<path d="m109 125 118-71 121 71-119 72Z" fill="#90afa1" class="stroke"/><path d="m109 125 120 72v85l-120-70Z" fill="#ecdfbf" class="stroke"/><path d="m229 197 119-72v88l-119 69Z" fill="#d5e1d5" class="stroke"/>
+<path d="m148 157 43 26v46l-43-26Z" fill="#b6d8db" class="stroke"/><path d="m169 170v45" stroke="#fff" stroke-width="3"/>
+<path d="m259 205 28-17v57l-28 17Z" fill="#b5c8b5" class="stroke"/><path d="m109 208 120 70 119-69v9l-119 69-120-70Z" fill="#9dbaa5" class="stroke"/>
+<g stroke="#ba7852" stroke-width="2"><path d="m370 100-27 25m0-8v8h8m-255 35-28-15m5 7-5-7 8-1m165 104 28-15m-8-1 8 1-4 7"/></g>
+<path d="m205 83-39-42H77m65 151H45m262-28h112m-155 92 43 27h92" stroke="#82998b"/>
+<text x="34" y="36">屋根の断熱</text><text x="26" y="183">外壁</text><text x="363" y="157">窓の性能</text><text x="323" y="276">床の断熱</text>
+<text x="29" y="268" class="label">厚み・ガラスの種類を選んで設定</text></svg>

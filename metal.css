@@ -1,0 +1,17 @@
+/* Only the hovered control receives the original liquid-metal shader.
+   Satin backgrounds, text, selection indicators and layout stay in their own styles. */
+.metal-relative{position:relative;}
+body.journey-mode .metal-surface{isolation:isolate;}
+body.journey-mode .metal-surface>.metal-rim-layer{
+  position:absolute;z-index:2;display:block;box-sizing:border-box;margin:0;max-width:none;
+  border-radius:inherit;pointer-events:none;font-size:0;line-height:0;
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor; /* taste-skill-ignore: mask geometry confines the user-requested shader to the rim. */
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude; /* taste-skill-ignore: the mask keeps the animated material clear of text and the button face. */
+}
+.metal-rim-layer>.metal-rim-canvas{
+  position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;
+  margin:0;border-radius:inherit;pointer-events:none;
+}
+@media(prefers-reduced-motion:reduce),(forced-colors:active),(any-hover:none){
+  .metal-rim-layer{display:none!important;}
+}

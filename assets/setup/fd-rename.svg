@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" role="img" aria-labelledby="title desc">
+<title id="title">ダウンロードした条件CSVの移動と名称確認</title><desc id="desc">Downloads内の最新のobjParam (1).csvを確認し、objParam.csvへ改名して対象のFDプロジェクトフォルダへ移動します。拡張子がcsv.csvと重複しないことも確認します。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 6 3 0 6" fill="none" stroke="#158578" stroke-width="1.6"/></marker></defs>
+<rect width="900" height="260" rx="18" fill="#faf7f1"/>
+<g font-family="Yu Gothic,Meiryo,sans-serif" fill="#263f3b">
+<text x="28" y="40" font-size="21" font-weight="700">ダウンロード後に、保存先と名前を確認</text>
+<rect x="28" y="65" width="355" height="117" rx="10" fill="white" stroke="#ddcfb2"/>
+<rect x="515" y="65" width="357" height="117" rx="10" fill="white" stroke="#b5d4cb"/>
+<text x="48" y="98" font-size="18">Downloads</text><text x="535" y="98" font-size="18">対象の .fdp と同じフォルダ</text>
+<text x="48" y="148" font-family="Consolas,monospace" font-size="24" fill="#a64026">objParam (1).csv</text>
+<text x="535" y="148" font-family="Consolas,monospace" font-size="24" fill="#147767">objParam.csv</text>
+<path d="M398 135h99" stroke="#158578" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="414" y="116" font-size="17">改名・移動</text>
+<g font-size="17"><text x="28" y="217">古いCSVと取り違えないよう、今回出力したファイルを確認します。</text><text x="28" y="243">エクスプローラーで拡張子を表示し、objParam.csv.csv になっていないか確認。</text></g>
+</g></svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 360" role="img" aria-labelledby="title desc">
+<title id="title">正しいFDプロジェクトフォルダの配置</title><desc id="desc">架空の解析用フォルダの直下にmodel.fdpとobjParam.csvを置きます。objcatidlist.csvもFDからここへ出力されます。Scriptsフォルダではありません。</desc>
+<rect width="740" height="360" rx="18" fill="#f3f8f6"/>
+<g font-family="Yu Gothic,Meiryo,sans-serif" fill="#263f3b">
+<path d="M30 35h48l14 14h45v37H30z" fill="#cfb56a"/>
+<text x="155" y="70" font-size="24" font-weight="700">解析用フォルダ（例）</text>
+<path d="M65 99v198m0-158h47m-47 70h47m-47 70h47" stroke="#9cb9b0" stroke-width="3" fill="none"/>
+<g font-family="Consolas,monospace" font-size="24"><text x="133" y="148">model.fdp</text><text x="133" y="218">objcatidlist.csv</text></g>
+<rect x="112" y="250" width="590" height="53" rx="8" fill="#147767"/>
+<text x="133" y="285" font-family="Consolas,monospace" font-size="24" fill="white">objParam.csv</text>
+<g font-size="18"><text x="416" y="147">いま開いているFD</text><text x="416" y="217">FDから自動出力</text><text x="416" y="284" fill="white">Toolからここへ移動</text><text x="30" y="337">配置先は .fdp と同じ場所。Scripts フォルダではありません。</text></g>
+</g></svg>

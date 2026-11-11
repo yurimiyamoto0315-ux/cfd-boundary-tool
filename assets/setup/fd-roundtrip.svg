@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 330" role="img" aria-labelledby="title desc">
+<title id="title">FlowDesignerと境界条件ツールの受渡し</title><desc id="desc">FDで形状を確定し色リストを出力。ツールで条件を作成し、objParam.csvをFDプロジェクトのフォルダへ置いて読み込みます。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 6 3 0 6" fill="none" stroke="#158578" stroke-width="1.6"/></marker></defs>
+<rect width="900" height="330" rx="18" fill="#f3f8f6"/>
+<g font-family="Yu Gothic,Meiryo,sans-serif" fill="#263f3b">
+<text x="28" y="38" font-size="16" font-weight="700" letter-spacing="2">FD → TOOL → FD</text>
+<rect x="28" y="68" width="252" height="214" rx="12" fill="white" stroke="#b5d4cb"/>
+<rect x="324" y="68" width="252" height="214" rx="12" fill="white" stroke="#b5d4cb"/>
+<rect x="620" y="68" width="252" height="214" rx="12" fill="white" stroke="#b5d4cb"/>
+<g font-size="22" font-weight="700"><text x="48" y="104">1  FDで色リスト</text><text x="344" y="104">2  Toolで条件作成</text><text x="640" y="104">3  FDへ反映</text></g>
+<g font-size="18"><text x="48" y="146">形状・パーツを確定</text><text x="48" y="180">カテゴライズを実行</text><text x="344" y="146">色と部材を確認</text><text x="344" y="180">必要な値を確定</text><text x="640" y="146">同じプロジェクトへ配置</text><text x="640" y="180">読み込み・値を確認</text></g>
+<g font-family="Consolas,monospace" font-size="18" fill="#147767"><text x="48" y="238">objcatidlist.csv</text><text x="344" y="238">objParam.csv</text><text x="640" y="238">model.fdp</text></g>
+<path d="M286 170h30m266 0h30" stroke="#158578" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="28" y="310" font-size="17">形状やパーツを変えたら、1の色リスト出力からやり直します。</text>
+</g></svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 210" fill="none" stroke="#526a54" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M64 20h352v172H64z M300 38h92v35h-92z M314 60h64 M140 161h114v15H140z M152 176v16m90-16v16"/>
+<path stroke="#994c39" stroke-width="3" d="M20 73h72m-11-8 11 8-11 8 M26 119h66m-11-8 11 8-11 8 M148 130c-14-15 14-22 0-37 M190 130c-14-15 14-22 0-37"/>
+<path stroke-width="3" d="M337 84c0 52-52 60-82 54m13-7-13 7 9 11 M171 69c52-31 79-26 112-17m-11-10 11 10-14 7"/>
+<g fill="#38322e" stroke="none" font-family="sans-serif" font-size="18"><text x="324" y="107">吹出し</text><text x="186" y="40">吸込み</text><text x="106" y="91">熱</text></g></svg>

@@ -1,0 +1,379 @@
+{
+  "pyodide": "314.0.7",
+  "pvlib": "0.16.1",
+  "wheel": "pvlib-0.16.1-py3-none-any.whl",
+  "packages": [
+    "certifi",
+    "charset-normalizer",
+    "h5py",
+    "idna",
+    "micropip",
+    "numpy",
+    "pandas",
+    "pkgconfig",
+    "python-dateutil",
+    "pytz",
+    "requests",
+    "scipy",
+    "six",
+    "tzdata",
+    "urllib3"
+  ],
+  "files": [
+    {
+      "file": "pyodide.mjs",
+      "bytes": 17931,
+      "sha256": "6f1d60f7bf529beb300f0f47983c921d3982363640ba20af0e38efdddbc66109",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs"
+    },
+    {
+      "file": "pyodide.asm.mjs",
+      "bytes": 1250344,
+      "sha256": "f7cdc8ece80678ceb712f8e65ebe6d3a83203a180c399865f49612a051693635",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.asm.mjs"
+    },
+    {
+      "file": "pyodide.asm.wasm",
+      "bytes": 9598218,
+      "sha256": "cc36e3cab04fdfc9a63ff13eb52eae2b911bf46c025cc7b281f394bd3de1d5e6",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.asm.wasm"
+    },
+    {
+      "file": "python_stdlib.zip",
+      "bytes": 2545637,
+      "sha256": "fa1957e5777068fc4f7437f96d860ae2fbe9c19732ba06c84e004ec16dd7dd7a",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/python_stdlib.zip"
+    },
+    {
+      "file": "certifi-2026.4.22-py3-none-any.whl",
+      "bytes": 135707,
+      "sha256": "c2c0091986db798df5fd84582d289496f31244a898ec032b7015278c2d82c80c",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/certifi-2026.4.22-py3-none-any.whl"
+    },
+    {
+      "file": "charset_normalizer-3.4.7-py3-none-any.whl",
+      "bytes": 61958,
+      "sha256": "9e437ef92fa51f06eedeb1ef092c0a887bd24fe0d40b1e900191117ce1653121",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/charset_normalizer-3.4.7-py3-none-any.whl"
+    },
+    {
+      "file": "h5py-3.13.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+      "bytes": 1607383,
+      "sha256": "2e25205901ed3d47d1651ee55fa9eacc29473785fee2b64d9dac5a5d27f738f2",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/h5py-3.13.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+    },
+    {
+      "file": "idna-3.11-py3-none-any.whl",
+      "bytes": 71008,
+      "sha256": "1619419bc899f07c7a608a12e8238e5e0bc15bb25fec90cfe20a86bb849ba0d8",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/idna-3.11-py3-none-any.whl"
+    },
+    {
+      "file": "micropip-0.11.1-py3-none-any.whl",
+      "bytes": 115486,
+      "sha256": "e2d52886594fd4cd0d0847110a1c34ae0134d3a970eb4496d3b5eb31ee2d8af6",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/micropip-0.11.1-py3-none-any.whl"
+    },
+    {
+      "file": "numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+      "bytes": 2960568,
+      "sha256": "a292c1f5d7d8a2208cd5e94fc467604c131cabcd2fc14fed6eefde121e7fabdf",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+    },
+    {
+      "file": "pandas-3.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+      "bytes": 4177749,
+      "sha256": "45ff57772cc2f366a8582c7d3097cc4e6676342ecd5a3c08184a43462d5a02ae",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pandas-3.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+    },
+    {
+      "file": "pkgconfig-1.6.0-py3-none-any.whl",
+      "bytes": 7083,
+      "sha256": "721ee452ae0f46f7d41b0e8bc27ce5e2036e4691f1a8c08ec6b5ace221c6e1f1",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pkgconfig-1.6.0-py3-none-any.whl"
+    },
+    {
+      "file": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "bytes": 229892,
+      "sha256": "9b13365edf9c188f570baf9c540bbb3029ada2a2dacb9694b3659941693ee9e5",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/python_dateutil-2.9.0.post0-py2.py3-none-any.whl"
+    },
+    {
+      "file": "pytz-2026.1.post1-py2.py3-none-any.whl",
+      "bytes": 510489,
+      "sha256": "b8249d6450146e0b61e6d710dc02ebb35a904796c4c2f97fe87d4ac5872db36a",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pytz-2026.1.post1-py2.py3-none-any.whl"
+    },
+    {
+      "file": "requests-2.33.1-py3-none-any.whl",
+      "bytes": 64947,
+      "sha256": "6d62c51c4e7707386bfc2ef54845c16cdaeb99606c064357cccfe4d621285175",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/requests-2.33.1-py3-none-any.whl"
+    },
+    {
+      "file": "scipy-1.18.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+      "bytes": 14029750,
+      "sha256": "17ee329a957863516d1bb6a6aaa0c60576fac027e9cd3d43de27f58b5b599b50",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/scipy-1.18.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+    },
+    {
+      "file": "six-1.17.0-py2.py3-none-any.whl",
+      "bytes": 11050,
+      "sha256": "228c50f73aa7addf2c2ccf2979c256802a59ab69cad8152b31b9443cc8140f42",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/six-1.17.0-py2.py3-none-any.whl"
+    },
+    {
+      "file": "tzdata-2025.3-py2.py3-none-any.whl",
+      "bytes": 348521,
+      "sha256": "9ce669f4f075843c7ff6a3f3dc306ebafa504717ec7beb6aa2233693722ddcfc",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/tzdata-2025.3-py2.py3-none-any.whl"
+    },
+    {
+      "file": "urllib3-2.6.3-py3-none-any.whl",
+      "bytes": 131580,
+      "sha256": "86b7c1af060597b115bcde5e36798039ca50b221afe14aa03d3437ac09b02a75",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/urllib3-2.6.3-py3-none-any.whl"
+    },
+    {
+      "file": "pvlib-0.16.1-py3-none-any.whl",
+      "bytes": 19368848,
+      "sha256": "4e61b5228a13f782413d7cf8cc48eb6e62e7bf55d155958fa9fd72420b63603d",
+      "source": "https://files.pythonhosted.org/packages/14/aa/e5089a4a61fea61d9bd69c23b9fdbbacea6d175c114f2c45be7ef6391b3e/pvlib-0.16.1-py3-none-any.whl"
+    },
+    {
+      "file": "pyodide-LICENSE.txt",
+      "bytes": 16725,
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "source": "https://raw.githubusercontent.com/pyodide/pyodide/314.0.7/LICENSE"
+    },
+    {
+      "file": "pvlib-LICENSE.txt",
+      "bytes": 1622,
+      "sha256": "a02e12ddaada3cf0d5dbdd8affdd577c2eec640758a95842a304f7513b8c0be4",
+      "source": "https://raw.githubusercontent.com/pvlib/pvlib-python/v0.16.1/LICENSE"
+    },
+    {
+      "file": "python-LICENSE.txt",
+      "bytes": 13804,
+      "sha256": "b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231",
+      "source": "https://raw.githubusercontent.com/python/cpython/v3.14.2/LICENSE"
+    },
+    {
+      "file": "licenses/certifi/licenses_LICENSE",
+      "bytes": 989,
+      "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/certifi-2026.4.22-py3-none-any.whl#certifi-2026.4.22.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/charset_normalizer/licenses_LICENSE",
+      "bytes": 1071,
+      "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/charset_normalizer-3.4.7-py3-none-any.whl#charset_normalizer-3.4.7.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/h5py/licenses_LICENSE",
+      "bytes": 1520,
+      "sha256": "e574b296655cfb0ca5180ec6eee3c95d122b0906736d3ca7e3ce19e0f297f0c9",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/h5py-3.13.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl#h5py-3.13.0.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/idna/licenses_LICENSE.md",
+      "bytes": 1541,
+      "sha256": "b7a336abf3b04e180ec065cdd16e705d079e1cc7a14f910aa6e9187f36b9cd87",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/idna-3.11-py3-none-any.whl#idna-3.11.dist-info/licenses/LICENSE.md"
+    },
+    {
+      "file": "licenses/micropip/licenses_LICENSE",
+      "bytes": 16725,
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/micropip-0.11.1-py3-none-any.whl#micropip-0.11.1.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/numpy/licenses_LICENSE.txt",
+      "bytes": 1543,
+      "sha256": "1be1df33863f97a7bc1c4d67980bd6c69c9a6fef0a5ee76e6ad6cb91e56e8491",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/LICENSE.txt"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_include_numpy_libdivide_LICENSE.txt",
+      "bytes": 1018,
+      "sha256": "fbc539f47d0cf83bc61378080fb873d5c14630126cacbfe754035c3926daa5ec",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_src_common_pythoncapi-compat_COPYING",
+      "bytes": 690,
+      "sha256": "3f2c1ffa76383a55ae0aac01c9737cd70050dff63e1f026694fbe9d662573c98",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_src_highway_LICENSE",
+      "bytes": 20785,
+      "sha256": "e340270d4f64384569a91d546acb5b094d69ce47f0c015db77abb74dc6f815af",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/src/highway/LICENSE"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_src_multiarray_dragon4_LICENSE.txt",
+      "bytes": 1414,
+      "sha256": "f7b14309e5f54e5022b26448eefd419988ada2aec01d3c1162d84a0ea8f21f2c",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_src_npysort_x86-simd-sort_LICENSE.md",
+      "bytes": 1514,
+      "sha256": "211e7d737d6179a08f791ebb0a99897ce7cd2457410c542876d125576edfe910",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy__core_src_umath_svml_LICENSE",
+      "bytes": 1543,
+      "sha256": "c17011467b4fe6e20fbfbeda4df09e58c2bca5480a063e55735a4000a379aad9",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_fft_pocketfft_LICENSE.md",
+      "bytes": 1498,
+      "sha256": "a85ca13fdf90160b64a0698215868c13b74d835ad0a4e2ba44713b8c5058a056",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_linalg_lapack_lite_LICENSE.txt",
+      "bytes": 2266,
+      "sha256": "a14cc25e10d40a3aa705b7de2fb764a6535d8ee9b2db4e1724900585457dfd55",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_ma_LICENSE",
+      "bytes": 1593,
+      "sha256": "05f3b88351988ecfad10abe92c0c50e5875c6452d5009a0084cc291551ffcca6",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/ma/LICENSE"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_LICENSE.md",
+      "bytes": 3511,
+      "sha256": "103166b62b80443afb9eb3488e052ea06be0cff566b908f199e561fde49af19f",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_distributions_LICENSE.md",
+      "bytes": 2745,
+      "sha256": "469778be8f33d54e1bcaab28c281cc472916d2d273f835e55bc487d30503face",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/distributions/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_mt19937_LICENSE.md",
+      "bytes": 2926,
+      "sha256": "0e111337b25494a773106695f0e799f642b8567aaacca4f116a74a8177179156",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_pcg64_LICENSE.md",
+      "bytes": 1154,
+      "sha256": "e7d4f4fb20358f314210a892ae17351e04993813646f697ec387385ca2a36918",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_philox_LICENSE.md",
+      "bytes": 1509,
+      "sha256": "6f5828a57223d4cc7f8ea505a2623e7b978b242752c1515e355f46ba2cec1800",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/philox/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_sfc64_LICENSE.md",
+      "bytes": 1226,
+      "sha256": "9d4098846018319cd68e228ee6220361787f73bccbf00237a85e4fc9621b998f",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md"
+    },
+    {
+      "file": "licenses/numpy/licenses_numpy_random_src_splitmix64_LICENSE.md",
+      "bytes": 332,
+      "sha256": "268b0ca06759d31ea3ca68dd35f20e877916e927b1c2a835e4592a3c4354b1f9",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl#numpy-2.4.6.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md"
+    },
+    {
+      "file": "licenses/pandas/LICENSE",
+      "bytes": 1634,
+      "sha256": "9850f6b5bdef7346503065807b878deb8058b976c5c329f4c4d23bf4796ce9ae",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pandas-3.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl#pandas-3.0.2.dist-info/LICENSE"
+    },
+    {
+      "file": "licenses/pkgconfig/licenses_LICENSE",
+      "bytes": 1097,
+      "sha256": "cdfc7f89d8c93b15d447c9ed71d5a533b4e44b82ec86daaefb10f6db37b9e13a",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pkgconfig-1.6.0-py3-none-any.whl#pkgconfig-1.6.0.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/python_dateutil/LICENSE",
+      "bytes": 2889,
+      "sha256": "ba00f51a0d92823b5a1cde27d8b5b9d2321e67ed8da9bc163eff96d5e17e577e",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/python_dateutil-2.9.0.post0-py2.py3-none-any.whl#python_dateutil-2.9.0.post0.dist-info/LICENSE"
+    },
+    {
+      "file": "licenses/pytz/LICENSE.txt",
+      "bytes": 1088,
+      "sha256": "be8b1a37ebe26c592a90f6c0eb33103a7f383ce2f4d7498c0af9a526990a07b8",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pytz-2026.1.post1-py2.py3-none-any.whl#pytz-2026.1.post1.dist-info/LICENSE.txt"
+    },
+    {
+      "file": "licenses/requests/licenses_LICENSE",
+      "bytes": 10142,
+      "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/requests-2.33.1-py3-none-any.whl#requests-2.33.1.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/requests/licenses_NOTICE",
+      "bytes": 38,
+      "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/requests-2.33.1-py3-none-any.whl#requests-2.33.1.dist-info/licenses/NOTICE"
+    },
+    {
+      "file": "licenses/scipy/LICENSE.txt",
+      "bytes": 1531,
+      "sha256": "221e59f5e910fd7f94e44f0dac77436a11338c285c6346232e4a850a50da0e94",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/scipy-1.18.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl#scipy-1.18.0.dist-info/LICENSE.txt"
+    },
+    {
+      "file": "licenses/six/LICENSE",
+      "bytes": 1066,
+      "sha256": "4375ba20e2b9c6c4e7cad2940a628fd90e95cc3d50ee92aae755715d8ba1fbd0",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/six-1.17.0-py2.py3-none-any.whl#six-1.17.0.dist-info/LICENSE"
+    },
+    {
+      "file": "licenses/tzdata/licenses_LICENSE",
+      "bytes": 592,
+      "sha256": "33e8e5002d3512d3fcc2282b995e6bad9d334781b9c5ac31843f404900e1f3b4",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/tzdata-2025.3-py2.py3-none-any.whl#tzdata-2025.3.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "licenses/tzdata/licenses_licenses_LICENSE_APACHE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/tzdata-2025.3-py2.py3-none-any.whl#tzdata-2025.3.dist-info/licenses/licenses/LICENSE_APACHE"
+    },
+    {
+      "file": "licenses/urllib3/licenses_LICENSE.txt",
+      "bytes": 1093,
+      "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/urllib3-2.6.3-py3-none-any.whl#urllib3-2.6.3.dist-info/licenses/LICENSE.txt"
+    },
+    {
+      "file": "licenses/pvlib/licenses_AUTHORS.md",
+      "bytes": 1474,
+      "sha256": "171938a7f95794c790ea0d80d7eee83eb82950b0f1b89b82f446dcfb7cb28ffa",
+      "source": "https://files.pythonhosted.org/packages/14/aa/e5089a4a61fea61d9bd69c23b9fdbbacea6d175c114f2c45be7ef6391b3e/pvlib-0.16.1-py3-none-any.whl#pvlib-0.16.1.dist-info/licenses/AUTHORS.md"
+    },
+    {
+      "file": "licenses/pvlib/licenses_LICENSE",
+      "bytes": 1622,
+      "sha256": "a02e12ddaada3cf0d5dbdd8affdd577c2eec640758a95842a304f7513b8c0be4",
+      "source": "https://files.pythonhosted.org/packages/14/aa/e5089a4a61fea61d9bd69c23b9fdbbacea6d175c114f2c45be7ef6391b3e/pvlib-0.16.1-py3-none-any.whl#pvlib-0.16.1.dist-info/licenses/LICENSE"
+    },
+    {
+      "file": "pyodide-lock.json",
+      "bytes": 119077,
+      "sha256": "5dc2fc119108bc148c7457dc86e7675b5c87e1cafd420b9c34c1eaef7b36c010",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide-lock.json"
+    }
+  ],
+  "bytes": 57500113
+}
