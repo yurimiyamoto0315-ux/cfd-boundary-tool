@@ -210,7 +210,8 @@ function at3dsMergeObject(obj){
   const groups = {};
   (obj.faces||[]).forEach(function(f, fi){
     const t = at3dsTri(obj.verts, f);
-    if(!t || t.area<1e4) return;
+    // Small valid triangles can form the wall between neighbouring windows.
+    if(!t) return;
     t.mat = (obj.faceMat && obj.faceMat[fi]) || '';
     const k = at3dsPlaneKey(t.n, t.c, 0.03, 40)+'|'+t.mat;
     if(!groups[k]) groups[k]=[];
@@ -220,7 +221,6 @@ function at3dsMergeObject(obj){
   Object.keys(groups).forEach(function(k){
     const g = groups[k];
     const area = g.reduce(function(s,t){ return s+t.area; }, 0);
-    if(area<5e4) return;
     let cx=0, cy=0, cz=0;
     let zmin=1e18, zmax=-1e18, xmin=1e18, xmax=-1e18, ymin=1e18, ymax=-1e18;
     const pts = [];
