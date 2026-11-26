@@ -6,10 +6,11 @@
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const clone=x=>JSON.parse(JSON.stringify(x));
   let state={version:1,workflow:'cfd',source:'architrend',model:null,job:null,runSignature:'',index:0,flows:{}}, token='', serviceToken='', defaults=window.boundaryPipelineDefaults||null, result=null, weather='', weatherName='', pollTimer=null, categoryCsv='', selectedFace=null;
+  let backend='',browserClient=null,serviceReady=null,jobUsable=false;
   try { const old=JSON.parse(localStorage.getItem(KEY)); if(old&&old.version===1) state=Object.assign(state,old); } catch(e){}
   const host=document.createElement('section'); host.id='pipelinePanel'; host.hidden=true;
   host.innerHTML=`
-    <div class="pipe-hero"><div><h1>EP → CFD</h1><p>境界条件を設定してIDFを保存します。EnergyPlusの実行とSQL作成は各自で行います。</p></div><div><div id="pipeService" class="pipe-status" role="status">入力作成サービスを確認中…</div><button type="button" id="pipeShutdown">ツールを終了</button></div></div>
+    <div class="pipe-hero"><div><h1>EP → CFD</h1><p>境界条件を設定してIDFを保存します。EnergyPlusの実行とSQL作成は各自で行います。</p></div><div><div id="pipeService" class="pipe-status" role="status">入力作成の準備待ち</div><button type="button" id="pipeRetry" hidden>もう一度準備</button><button type="button" id="pipeShutdown" hidden>ツールを終了</button></div></div>
     <ol class="pipe-steps"><li><a href="#pipeInput"><b>01</b>モデル取込</a></li><li><a href="#pipeReview"><b>02</b>部屋・面</a></li><li><a href="#pipeThermal"><b>03</b>かんたん設定</a></li><li><a href="#pipeRun"><b>04</b>IDF保存・SQL取込</a></li><li><a href="#pipeTime"><b>05</b>時刻選択</a></li><li><a href="#pipeExport"><b>06</b>CFD用出力</a></li></ol>
     <section class="pipe-section" id="pipeInput"><h2>01 モデルの入口</h2>
       <div class="pipe-row pipe-source"><button type="button" id="pipeSourceAt">ARCHITREND</button><button type="button" id="pipeSourceRhino">Rhino</button></div>
@@ -60,6 +61,7 @@
       <p class="pipe-note">保存したIDFと年間EPWをEnergyPlus 24.2のEP-Launchで選択し、ご自身で計算してください。Output:SQLiteはIDFに含まれます。正常終了とeplusout.errにSevere / Fatalがないことを確認して、生成されたeplusout.sqlを戻します。</p>
       <label><input id="pipeSqlConfirmed" type="checkbox"> このIDFと使用したEPWの結果であり、正常終了・エラーログを確認した（SQLだけでは入力条件の一致を証明できません）</label>
       <div class="pipe-row"><label>計算済み eplusout.sql<input id="pipeSql" type="file" accept=".sql" disabled></label></div>
+      <p id="pipeSqlNote" class="pipe-note" hidden>SQLはこのブラウザ内で処理・保存します。ファイルが大きい場合、端末の空きメモリや保存容量によって取り込めないことがあります。</p>
       <div id="pipeJobStatus" class="pipe-status" role="status">IDF未作成</div></section>
     <section class="pipe-section" id="pipeTime"><h2>05 CFDで見る時刻</h2><div class="pipe-row"><label>対象室<select id="pipeTargetRoom"><option value="">建物全体</option></select></label><button type="button" id="pipeCoolPeak">冷房ピーク</button><button type="button" id="pipeHeatPeak">暖房ピーク</button><label>任意日時<select id="pipeTimeSelect"></select></label></div><p class="pipe-note">Hourly（1時間平均）の時刻帯終了時刻です。24時は当日の23〜24時を示します。</p><div id="pipeResults" class="pipe-scroll"></div></section>
     <section class="pipe-section" id="pipeExport"><h2>06 CFD用出力</h2><div class="pipe-output"><p>外皮・外部窓はEPの表面温度。内壁・室間床・天井は材質と厚みで伝熱を計算します。</p><p class="pipe-note">内壁の表面温度は固定せず、両室に共通する壁は1枚にまとめます。内壁に吸収される日射・正味放射熱は材料の発熱として渡すため、CFDの日射・輻射解析はOFFにしてください。</p><div id="pipeFlows" class="pipe-scroll"></div><p class="pipe-note">風量はm³/h。吹出温度の参考値は室温と顕熱負荷から算定します。位置・向き・流量・温度はFlowDesignerで設定してください。</p><div class="pipe-row"><label>FlowDesigner 色対応CSV（再出力時）<input id="pipeCategory" type="file" accept=".csv"></label><button type="button" class="primary" id="pipeDownload" disabled>CFDモデル・条件を出力</button><button type="button" id="pipeResultDownload" disabled>EP結果JSON</button></div><p id="pipeExportStatus" class="pipe-note" role="status"></p></div></section>`;
@@ -112,19 +114,27 @@
   function persist(){try {localStorage.setItem(KEY,JSON.stringify(state));}catch(e){status('保存領域が不足しています。建物JSONを保存してください。');}}
   function status(text){$('pipeJobStatus').textContent=text;}
   function currentSignature(){return JSON.stringify(state.model);}
-  function stale(){return !state.job||state.runSignature!==currentSignature()||state.weatherChanged;}
+  function stale(){return !state.job||!jobUsable||state.runSignature!==currentSignature()||state.weatherChanged;}
   function changed(){state.weatherChanged=!!state.weatherChanged; persist(); $('pipeDownload').disabled=true; $('pipeValidation').textContent='変更あり・再検証が必要です'; $('pipeValidation').classList.remove('pipe-ok'); if(state.job)status('条件を変更しました。IDFを再作成して手動で再計算してください'); updateButtons();}
   let busy=false;
   function updateButtons(){
     $('pipeStart').disabled=!token||!state.model||busy;
-    $('pipeArtifacts').disabled=!state.job||!token||busy;
+    $('pipeArtifacts').disabled=!state.job||!jobUsable||!token||busy;
     $('pipeSql').disabled=!token||state.job?.mode!=='manual'||stale()||busy||!$('pipeSqlConfirmed').checked;
-    $('pipeDownload').disabled=!result||stale()||busy;
+    $('pipeDownload').disabled=!token||!result||stale()||busy;
     $('pipeResultDownload').disabled=!result;
   }
 
   async function api(path,body,binary=false){
-    if(location.protocol==='file:')throw new Error('この操作はHTMLの直接起動では使えません。BoundaryTool.vbs をダブルクリックし、開いた画面で操作してください。');
+    await ensureService();
+    if(backend==='browser'){
+      const simple={'/api/validate':'validate','/api/pair':'pair','/api/prepare':'prepare'};
+      if(simple[path])return browserClient.call(simple[path],body);
+      const match=path.match(/^\/api\/jobs\/([^/]+)(?:\/(idf|artifacts|result|export))?$/);
+      if(!match)throw new Error('この操作はブラウザ内の処理に対応していません。');
+      const actions={idf:'get_idf',artifacts:'get_artifacts',result:'get_result',export:'cfd_export'};
+      return browserClient.call(match[2]?actions[match[2]]:'get_job',{jobId:match[1],...(body||{})});
+    }
     const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Boundary-Token':token||serviceToken},body:body===undefined?undefined:JSON.stringify(body)});
     if(!response.ok){let data;try{data=await response.json();}catch(e){throw new Error('ローカルサービスに接続できません');}throw new Error(data.error||response.statusText);}
     return binary?response.blob():response.json();
@@ -137,7 +147,7 @@
     if(on&&state.source==='architrend'){$('pipeAtHost').append($('atPanel')); if(appMode!=='architrend')selectMode('architrend');}
     else atAnchor.after($('atPanel'));
     window.boundaryJourneyPlaceSource?.();
-    renderSource(); persist();
+    renderSource(); persist();if(on)ensureService().catch(()=>{});
   }
   function renderSource(){const at=state.source==='architrend'; $('pipeSourceAt').setAttribute('aria-pressed',String(at)); $('pipeSourceRhino').setAttribute('aria-pressed',String(!at)); $('pipeAtHost').hidden=!at; $('pipeRhinoInput').hidden=at; $('pipeBuildAt').hidden=!at; $('pipeAtNote').hidden=!at;}
   function source(value){state.source=value; setWorkflow('coupled');}
@@ -319,10 +329,9 @@
     hydrate(m);
     captureAtSources();
     $('pipeGeometrySummary').textContent=m.rooms.length+'室の部屋候補を表示しました。隣接面・熱条件は未検証です。';
-    await serviceReady;
-    if(!token){
+    try{await ensureService();}catch(error){
       syncAtModel(true);
-      inputStatus('部屋候補を表示しました。02で形を確認できます。隣接面の処理・検証・IDF保存には BoundaryTool.vbs から起動してください。直接開いた画面の設定は「建物JSONを書き出す」で保存し、起動後に読み込めます。',true);
+      inputStatus('部屋候補を表示しました。検証の準備に失敗しました。'+error.message+' 建物JSONとして保存することもできます。',true);
       return;
     }
     const paired=await api('/api/pair',{model:state.model});state.model=paired.model;
@@ -334,9 +343,10 @@
   function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function poll(){
     clearTimeout(pollTimer);if(!state.job)return;
-    const job=await api('/api/jobs/'+state.job.id);state.job=job;status(job.status+' — '+job.message+(stale()?'\n入力変更のため再計算が必要です':''));persist();
+    const id=state.job.id,job=await api('/api/jobs/'+id);if(state.job?.id!==id)return;
+    jobUsable=true;state.job=job;status(job.status+' — '+job.message+(stale()?'\n入力変更のため再計算が必要です':''));persist();
     if(job.status==='complete'){
-      result=await api('/api/jobs/'+job.id+'/result');
+      const restored=await api('/api/jobs/'+job.id+'/result');if(state.job?.id!==id)return;result=restored;
       $('pipeTimeSelect').innerHTML=result.times.map((t,i)=>'<option value="'+i+'">'+t.month+'/'+t.day+' '+t.hour+':00</option>').join('');
       if(!state.selectionSaved)peak('cooling'); else renderResults();
     }else if(['queued','running'].includes(job.status))pollTimer=setTimeout(()=>poll().catch(e=>status(e.message)),1500);
@@ -412,17 +422,19 @@
     if(!state.model?.settings.reviewed){setupGuide.showReview();status('03の「確認して保存」で、設定の確認チェックを入れてください。');return;}
     busy=true; updateButtons();
     try {
+      status('入力を検証しています…');
       const signature=currentSignature();
       const check=await validate();if(!check.valid){status('形状や入力を修正してから保存してください。'+check.errors.join(' / '));window.boundaryJourneyReveal?.($('pipeValidation'));$('pipeValidation').scrollIntoView({behavior:'smooth',block:'center'});return;}
       if(signature!==currentSignature())throw new Error('検証中に入力が変更されました。もう一度IDFを作成してください');
+      status('IDFを作成しています…');
       const job=await api('/api/prepare',{model:check.model});
       if(signature===currentSignature())state.model=check.model;
-      state.job=job;state.runSignature=JSON.stringify(check.model);state.weatherChanged=false;state.selectionSaved=false;result=null;
+      state.job=job;state.jobBackend=backend;jobUsable=true;state.runSignature=JSON.stringify(check.model);state.weatherChanged=false;state.selectionSaved=false;result=null;
       $('pipeSqlConfirmed').checked=false;persist();renderResults();status(job.message);
       download(await api('/api/jobs/'+job.id+'/idf',undefined,true),'model.idf');
     } finally {busy=false;updateButtons();}
   });
-  $('pipeShutdown').onclick=handle(async()=>{if(!token&&!serviceToken)return;if(!confirm('入力はブラウザに保存済みです。入力作成サービスを終了しますか？'))return;await api('/api/shutdown',{});clearTimeout(pollTimer);token='';serviceToken='';$('pipeService').textContent='終了しました。再開時は BoundaryTool.vbs を開いてください。';updateButtons();});
+  $('pipeShutdown').onclick=handle(async()=>{if(!serviceToken)return;if(!confirm('入力はブラウザに保存済みです。入力作成サービスを終了しますか？'))return;const response=await fetch('/api/shutdown',{method:'POST',headers:{'Content-Type':'application/json','X-Boundary-Token':serviceToken},body:'{}'});if(!response.ok)throw new Error('入力作成サービスを終了できませんでした。');clearTimeout(pollTimer);browserClient?.close();browserClient=null;backend='';token='';serviceToken='';serviceReady=null;jobUsable=false;$('pipeService').textContent='終了しました。再開時は BoundaryTool.vbs を開いてください。';$('pipeShutdown').hidden=true;updateButtons();});
   $('pipeSqlConfirmed').onchange=updateButtons;
   $('pipeSql').onchange=handle(async()=>{
     const file=$('pipeSql').files[0];if(!file)return;
@@ -430,8 +442,10 @@
     if(file.size>512000000)throw new Error('SQLは512MB以下を指定してください');
     busy=true;updateButtons();status('SQLを確認しています…');
     try {
-      const response=await fetch('/api/jobs/'+state.job.id+'/sql',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Boundary-Token':token},body:file});
-      const data=await response.json();if(!response.ok)throw new Error(data.error||'SQL取込に失敗しました');
+      await ensureService();
+      let data;
+      if(backend==='browser')data=await browserClient.call('sql_import',{jobId:state.job.id,file});
+      else {const response=await fetch('/api/jobs/'+state.job.id+'/sql',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Boundary-Token':token},body:file});data=await response.json();if(!response.ok)throw new Error(data.error||'SQL取込に失敗しました');}
       state.job=data;state.selectionSaved=false;persist();await poll();
     } finally {busy=false;$('pipeSql').value='';updateButtons();}
   });
@@ -443,9 +457,61 @@
   $('pipeResultDownload').onclick=()=>download(new Blob([JSON.stringify({model:JSON.parse(state.runSignature),result},null,2)],{type:'application/json'}),'ep-results.json');
   // Preserve old settings and keep full pipeline data in the normal JSON backup.
   const originalGather=gatherState; gatherState=function(){const s=originalGather();s.schemaVersion=3;s.pipeline=clone(state);return s;};
-  importJSON=async function(input){try{const f=input.files[0];if(!f)return;const s=JSON.parse(await f.text());if(s.mode&&s.mode!==appMode)selectMode(s.mode);applyState(s);runAll();if(s.pipeline){state=Object.assign({version:1,flows:{}},clone(s.pipeline));result=null;if(!s.resume)restoreAtSources();setWorkflow(state.workflow||'cfd');render();if(token&&state.job)await poll();}}catch(e){alert('JSONの読み込みに失敗しました: '+e.message);}finally{input.value='';}};
+  importJSON=async function(input){try{const f=input.files[0];if(!f)return;const s=JSON.parse(await f.text());if(s.mode&&s.mode!==appMode)selectMode(s.mode);applyState(s);runAll();if(s.pipeline){state=Object.assign({version:1,flows:{}},clone(s.pipeline));result=null;jobUsable=false;if(!s.resume)restoreAtSources();setWorkflow(state.workflow||'cfd');render();if(token&&state.job)restoreJob();}}catch(e){alert('JSONの読み込みに失敗しました: '+e.message);}finally{input.value='';}};
   resetAll=function(){if(!confirm('現在の入力とEP連携の保存状態をリセットしますか？'))return;window.boundarySessionClear?.();localStorage.removeItem(KEY);['cfdBoundaryToolState_v2',STORE_KEY].forEach(key=>['','_manual','_architrend','_energyplus'].forEach(suffix=>localStorage.removeItem(key+suffix)));location.reload();};
+  function serviceError(error){
+    token='';backend='';jobUsable=false;
+    $('pipeService').textContent='入力作成の準備に失敗しました。'+(error?.message||String(error));
+    $('pipeRetry').hidden=false;updateButtons();
+  }
+  function restoreJob(){
+    if(!state.job)return;
+    if((state.jobBackend||'local')!==backend){
+      jobUsable=false;result=null;
+      status('以前のIDFは別の実行環境で作られています。この画面でIDFを再作成してください。');
+      updateButtons();return;
+    }
+    status('保存したIDFの状態を確認しています…');
+    const id=state.job.id;
+    poll().catch(()=>{if(state.job?.id!==id)return;jobUsable=false;result=null;status('保存したIDFのデータを確認できませんでした。IDFを再作成してください。');updateButtons();});
+  }
+  async function connectService(){
+    $('pipeRetry').hidden=true;
+    $('pipeService').textContent='IDF作成の準備中です。初回はプログラムの読み込みに時間がかかります…';
+    if(location.protocol==='file:')throw new Error('HTMLを直接開いた場合は使えません。公開URL、または BoundaryTool.vbs から起動してください。');
+    // Only a loopback page may contact the existing local API. Public pages never
+    // POST the model, SQL, or results to their web host.
+    if(['localhost','127.0.0.1','[::1]','::1'].includes(location.hostname)){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
+      try{
+        const response=await fetch('/api/health',{signal:controller.signal});
+        if(response.ok){
+          const data=await response.json();serviceToken=data.token||'';
+          if(data.workflow!=='architrend-static'&&data.token){
+            backend='local';token=data.token;defaults=data.defaults||defaults;
+            $('pipeSqlNote').hidden=true;
+            $('pipeShutdown').hidden=false;
+            $('pipeService').textContent='入力作成サービス接続済み / EnergyPlus 24.2用IDF / SQLは手動作成';
+            return;
+          }
+        }
+      }catch(error){}finally{clearTimeout(timer);}
+    }
+    if(typeof createBrowserPipelineClient!=='function')throw new Error('ブラウザ用のプログラムが見つかりません。');
+    browserClient=createBrowserPipelineClient(error=>{serviceReady=null;browserClient=null;serviceError(error);});
+    const data=await browserClient.call('health');
+    backend='browser';token='browser-local';defaults=data.defaults||defaults;
+    $('pipeSqlNote').hidden=false;
+    $('pipeShutdown').hidden=!serviceToken;
+    $('pipeService').textContent='ブラウザ内で処理します / データはこのブラウザに保存され、外部送信されません / EnergyPlus 24.2用IDF';
+  }
+  function ensureService(){
+    if(!serviceReady){
+      serviceReady=connectService().then(()=>{if(state.model)render();else updateButtons();restoreJob();}).catch(error=>{serviceReady=null;browserClient?.close();browserClient=null;serviceError(error);throw error;});
+    }
+    return serviceReady;
+  }
+  $('pipeRetry').onclick=()=>ensureService().catch(()=>{});
   restoreAtSources();setWorkflow(state.workflow);render();
-  const serviceReady=api('/api/health').then(data=>{if(data.workflow==='architrend-static'){serviceToken=data.token;token='';$('pipeService').textContent='ARCHITREND → FD は利用できます。EP用の検証・IDF保存サービスはこの起動では利用できません。';updateButtons();return;}token=data.token;serviceToken=data.token;defaults=data.defaults;$('pipeService').textContent='入力作成サービス接続済み / EnergyPlus 24.2用IDF / SQLは手動作成';if(state.model)render();else updateButtons();if(state.job&&token)return poll();}).catch(()=>{$('pipeService').textContent='部屋候補の表示・条件編集はこの画面で利用できます。検証・IDF保存は BoundaryTool.vbs から起動してください（CMD不要）。';updateButtons();});
   window.boundaryPipeline={getState:()=>clone(state),setWorkflow,hydrate,validate,buildAt,stale,render,syncAtModel};
 })();

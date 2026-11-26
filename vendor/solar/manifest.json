@@ -373,7 +373,28 @@
       "bytes": 119077,
       "sha256": "5dc2fc119108bc148c7457dc86e7675b5c87e1cafd420b9c34c1eaef7b36c010",
       "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide-lock.json"
+    },
+    {
+      "file": "shapely-2.1.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+      "bytes": 851981,
+      "sha256": "0c2dec4d6d251e53007db02416d0163e272a161dbb9248d31a841032098e75a3",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/shapely-2.1.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+    },
+    {
+      "file": "licenses/shapely/licenses_LICENSE.txt",
+      "bytes": 1583,
+      "sha256": "4a207eac9bf257ed286e1c6f0fce253d1abfdb134fc61ec855e37f5692a3f754",
+      "source": "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/shapely-2.1.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl#shapely-2.1.2.dist-info/licenses/LICENSE.txt"
+    },
+    {
+      "file": "geos-LICENSE.txt",
+      "bytes": 26530,
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+      "source": "https://raw.githubusercontent.com/libgeos/geos/3.12.1/COPYING"
     }
   ],
-  "bytes": 57500113
+  "bytes": 58380207,
+  "idf_packages": [
+    "shapely"
+  ]
 }
