@@ -63,6 +63,56 @@ function parseIdfObjects(text){
 function classOf(fields){
   return String(fields[0]||'').replace(/\s+/g,'').toUpperCase();
 }
+// Check shadow settings separately so multiple IDF objects on one line and
+// semicolons in comments do not hide a warning. Never modify the input.
+function epShadowCheck(text){
+  const input = String(text||'').replace(/^\uFEFF/, '');
+  if(/(?:^|\r?\n)\s*##/m.test(input)){
+    return {status:'review', warning:'読み込んだIDFに未展開のマクロがあります。展開後のIDFで影の更新間隔を確認してください。'};
+  }
+  const blocks = input.replace(/![^\r\n]*/g, '').split(';');
+  const tail = blocks.pop().trim();
+  if(/^(?:VERSION|SHADOWCALCULATION)\s*(?:,|$)/i.test(tail)){
+    return {status:'review', warning:'読み込んだIDFのVersionまたはShadowCalculationが途中で終わっています。影の更新間隔を確認してください。'};
+  }
+  const objects = blocks.map(block=>block.split(',').map(value=>value.trim())).filter(fields=>fields[0]);
+  const shadows = objects.filter(fields=>classOf(fields)==='SHADOWCALCULATION');
+  if(shadows.length>1){
+    return {status:'review', warning:'読み込んだIDFにShadowCalculationが複数あります。影の更新間隔を確認してください。'};
+  }
+  const versions = objects.filter(fields=>classOf(fields)==='VERSION');
+  const match = versions.length===1 && /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(versions[0][1]||'');
+  const major = match ? Number(match[1]) : null, minor = match ? Number(match[2]) : null;
+  const known = match && (major>9 || (major===9 && minor>=3)) && (major<26 || (major===26 && minor<=1));
+  if(!known){
+    return {status:'review', warning:'読み込んだIDFのEnergyPlusの版を判定できないか、旧形式です。実際の計算に使ったIDFの影の更新間隔を確認してください。'};
+  }
+  if(!shadows.length){
+    return {status:'review', warning:'読み込んだIDFにShadowCalculationがありません。EnergyPlus 24.2の既定は20日ごとの更新です。実際の計算に使った設定を確認し、必要なら1日またはTimestepで再計算してください。'};
+  }
+  const row = shadows[0];
+  const calculation = String(row[1]||'PolygonClipping').trim().toLowerCase();
+  if(calculation==='scheduled' || calculation==='imported'){
+    return {status:'review', warning:'読み込んだIDFは日照率を外部指定しています。影の更新間隔はIDFだけで判定できないため、計算に使った外部データを確認してください。'};
+  }
+  if(calculation!=='polygonclipping' && calculation!=='pixelcounting'){
+    return {status:'review', warning:'読み込んだIDFの影の計算方式を判定できません。ShadowCalculationを確認してください。'};
+  }
+  const mode = String(row[2]||'Periodic').trim().toLowerCase();
+  if(mode==='timestep') return {status:'timestep'};
+  if(mode!=='periodic'){
+    return {status:'review', warning:'読み込んだIDFの影の更新方式を判定できません。ShadowCalculationを確認してください。'};
+  }
+  const rawDays = String(row[3]||'').trim();
+  const days = rawDays==='' ? 20 : Number(rawDays);
+  if(!Number.isInteger(days) || days<1){
+    return {status:'review', warning:'読み込んだIDFの影の更新日数を判定できません。ShadowCalculationを確認してください。'};
+  }
+  if(days>1){
+    return {status:'review', warning:'読み込んだIDFの影の更新間隔は'+days+'日です。窓の日射に影響する場合があります。1日またはTimestepで計算し直し、対応するSQLを読み込んでください。'};
+  }
+  return {status:'daily'};
+}
 function idfNameKey(name){
   return String(name||'').replace(/\s+/g,' ').trim().toLowerCase();
 }
@@ -916,6 +966,8 @@ function windowUFromLayers(layers, winGlass, winGas, hi, ho, winSkip){
 
 function parseEnergyPlusIdf(text){
   const warnings = [];
+  const shadowCheck = epShadowCheck(text);
+  if(shadowCheck.warning) warnings.push(shadowCheck.warning);
   const objects = parseIdfObjects(text);
   const materials = {};
   const nomass = {};
@@ -1186,7 +1238,7 @@ function parseEnergyPlusIdf(text){
 
   const parsed = {
     northAxis, coordSys, relative, zones, habitable, excluded, opaque, windows: habWindows,
-    openings: habOpenings, meshFaces, shading, warnings, consLayers,
+    openings: habOpenings, meshFaces, shading, warnings, consLayers, shadowCheck,
     zoneCount: zones.length, habitableCount: habitable.length,
     fenestrationCount: fenestrations.length, windowCount: habWindows.length,
     meshFaceCount: meshFaces.length
@@ -1447,6 +1499,14 @@ function renderEpPanel(){
       '</div>')
     : '';
   const extra = [];
+  if(epParse && !epParse.shadowCheck){
+    extra.push('保存済みのIDFは影の更新間隔が未確認です。計算に使ったIDFを読み直して確認してください。');
+  }
+  if(epSqlName){
+    extra.push(epParse
+      ? '読み込んだIDFとSQLが同じEnergyPlus計算のものか確認してください。自動照合はできません。'
+      : 'SQLの影の更新間隔は確認できません。計算に使ったIDFを読み込んで確認してください。');
+  }
   if(epParse && !(epParse.windowCount>0) && epParse.warnings && epParse.warnings.every(w=>String(w).indexOf('居室の窓がありません')<0)){
     extra.push('このIDFに居室の窓がありません。直達日射は0になります。*_clean.idf ではなく、FenestrationSurface がある本体 IDF を選んでください。');
   }
